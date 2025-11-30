@@ -1,13 +1,21 @@
+import type { MetaFunction } from "@remix-run/node";
 import { Search, ArrowUpRight, Bitcoin, DollarSign } from "lucide-react"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Sidebar } from "@/components/layout/sidebar"
-import { PortfolioChart } from "@/components/ui/portfolio-chart"
-import { AssetCard } from "@/components/ui/asset-card"
-import { TransactionTable } from "@/components/ui/transaction-table"
+import { Card } from "~/components/ui/card"
+import { Button } from "~/components/ui/button"
+import { Input } from "~/components/ui/input"
+import { Sidebar } from "~/components/layout/sidebar"
+import { PortfolioChart } from "~/components/ui/portfolio-chart"
+import { AssetCard } from "~/components/ui/asset-card"
+import { TransactionTable } from "~/components/ui/transaction-table"
 
-export default function DashboardPage() {
+export const meta: MetaFunction = () => {
+  return [
+    { title: "Pulsar - Crypto Portfolio Tracker" },
+    { name: "description", content: "Track your cryptocurrency portfolio with ease" },
+  ];
+};
+
+export default function Index() {
   return (
     <div className="min-h-screen flex bg-background">
       {/* Sidebar */}

@@ -9,26 +9,41 @@ A portfolio tracker that anyone can deploy on their own infrastructure — no ac
 ## Core Principles
 
 1. **Beginner Friendly** — Non-technical users should be able to deploy and use it without friction
-2. **Simple to Deploy** — One-click deploy to Vercel/Railway/Docker, minimal configuration
+2. **Simple to Deploy** — One-click deploy to Railway/Docker, minimal configuration
 3. **Easy to Customize** — Clean codebase, well-documented, easy to extend
 4. **Beautiful UI** — Modern, responsive design that works on any device
 
 ## Tech Stack
 
-- Next.js 16 + React 19 + TypeScript
+- Remix + React 18 + TypeScript
+- Vite for bundling
 - Tailwind CSS 4 + shadcn/ui
 - Recharts for data visualization
+- SQLite for storage (Railway deployment)
+
+## Project Structure
+
+```
+app/
+├── routes/          # Remix routes
+│   └── _index.tsx   # Home/dashboard
+├── components/
+│   ├── ui/          # shadcn/ui components
+│   └── layout/      # Layout components
+├── lib/             # Utilities
+├── root.tsx         # Root layout
+└── tailwind.css     # Global styles
+```
 
 ## How It Works
 
-1. User deploys their own instance
+1. User deploys their own instance (Railway recommended)
 2. Add wallet addresses (multi-chain: EVM, Solana, Bitcoin, etc.)
 3. System fetches balances and displays portfolio overview
-4. All data stays with the user — no central server
+4. All data stays with the user — SQLite file on their server
 
 ## Scoping Needed
 
 - [ ] Data source strategy (price feeds, balance APIs)
-- [ ] Storage approach (local storage vs optional database)
-- [ ] Authentication (optional, for multi-device sync)
-- [ ] Deployment templates (Vercel, Docker, etc.)
+- [ ] SQLite + Drizzle setup
+- [ ] Wallet management UI

@@ -1,5 +1,5 @@
 import { Home, Wallet, TrendingUp, Bookmark } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button } from "~/components/ui/button"
 
 export function Sidebar() {
   return (
