@@ -1,9 +1,10 @@
 import { env } from "~/lib/env";
 
 /**
- * Database Configuration
+ * Database Configuration (SERVER-ONLY)
  *
- * Database connection settings and options.
+ * Database connection settings and credentials.
+ * This file has .server.ts suffix as an extra safeguard.
  */
 export default {
   /**

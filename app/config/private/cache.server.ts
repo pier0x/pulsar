@@ -1,9 +1,10 @@
 import { env } from "~/lib/env";
 
 /**
- * Cache Configuration
+ * Cache Configuration (SERVER-ONLY)
  *
- * Settings for caching system (Redis, in-memory, etc.)
+ * Settings for caching system including Redis credentials.
+ * This file has .server.ts suffix as an extra safeguard.
  */
 export default {
   /**

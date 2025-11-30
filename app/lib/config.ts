@@ -1,21 +1,23 @@
 /**
- * Configuration Helper - Laravel style
+ * Public Configuration Helper (CLIENT-SAFE)
  *
- * Access configuration values using dot notation with optional fallback values.
+ * Access PUBLIC configuration values using dot notation.
+ * This helper only has access to client-safe configuration.
+ *
+ * For server-only config (database, API keys, etc.), use:
+ *   import { config } from "~/lib/config.server";
  *
  * Usage:
- *   config('app.name')                      // Get value
- *   config('app.name', 'Default App')       // Get value with fallback
- *   config('database.connections.sqlite')   // Nested access
- *   config('nonexistent.key', 'fallback')   // Returns fallback if not found
+ *   import { config } from "~/lib/config";
  *
- * Advanced usage:
- *   config.get('app.name')                  // Same as config('app.name')
- *   config.has('app.name')                  // Check if key exists
- *   config.all()                            // Get entire configuration object
+ *   config('app.name')                // Get app name
+ *   config('app.name', 'Default')     // With fallback
+ *   config('features.darkMode')       // Feature flags
+ *   config.has('app.name')            // Check if exists
+ *   config.all()                      // Get all public config
  */
 
-import { configuration, type Configuration } from "~/config";
+import { publicConfig, type PublicConfig } from "~/config";
 
 /**
  * Get a value from an object using dot notation
@@ -61,19 +63,19 @@ function hasPath(obj: unknown, path: string): boolean {
 }
 
 /**
- * Get a configuration value using dot notation
+ * Get a PUBLIC configuration value using dot notation
  *
  * @param key - The configuration key in dot notation (e.g., 'app.name')
  * @param defaultValue - Optional default value if the key doesn't exist
  * @returns The configuration value or the default value
  *
  * @example
- * config('app.name')                    // Returns app name
- * config('app.name', 'My App')          // Returns app name or 'My App' if not set
- * config('database.connections.sqlite') // Nested access
+ * config('app.name')           // Returns app name
+ * config('app.name', 'My App') // Returns app name or 'My App' if not set
+ * config('features.darkMode')  // Feature flag access
  */
 function config<T = unknown>(key: string, defaultValue?: T): T {
-  const value = getValueByPath(configuration, key);
+  const value = getValueByPath(publicConfig, key);
 
   if (value === undefined) {
     return defaultValue as T;
@@ -86,54 +88,34 @@ function config<T = unknown>(key: string, defaultValue?: T): T {
  * Get a configuration value (alias for config())
  */
 config.get = function <T = unknown>(key: string, defaultValue?: T): T {
-  const value = getValueByPath(configuration, key);
+  const value = getValueByPath(publicConfig, key);
   return (value === undefined ? defaultValue : value) as T;
 };
 
 /**
  * Check if a configuration key exists
- *
- * @param key - The configuration key in dot notation
- * @returns True if the key exists, false otherwise
- *
- * @example
- * config.has('app.name')     // true
- * config.has('invalid.key')  // false
  */
 config.has = function (key: string): boolean {
-  return hasPath(configuration, key);
+  return hasPath(publicConfig, key);
 };
 
 /**
- * Get the entire configuration object
- *
- * @returns The complete configuration object
- *
- * @example
- * const allConfig = config.all();
- * console.log(allConfig.app.name);
+ * Get the entire public configuration object
  */
-config.all = function (): Configuration {
-  return configuration;
+config.all = function (): PublicConfig {
+  return publicConfig;
 };
 
 /**
  * Get a configuration section/namespace
- *
- * @param namespace - The top-level configuration namespace
- * @returns The configuration section object
- *
- * @example
- * const appConfig = config.section('app');
- * console.log(appConfig.name);
  */
-config.section = function <K extends keyof Configuration>(
+config.section = function <K extends keyof PublicConfig>(
   namespace: K
-): Configuration[K] {
-  return configuration[namespace];
+): PublicConfig[K] {
+  return publicConfig[namespace];
 };
 
 export { config };
 
-// Re-export for convenience
+// Re-export env helper for convenience
 export { env } from "./env";

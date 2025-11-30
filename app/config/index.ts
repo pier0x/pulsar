@@ -1,41 +1,41 @@
 /**
- * Configuration Repository
+ * Public Configuration Repository (CLIENT-SAFE)
  *
- * This file aggregates all configuration files into a single object.
- * Add new config files here to make them available via the config() helper.
+ * This file exports ONLY public configuration that is safe to use in client code.
+ * It can be imported anywhere, including components that run in the browser.
+ *
+ * DO NOT import private configs here - they would be bundled and sent to the client!
  *
  * Usage with config() helper:
- *   config('app.name')           // Get app name
- *   config('database.default')   // Get default database connection
- *   config('services.mail.host') // Get nested config value
+ *   import { config } from "~/lib/config";
+ *   config('app.name')        // Get app name
+ *   config('features.darkMode') // Get feature flag
+ *
+ * For server-only config (database, API keys, etc.), use:
+ *   import { config } from "~/lib/config.server";
  */
 
-import app from "./app";
-import database from "./database";
-import cache from "./cache";
-import services from "./services";
+import app from "./public/app";
+import features from "./public/features";
 
 /**
- * All configuration namespaces
+ * Public configuration namespaces
  *
- * To add a new config file:
- * 1. Create the file in app/config/ (e.g., app/config/myconfig.ts)
- * 2. Import it here
- * 3. Add it to the configuration object below
+ * Only add configs here that are safe to expose to the browser.
  */
-export const configuration = {
+export const publicConfig = {
   app,
-  database,
-  cache,
-  services,
+  features,
 } as const;
 
 /**
- * Configuration type for TypeScript support
+ * Public configuration type
  */
-export type Configuration = typeof configuration;
+export type PublicConfig = typeof publicConfig;
 
 /**
- * Get all config keys (useful for debugging)
+ * Get all public config keys
  */
-export const configKeys = Object.keys(configuration) as (keyof Configuration)[];
+export const publicConfigKeys = Object.keys(
+  publicConfig
+) as (keyof PublicConfig)[];

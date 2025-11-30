@@ -1,9 +1,10 @@
 import { env } from "~/lib/env";
 
 /**
- * Third-party Services Configuration
+ * Third-party Services Configuration (SERVER-ONLY)
  *
- * API keys and settings for external services.
+ * API keys and credentials for external services.
+ * This file has .server.ts suffix as an extra safeguard.
  */
 export default {
   /**

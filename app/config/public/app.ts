@@ -1,9 +1,10 @@
 import { env } from "~/lib/env";
 
 /**
- * Application Configuration
+ * Public Application Configuration
  *
- * General application settings like name, environment, debug mode, etc.
+ * These settings are safe to expose to the client/browser.
+ * DO NOT add any secrets, API keys, or sensitive data here.
  */
 export default {
   /**
@@ -27,11 +28,6 @@ export default {
   url: env.string("APP_URL", "http://localhost:3000"),
 
   /**
-   * Application port
-   */
-  port: env.int("PORT", 3000),
-
-  /**
    * Timezone for the application
    */
   timezone: env.string("APP_TIMEZONE", "UTC"),
@@ -45,9 +41,4 @@ export default {
    * Fallback locale when the current one is not available
    */
   fallbackLocale: env.string("APP_FALLBACK_LOCALE", "en"),
-
-  /**
-   * Application secret key (used for encryption, sessions, etc.)
-   */
-  key: env("APP_KEY"),
 } as const;

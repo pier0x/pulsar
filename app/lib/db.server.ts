@@ -1,5 +1,5 @@
 import { PrismaClient } from "../../generated/prisma/client";
-import { config } from "./config";
+import { config } from "./config.server";
 
 let prisma: PrismaClient;
 

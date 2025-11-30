@@ -1,0 +1,24 @@
+import { env } from "~/lib/env";
+
+/**
+ * Application Secrets Configuration (SERVER-ONLY)
+ *
+ * Sensitive application settings that must never be exposed to the client.
+ * This file has .server.ts suffix as an extra safeguard.
+ */
+export default {
+  /**
+   * Application secret key (used for encryption, sessions, etc.)
+   */
+  appKey: env("APP_KEY"),
+
+  /**
+   * Session secret for cookie signing
+   */
+  sessionSecret: env("SESSION_SECRET"),
+
+  /**
+   * JWT secret for token signing
+   */
+  jwtSecret: env("JWT_SECRET"),
+} as const;
