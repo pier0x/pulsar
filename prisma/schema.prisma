@@ -1,0 +1,54 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// Wallet addresses tracked by the user
+model Wallet {
+  id        String   @id @default(cuid())
+  address   String
+  chain     String   // "ethereum", "solana", "bitcoin", etc.
+  label     String?  // Optional user-friendly name
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  balances Balance[]
+
+  @@unique([address, chain])
+}
+
+// Token/asset balances for each wallet
+model Balance {
+  id        String   @id @default(cuid())
+  walletId  String
+  wallet    Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  token     String   // Token symbol or contract address
+  name      String   // Token name (e.g., "Bitcoin", "Ethereum")
+  amount    String   // Stored as string to preserve precision
+  decimals  Int      @default(18)
+
+  usdValue  Float?   // Cached USD value
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([walletId, token])
+}
+
+// Historical portfolio snapshots for charts
+model PortfolioSnapshot {
+  id        String   @id @default(cuid())
+  totalUsd  Float
+  cryptoUsd Float
+  cashUsd   Float
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

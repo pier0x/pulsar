@@ -19,7 +19,7 @@ A portfolio tracker that anyone can deploy on their own infrastructure — no ac
 - Vite for bundling
 - Tailwind CSS 4 + shadcn/ui
 - Recharts for data visualization
-- SQLite for storage (Railway deployment)
+- Prisma + SQLite for storage
 
 ## Project Structure
 
@@ -30,10 +30,23 @@ app/
 ├── components/
 │   ├── ui/          # shadcn/ui components
 │   └── layout/      # Layout components
-├── lib/             # Utilities
+├── lib/
+│   ├── utils.ts     # Utilities
+│   └── db.server.ts # Prisma client
 ├── root.tsx         # Root layout
 └── tailwind.css     # Global styles
+
+prisma/
+├── schema.prisma    # Database schema
+├── migrations/      # SQL migrations
+└── data/            # SQLite database file (gitignored)
 ```
+
+## Database Schema
+
+- **Wallet** — Tracked wallet addresses (address, chain, label)
+- **Balance** — Token balances per wallet (token, amount, usdValue)
+- **PortfolioSnapshot** — Historical data for charts
 
 ## How It Works
 
@@ -42,8 +55,16 @@ app/
 3. System fetches balances and displays portfolio overview
 4. All data stays with the user — SQLite file on their server
 
+## Database Commands
+
+```bash
+bunx prisma migrate dev    # Run migrations (dev)
+bunx prisma generate       # Generate client
+bunx prisma studio         # Open database GUI
+```
+
 ## Scoping Needed
 
 - [ ] Data source strategy (price feeds, balance APIs)
-- [ ] SQLite + Drizzle setup
 - [ ] Wallet management UI
+- [ ] Balance fetching logic
