@@ -1,5 +1,5 @@
 /**
- * Environment variable helper - Laravel style
+ * Environment variable helper
  *
  * Provides type-safe access to environment variables with defaults and type casting.
  *

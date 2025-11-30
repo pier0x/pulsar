@@ -1,7 +1,7 @@
 import { env } from "~/lib/env";
 
 /**
- * Public Application Configuration
+ * Public Application Configuration (EXPOSED TO CLIENT!)
  *
  * These settings are safe to expose to the client/browser.
  * DO NOT add any secrets, API keys, or sensitive data here.
@@ -36,9 +36,4 @@ export default {
    * Default locale
    */
   locale: env.string("APP_LOCALE", "en"),
-
-  /**
-   * Fallback locale when the current one is not available
-   */
-  fallbackLocale: env.string("APP_FALLBACK_LOCALE", "en"),
 } as const;

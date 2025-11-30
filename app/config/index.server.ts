@@ -20,7 +20,6 @@ export { publicConfig, type PublicConfig };
 // Import private configs
 import secrets from "./private/secrets.server";
 import database from "./private/database.server";
-import cache from "./private/cache.server";
 import services from "./private/services.server";
 
 /**
@@ -29,7 +28,6 @@ import services from "./private/services.server";
 export const privateConfig = {
   secrets,
   database,
-  cache,
   services,
 } as const;
 
