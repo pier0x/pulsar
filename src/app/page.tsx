@@ -2,10 +2,10 @@ import { Search, ArrowUpRight, Bitcoin, DollarSign } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { PortfolioChart } from "@/components/portfolio-chart"
-import { AssetCard } from "@/components/asset-card"
-import { TransactionTable } from "@/components/transaction-table"
-import { Sidebar } from "@/components/sidebar"
+import { Sidebar } from "@/components/layout/sidebar"
+import { PortfolioChart } from "@/components/ui/portfolio-chart"
+import { AssetCard } from "@/components/ui/asset-card"
+import { TransactionTable } from "@/components/ui/transaction-table"
 
 export default function DashboardPage() {
   return (
