@@ -11,10 +11,12 @@
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@prisma/adapter-better-sqlite3": "^7.0.1",
     "@radix-ui/react-slot": "^1.2.4",
     "@remix-run/node": "^2.16.0",
     "@remix-run/react": "^2.16.0",
     "@remix-run/serve": "^2.16.0",
+    "better-sqlite3": "^12.5.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
@@ -29,6 +31,7 @@
     "@prisma/client": "^7.0.1",
     "@remix-run/dev": "^2.16.0",
     "@tailwindcss/vite": "^4.0.0",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

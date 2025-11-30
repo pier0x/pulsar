@@ -1,4 +1,5 @@
 import { PrismaClient } from "../../generated/prisma/client";
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { config } from "./config.server";
 
 let prisma: PrismaClient;
@@ -8,9 +9,12 @@ declare global {
   var __db__: PrismaClient | undefined;
 }
 
-// Prisma 7 requires options parameter
-// @ts-expect-error - Prisma 7 type inference issue with the Subset type
-const createPrismaClient = () => new PrismaClient({});
+const createPrismaClient = () => {
+  const adapter = new PrismaBetterSqlite3({
+    url: config("database.connections.sqlite.url"),
+  });
+  return new PrismaClient({ adapter });
+};
 
 // This is needed because in development we don't want to restart
 // the server with every change, but we want to make sure we don't

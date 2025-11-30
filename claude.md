@@ -25,22 +25,111 @@ A portfolio tracker that anyone can deploy on their own infrastructure — no ac
 
 ```
 app/
-├── routes/          # Remix routes
-│   └── _index.tsx   # Home/dashboard
+├── routes/              # Remix routes
+│   └── _index.tsx       # Home/dashboard
 ├── components/
-│   ├── ui/          # shadcn/ui components
-│   └── layout/      # Layout components
+│   ├── ui/              # shadcn/ui components
+│   └── layout/          # Layout components
+├── config/              # Configuration system
+│   ├── public/          # Client-safe config (exposed to browser)
+│   │   ├── app.ts       # App name, URL, locale
+│   │   └── features.ts  # Feature flags
+│   ├── private/         # Server-only config (secrets, credentials)
+│   │   ├── secrets.server.ts   # APP_KEY, SESSION_SECRET
+│   │   ├── database.server.ts  # Database credentials
+│   │   └── services.server.ts  # API keys
+│   ├── index.ts         # Public config export (client-safe)
+│   └── index.server.ts  # Full config export (server-only)
 ├── lib/
-│   ├── utils.ts     # Utilities
-│   └── db.server.ts # Prisma client
-├── root.tsx         # Root layout
-└── tailwind.css     # Global styles
+│   ├── config.ts        # config() helper (public only)
+│   ├── config.server.ts # config() helper (full access)
+│   ├── env.ts           # env() helper
+│   ├── utils.ts         # Utilities
+│   └── db.server.ts     # Prisma client
+├── root.tsx             # Root layout
+└── tailwind.css         # Global styles
 
 prisma/
 ├── schema.prisma    # Database schema
 ├── migrations/      # SQL migrations
 └── data/            # SQLite database file (gitignored)
 ```
+
+## Configuration System
+
+Laravel-style configuration with public/private separation for security.
+
+### Environment Variables
+
+Use the `env()` helper for type-safe access:
+
+```typescript
+import { env } from "~/lib/env";
+
+env('APP_NAME')                    // string | undefined
+env('APP_NAME', 'Pulsar')          // string with fallback
+env.string('APP_NAME', 'Pulsar')   // explicit string
+env.int('PORT', 3000)              // number
+env.bool('APP_DEBUG', false)       // boolean
+env.array('ALLOWED_HOSTS', [])     // string[] (comma-separated)
+env.required('DATABASE_URL')       // throws if not set
+```
+
+### Config Helper
+
+**In components (client-safe):**
+```typescript
+import { config } from "~/lib/config";
+
+config('app.name')           // "Pulsar"
+config('features.priceAlerts') // false
+```
+
+**In loaders/actions (full access):**
+```typescript
+import { config } from "~/lib/config.server";
+
+config('app.name')                              // Public config
+config('database.connections.sqlite.url')       // Database URL
+config('services.blockchain.coingecko.apiKey')  // API keys
+config('secrets.appKey')                        // App secrets
+```
+
+### Passing Config to Components
+
+Use loaders to safely pass config to client components:
+
+```typescript
+// In a loader
+export const loader = () => {
+  return json({
+    config: config.public()  // Only public config
+  });
+};
+
+// Or specific keys
+export const loader = () => {
+  return json({
+    config: config.forClient(['app.name', 'features.priceAlerts'])
+  });
+};
+```
+
+### Adding New Config
+
+**Public config** (safe for browser):
+1. Create/edit file in `app/config/public/`
+2. Add to `app/config/index.ts`
+
+**Private config** (server-only):
+1. Create file in `app/config/private/` with `.server.ts` suffix
+2. Add to `app/config/index.server.ts`
+
+### Security
+
+- Files ending in `.server.ts` are never bundled for the client (Remix guarantee)
+- `config()` from `~/lib/config` only accesses public config
+- `config.forClient()` only allows `app.*` and `features.*` keys
 
 ## Database Schema
 
