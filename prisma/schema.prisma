@@ -20,6 +20,7 @@ model User {
   updatedAt    DateTime  @updatedAt
 
   sessions Session[]
+  wallets  Wallet[]
 }
 
 // Database-backed sessions for long-lived auth
@@ -42,4 +43,19 @@ model Setting {
   value     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Blockchain wallet addresses for tracking crypto assets
+model Wallet {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String?  // Optional friendly name
+  network   String   // "bitcoin", "solana", "ethereum"
+  address   String   // Blockchain wallet address
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, address])
+  @@index([userId])
 }
