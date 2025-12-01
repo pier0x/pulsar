@@ -9,7 +9,12 @@
     "build": "remix vite:build",
     "start": "remix-serve ./build/server/index.js",
     "lint": "eslint",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "prisma:generate": "bunx prisma generate",
+    "prisma:migrate": "bunx prisma migrate dev",
+    "prisma:push": "bunx prisma db push",
+    "prisma:studio": "bunx prisma studio",
+    "prisma:reset": "bunx prisma migrate reset"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.0.1",
