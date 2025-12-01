@@ -312,24 +312,18 @@ export const loader = () => {
 - **User** — Admin accounts (username, passwordHash)
 - **Session** — Database-backed auth sessions (userId, expiresAt, lastActiveAt)
 - **Setting** — Key-value store for app settings
-- **Wallet** — Tracked wallet addresses (address, chain, label)
-- **Balance** — Token balances per wallet (token, amount, usdValue)
-- **PortfolioSnapshot** — Historical data for charts (totalUsd, cryptoUsd, cashUsd)
 
 ### Relationships
 
 ```
 User 1──* Session (cascade delete)
-Wallet 1──* Balance (cascade delete)
 ```
 
 ## How It Works
 
 1. User deploys their own instance (Railway recommended)
 2. **Setup wizard** creates admin account and configures app
-3. Add wallet addresses (multi-chain: EVM, Solana, Bitcoin, etc.)
-4. System fetches balances and displays portfolio overview
-5. All data stays with the user — SQLite file on their server
+3. All data stays with the user — SQLite file on their server
 
 ## Database Commands
 
@@ -353,8 +347,5 @@ API integrations are configured but not yet implemented:
 
 ## Roadmap
 
-- [ ] Data source integration (price feeds, balance APIs)
-- [ ] Wallet management UI
-- [ ] Balance fetching logic
 - [ ] Multi-user support (optional)
 - [ ] Price alerts & notifications
