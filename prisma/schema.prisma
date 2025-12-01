@@ -77,3 +77,12 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
 }
+
+// Key-value settings storage
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

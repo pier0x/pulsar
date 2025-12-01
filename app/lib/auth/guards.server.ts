@@ -1,9 +1,10 @@
 import { redirect } from "@remix-run/node";
 import { getCurrentUser, type AuthUser } from "./auth.server";
+import { getSetupRedirect } from "~/lib/setup.server";
 
 /**
  * Require authentication for a route
- * Throws a redirect to login if not authenticated
+ * Also checks if setup is complete - redirects to setup if not
  *
  * @example
  * export async function loader({ request }: LoaderFunctionArgs) {
@@ -15,6 +16,12 @@ export async function requireAuth(
   request: Request,
   redirectTo: string = "/auth/login"
 ): Promise<AuthUser> {
+  // First check if setup is complete
+  const setupRedirect = await getSetupRedirect();
+  if (setupRedirect) {
+    throw redirect(setupRedirect);
+  }
+
   const user = await getCurrentUser(request);
 
   if (!user) {

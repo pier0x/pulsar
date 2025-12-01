@@ -1,8 +1,9 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { json } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
 import { useActionData, useSearchParams } from "@remix-run/react";
 import { AuthForm } from "~/components/auth/auth-form";
 import { login, createLoginSession, redirectIfAuthenticated } from "~/lib/auth";
+import { getSetupRedirect } from "~/lib/setup.server";
 
 export const meta: MetaFunction = () => {
   return [
@@ -12,6 +13,12 @@ export const meta: MetaFunction = () => {
 };
 
 export async function loader({ request }: LoaderFunctionArgs) {
+  // Check if setup is complete first
+  const setupRedirect = await getSetupRedirect();
+  if (setupRedirect) {
+    throw redirect(setupRedirect);
+  }
+
   await redirectIfAuthenticated(request);
   return json({});
 }
@@ -46,7 +53,6 @@ export default function LoginPage() {
 
   return (
     <AuthForm
-      mode="login"
       error={actionData?.error}
       redirectTo={redirectTo}
     />

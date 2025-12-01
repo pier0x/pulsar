@@ -1,4 +1,4 @@
-import { Form, Link, useNavigation } from "@remix-run/react";
+import { Form, useNavigation } from "@remix-run/react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import {
@@ -11,33 +11,22 @@ import {
 } from "~/components/ui/card";
 
 type AuthFormProps = {
-  mode: "login" | "register";
   error?: string;
   redirectTo?: string;
 };
 
-export function AuthForm({ mode, error, redirectTo }: AuthFormProps) {
+export function AuthForm({ error, redirectTo }: AuthFormProps) {
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
-
-  const isLogin = mode === "login";
-  const title = isLogin ? "Welcome back" : "Create an account";
-  const description = isLogin
-    ? "Enter your credentials to access your account"
-    : "Enter your details to create your account";
-  const submitText = isLogin ? "Sign in" : "Create account";
-  const alternateText = isLogin
-    ? "Don't have an account?"
-    : "Already have an account?";
-  const alternateLink = isLogin ? "/auth/register" : "/auth/login";
-  const alternateLinkText = isLogin ? "Sign up" : "Sign in";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
+          <CardTitle className="text-2xl">Welcome back</CardTitle>
+          <CardDescription>
+            Enter your credentials to access your account
+          </CardDescription>
         </CardHeader>
 
         <Form method="post">
@@ -81,52 +70,22 @@ export function AuthForm({ mode, error, redirectTo }: AuthFormProps) {
                 id="password"
                 name="password"
                 type="password"
-                autoComplete={isLogin ? "current-password" : "new-password"}
+                autoComplete="current-password"
                 required
                 placeholder="Enter your password"
                 className="h-11"
               />
             </div>
-
-            {!isLogin && (
-              <div className="space-y-2">
-                <label
-                  htmlFor="confirmPassword"
-                  className="text-sm font-medium text-foreground"
-                >
-                  Confirm Password
-                </label>
-                <Input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  placeholder="Confirm your password"
-                  className="h-11"
-                />
-              </div>
-            )}
           </CardContent>
 
-          <CardFooter className="flex flex-col gap-4">
+          <CardFooter>
             <Button
               type="submit"
               className="w-full h-11"
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Please wait..." : submitText}
+              {isSubmitting ? "Signing in..." : "Sign in"}
             </Button>
-
-            <p className="text-sm text-muted-foreground text-center">
-              {alternateText}{" "}
-              <Link
-                to={alternateLink}
-                className="text-primary hover:underline font-medium"
-              >
-                {alternateLinkText}
-              </Link>
-            </p>
           </CardFooter>
         </Form>
       </Card>
