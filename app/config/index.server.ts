@@ -21,6 +21,7 @@ export { publicConfig, type PublicConfig };
 import secrets from "./private/secrets.server";
 import database from "./private/database.server";
 import services from "./private/services.server";
+import auth from "./private/auth.server";
 
 /**
  * Private configuration namespaces
@@ -29,6 +30,7 @@ export const privateConfig = {
   secrets,
   database,
   services,
+  auth,
 } as const;
 
 /**

@@ -21,6 +21,19 @@ A portfolio tracker that anyone can deploy on their own infrastructure — no ac
 - Recharts for data visualization
 - Prisma + SQLite for storage
 
+## Package Manager
+
+**Always use `bun`** — never use npm, yarn, or pnpm.
+
+```bash
+bun install          # Install dependencies
+bun run dev          # Start dev server
+bun run build        # Build for production
+bun add <package>    # Add a dependency
+bun remove <package> # Remove a dependency
+bunx prisma ...      # Run prisma commands
+```
+
 ## Project Structure
 
 ```

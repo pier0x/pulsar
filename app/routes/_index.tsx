@@ -1,5 +1,7 @@
-import type { MetaFunction } from "@remix-run/node";
-import { Search, ArrowUpRight, Bitcoin, DollarSign } from "lucide-react"
+import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
+import { json } from "@remix-run/node";
+import { Form, useLoaderData } from "@remix-run/react";
+import { Search, ArrowUpRight, Bitcoin, DollarSign, LogOut } from "lucide-react"
 import { Card } from "~/components/ui/card"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
@@ -7,6 +9,7 @@ import { Sidebar } from "~/components/layout/sidebar"
 import { PortfolioChart } from "~/components/ui/portfolio-chart"
 import { AssetCard } from "~/components/ui/asset-card"
 import { TransactionTable } from "~/components/ui/transaction-table"
+import { requireAuth } from "~/lib/auth";
 
 export const meta: MetaFunction = () => {
   return [
@@ -15,7 +18,13 @@ export const meta: MetaFunction = () => {
   ];
 };
 
+export async function loader({ request }: LoaderFunctionArgs) {
+  const user = await requireAuth(request);
+  return json({ user });
+}
+
 export default function Index() {
+  const { user } = useLoaderData<typeof loader>();
   return (
     <div className="min-h-screen flex bg-background">
       {/* Sidebar */}
@@ -26,7 +35,7 @@ export default function Index() {
         {/* Header */}
         <header className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground mb-1">Welcome back, Alex.</h1>
+            <h1 className="text-2xl font-semibold text-foreground mb-1">Welcome back, {user.username}.</h1>
           </div>
 
           <div className="flex items-center gap-3">
@@ -34,6 +43,11 @@ export default function Index() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search assets" className="pl-10 bg-secondary/50 border-0 h-11 rounded-xl" />
             </div>
+            <Form method="post" action="/auth/logout">
+              <Button variant="ghost" size="icon" type="submit" title="Sign out">
+                <LogOut className="h-5 w-5" />
+              </Button>
+            </Form>
           </div>
         </header>
 
