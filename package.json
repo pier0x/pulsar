@@ -5,6 +5,7 @@
   "type": "module",
   "packageManager": "bun@1.2.15",
   "scripts": {
+    "setup": "./scripts/setup.sh",
     "dev": "remix vite:dev",
     "build": "remix vite:build",
     "start": "remix-serve ./build/server/index.js",
