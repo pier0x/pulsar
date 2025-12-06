@@ -15,9 +15,4 @@ export default {
    * Session secret for cookie signing
    */
   sessionSecret: env("SESSION_SECRET"),
-
-  /**
-   * JWT secret for token signing
-   */
-  jwtSecret: env("JWT_SECRET"),
 } as const;
