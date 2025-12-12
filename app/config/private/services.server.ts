@@ -44,5 +44,16 @@ export default {
       projectId: env("INFURA_PROJECT_ID"),
       projectSecret: env("INFURA_PROJECT_SECRET"),
     },
+
+    /**
+     * Solana RPC configuration
+     * Uses public RPC by default, can be configured to use Alchemy/Helius/etc.
+     */
+    solana: {
+      rpcUrl: env.string(
+        "SOLANA_RPC_URL",
+        "https://api.mainnet-beta.solana.com"
+      ),
+    },
   },
 } as const;

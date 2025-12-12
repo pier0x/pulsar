@@ -56,6 +56,60 @@ model Wallet {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  balance       Balance?
+  tokenBalances TokenBalance[]
+
   @@unique([userId, address])
   @@index([userId])
+}
+
+// Native currency balance for a wallet (BTC, ETH, SOL)
+model Balance {
+  id        String   @id @default(cuid())
+  walletId  String   @unique
+  wallet    Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  amount    String   // Store as string to handle big numbers (smallest unit)
+  updatedAt DateTime @updatedAt
+}
+
+// Token metadata (ERC-20, SPL tokens)
+model Token {
+  id              String   @id @default(cuid())
+  network         String   // "ethereum", "solana"
+  contractAddress String   // Token contract/mint address
+  symbol          String
+  name            String
+  decimals        Int
+  logoUrl         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  balances TokenBalance[]
+
+  @@unique([network, contractAddress])
+}
+
+// Token balance per wallet
+model TokenBalance {
+  id        String   @id @default(cuid())
+  walletId  String
+  wallet    Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  tokenId   String
+  token     Token    @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  amount    String   // String for big number precision (smallest unit)
+  updatedAt DateTime @updatedAt
+
+  @@unique([walletId, tokenId])
+  @@index([walletId])
+  @@index([tokenId])
+}
+
+// Track balance refresh job execution
+model BalanceRefreshJob {
+  id               String    @id @default(cuid())
+  status           String    // "running", "completed", "failed"
+  startedAt        DateTime  @default(now())
+  completedAt      DateTime?
+  walletsProcessed Int       @default(0)
+  errors           String?   // JSON array of error messages
 }
