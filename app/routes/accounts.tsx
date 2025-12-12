@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/com
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
-import { Sidebar } from "~/components/layout/sidebar";
+import { Sidebar } from "~/components/layout/sidebar-old";
 import { requireAuth } from "~/lib/auth";
 import { prisma } from "~/lib/db.server";
 import { detectWalletNetwork } from "~/lib/wallet.server";

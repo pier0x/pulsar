@@ -1,252 +1,317 @@
-import type { LoaderFunctionArgs, MetaFunction, ActionFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
-import { Form, useLoaderData, useFetcher } from "@remix-run/react";
-import { Search, Bitcoin, LogOut, RefreshCw, Wallet } from "lucide-react"
-import { Card } from "~/components/ui/card"
-import { Button } from "~/components/ui/button"
-import { Input } from "~/components/ui/input"
-import { Sidebar } from "~/components/layout/sidebar"
-import { PortfolioChart } from "~/components/ui/portfolio-chart"
-import { TransactionTable } from "~/components/ui/transaction-table"
-import { requireAuth } from "~/lib/auth";
-import { getUserBalances } from "~/lib/balance.server";
-import { maybeRefreshBalances, getRefreshStatus, forceRefreshBalances } from "~/lib/jobs/balance-refresh.server";
-import { NETWORK_CONFIG } from "~/lib/blockchain/types";
-import type { WalletNetwork } from "~/lib/wallet";
+import { useState } from 'react'
+import {
+  Dialog,
+  DialogBackdrop,
+  DialogPanel,
+  Menu,
+  MenuButton,
+  MenuItem,
+  MenuItems,
+  TransitionChild,
+} from '@headlessui/react'
+import {
+  Bars3Icon,
+  BellIcon,
+  CalendarIcon,
+  ChartPieIcon,
+  Cog6ToothIcon,
+  DocumentDuplicateIcon,
+  FolderIcon,
+  HomeIcon,
+  UsersIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline'
+import { ChevronDownIcon, MagnifyingGlassIcon } from '@heroicons/react/20/solid'
+import { cn } from '~/lib/utils'
 
-export const meta: MetaFunction = () => {
-  return [
-    { title: "Pulsar - Crypto Portfolio Tracker" },
-    { name: "description", content: "Track your cryptocurrency portfolio with ease" },
-  ];
-};
+const navigation = [
+  { name: 'Dashboard', href: '#', icon: HomeIcon, current: true },
+  { name: 'Team', href: '#', icon: UsersIcon, current: false },
+  { name: 'Projects', href: '#', icon: FolderIcon, current: false },
+  { name: 'Calendar', href: '#', icon: CalendarIcon, current: false },
+  { name: 'Documents', href: '#', icon: DocumentDuplicateIcon, current: false },
+  { name: 'Reports', href: '#', icon: ChartPieIcon, current: false },
+]
+const teams = [
+  { id: 1, name: 'Heroicons', href: '#', initial: 'H', current: false },
+  { id: 2, name: 'Tailwind Labs', href: '#', initial: 'T', current: false },
+  { id: 3, name: 'Workcation', href: '#', initial: 'W', current: false },
+]
+const userNavigation = [
+  { name: 'Your profile', href: '#' },
+  { name: 'Sign out', href: '#' },
+]
 
-export async function loader({ request }: LoaderFunctionArgs) {
-  const user = await requireAuth(request);
-
-  // Maybe trigger background refresh
-  await maybeRefreshBalances();
-
-  // Get cached balances
-  const balances = await getUserBalances(user.id);
-
-  // Get refresh status
-  const refreshStatus = await getRefreshStatus();
-
-  return json({ user, balances, refreshStatus });
-}
-
-export async function action({ request }: ActionFunctionArgs) {
-  await requireAuth(request);
-
-  const formData = await request.formData();
-  const intent = formData.get("intent");
-
-  if (intent === "refresh") {
-    await forceRefreshBalances();
-    return json({ success: true });
-  }
-
-  return json({ error: "Unknown intent" }, { status: 400 });
-}
-
-// Network icon component
-function NetworkIcon({ network }: { network: WalletNetwork }) {
-  switch (network) {
-    case "bitcoin":
-      return <Bitcoin className="h-6 w-6" />;
-    case "ethereum":
-      return (
-        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 1.5l-7 10.5 7 4 7-4-7-10.5zM5 13.5l7 9.5 7-9.5-7 4-7-4z" />
-        </svg>
-      );
-    case "solana":
-      return (
-        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M4.5 18.75l3-3h12l-3 3h-12zM4.5 12.75l3-3h12l-3 3h-12zM4.5 6.75l3-3h12l-3 3h-12z" />
-        </svg>
-      );
-    default:
-      return <Wallet className="h-6 w-6" />;
-  }
-}
-
-// Format a balance for display (split into whole and decimal parts)
-function formatBalanceDisplay(amount: string): { whole: string; decimals: string } {
-  if (!amount || amount === "0") {
-    return { whole: "0", decimals: "" };
-  }
-
-  const parts = amount.split(".");
-  const whole = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  const decimals = parts[1] ? `.${parts[1].slice(0, 4)}` : "";
-
-  return { whole, decimals };
-}
-
-export default function Index() {
-  const { user, balances, refreshStatus } = useLoaderData<typeof loader>();
-  const fetcher = useFetcher();
-  const isRefreshing = fetcher.state !== "idle" || refreshStatus.isRefreshing;
-
-  // Format last refresh time
-  const lastRefreshText = refreshStatus.lastRefresh
-    ? new Date(refreshStatus.lastRefresh).toLocaleString()
-    : "Never";
+export default function Example() {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="min-h-screen flex bg-background">
-      {/* Sidebar */}
-      <Sidebar />
+      <div>
+        <Dialog open={sidebarOpen} onClose={setSidebarOpen} className="relative z-50 lg:hidden">
+          <DialogBackdrop
+            transition
+            className="fixed inset-0 bg-gray-900/80 transition-opacity duration-300 ease-linear data-[closed]:opacity-0"
+          />
 
-      {/* Main Content */}
-      <main className="flex-1 p-6 lg:p-8">
-        {/* Header */}
-        <header className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground mb-1">Welcome back, {user.username}.</h1>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1 lg:w-96">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search assets" className="pl-10 bg-secondary/50 border-0 h-11 rounded-xl" />
-            </div>
-            <fetcher.Form method="post">
-              <input type="hidden" name="intent" value="refresh" />
-              <Button
-                variant="ghost"
-                size="icon"
-                type="submit"
-                title="Refresh balances"
-                disabled={isRefreshing}
-              >
-                <RefreshCw className={`h-5 w-5 ${isRefreshing ? "animate-spin" : ""}`} />
-              </Button>
-            </fetcher.Form>
-            <Form method="post" action="/auth/logout">
-              <Button variant="ghost" size="icon" type="submit" title="Sign out">
-                <LogOut className="h-5 w-5" />
-              </Button>
-            </Form>
-          </div>
-        </header>
-
-        {/* Portfolio Overview */}
-        <Card className="p-6 lg:p-8 mb-6 shadow-sm border-0">
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between mb-6">
-            <div className="mb-6 lg:mb-0">
-              <p className="text-sm text-muted-foreground mb-2">Portfolio</p>
-              {balances.length === 0 ? (
-                <div className="text-muted-foreground">
-                  <p className="text-lg">No wallets added yet</p>
-                  <p className="text-sm mt-1">Add a wallet from the Accounts page to start tracking</p>
+          <div className="fixed inset-0 flex">
+            <DialogPanel
+              transition
+              className="relative mr-16 flex w-full max-w-xs flex-1 transform transition duration-300 ease-in-out data-[closed]:-translate-x-full"
+            >
+              <TransitionChild>
+                <div className="absolute left-full top-0 flex w-16 justify-center pt-5 duration-300 ease-in-out data-[closed]:opacity-0">
+                  <button type="button" onClick={() => setSidebarOpen(false)} className="-m-2.5 p-2.5">
+                    <span className="sr-only">Close sidebar</span>
+                    <XMarkIcon aria-hidden="true" className="size-6 text-white" />
+                  </button>
                 </div>
-              ) : (
-                <>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {balances.length} wallet{balances.length !== 1 ? "s" : ""} tracked
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Last updated: {lastRefreshText}
-                  </p>
-                </>
-              )}
-            </div>
+              </TransitionChild>
 
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" className="rounded-lg bg-transparent">
-                1D
-              </Button>
-              <Button variant="outline" size="sm" className="rounded-lg bg-transparent">
-                1W
-              </Button>
-              <Button variant="outline" size="sm" className="rounded-lg bg-transparent">
-                1Y
-              </Button>
-              <Button variant="outline" size="sm" className="rounded-lg bg-transparent">
-                ALL
-              </Button>
-            </div>
+              {/* Sidebar component, swap this element with another sidebar if you like */}
+              <div className="relative flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900 px-6 pb-4 ring ring-white/10 before:pointer-events-none before:absolute before:inset-0 before:bg-black/10">
+                <div className="relative flex h-16 shrink-0 items-center">
+                  <img
+                    alt="Your Company"
+                    src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=500"
+                    className="h-8 w-auto"
+                  />
+                </div>
+                <nav className="relative flex flex-1 flex-col">
+                  <ul role="list" className="flex flex-1 flex-col gap-y-7">
+                    <li>
+                      <ul role="list" className="-mx-2 space-y-1">
+                        {navigation.map((item) => (
+                          <li key={item.name}>
+                            <a
+                              href={item.href}
+                              className={cn(
+                                item.current
+                                  ? 'bg-white/5 text-white'
+                                  : 'text-gray-400 hover:bg-white/5 hover:text-white',
+                                'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold',
+                              )}
+                            >
+                              <item.icon
+                                aria-hidden="true"
+                                className={cn(
+                                  item.current ? 'text-white' : 'text-gray-400 group-hover:text-white',
+                                  'size-6 shrink-0',
+                                )}
+                              />
+                              {item.name}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                    <li>
+                      <div className="text-xs/6 font-semibold text-gray-400">Your teams</div>
+                      <ul role="list" className="-mx-2 mt-2 space-y-1">
+                        {teams.map((team) => (
+                          <li key={team.name}>
+                            <a
+                              href={team.href}
+                              className={cn(
+                                team.current
+                                  ? 'bg-white/5 text-white'
+                                  : 'text-gray-400 hover:bg-white/5 hover:text-white',
+                                'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold',
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  team.current
+                                    ? 'border-white/20 text-white'
+                                    : 'border-white/10 text-gray-400 group-hover:border-white/20 group-hover:text-white',
+                                  'flex size-6 shrink-0 items-center justify-center rounded-lg border bg-white/5 text-[0.625rem] font-medium',
+                                )}
+                              >
+                                {team.initial}
+                              </span>
+                              <span className="truncate">{team.name}</span>
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                    <li className="mt-auto">
+                      <a
+                        href="#"
+                        className="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold text-gray-300 hover:bg-white/5 hover:text-white"
+                      >
+                        <Cog6ToothIcon
+                          aria-hidden="true"
+                          className="size-6 shrink-0 text-gray-400 group-hover:text-white"
+                        />
+                        Settings
+                      </a>
+                    </li>
+                  </ul>
+                </nav>
+              </div>
+            </DialogPanel>
           </div>
+        </Dialog>
 
-          {/* Chart */}
-          <PortfolioChart />
-        </Card>
+        {/* Static sidebar for desktop */}
+        <div className="hidden bg-gray-900 lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
+          {/* Sidebar component, swap this element with another sidebar if you like */}
+          <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-white/10 bg-black/10 px-6 pb-4">
+            <div className="flex h-16 shrink-0 items-center">
+              <img
+                alt="Your Company"
+                src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=500"
+                className="h-8 w-auto"
+              />
+            </div>
+            <nav className="flex flex-1 flex-col">
+              <ul role="list" className="flex flex-1 flex-col gap-y-7">
+                <li>
+                  <ul role="list" className="-mx-2 space-y-1">
+                    {navigation.map((item) => (
+                      <li key={item.name}>
+                        <a
+                          href={item.href}
+                          className={cn(
+                            item.current ? 'bg-white/5 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white',
+                            'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold',
+                          )}
+                        >
+                          <item.icon
+                            aria-hidden="true"
+                            className={cn(
+                              item.current ? 'text-white' : 'text-gray-400 group-hover:text-white',
+                              'size-6 shrink-0',
+                            )}
+                          />
+                          {item.name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+                <li>
+                  <div className="text-xs/6 font-semibold text-gray-400">Your teams</div>
+                  <ul role="list" className="-mx-2 mt-2 space-y-1">
+                    {teams.map((team) => (
+                      <li key={team.name}>
+                        <a
+                          href={team.href}
+                          className={cn(
+                            team.current ? 'bg-white/5 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white',
+                            'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold',
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              team.current
+                                ? 'border-white/20 text-white'
+                                : 'border-white/10 text-gray-400 group-hover:border-white/20 group-hover:text-white',
+                              'flex size-6 shrink-0 items-center justify-center rounded-lg border bg-white/5 text-[0.625rem] font-medium',
+                            )}
+                          >
+                            {team.initial}
+                          </span>
+                          <span className="truncate">{team.name}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+                <li className="mt-auto">
+                  <a
+                    href="#"
+                    className="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold text-gray-300 hover:bg-white/5 hover:text-white"
+                  >
+                    <Cog6ToothIcon
+                      aria-hidden="true"
+                      className="size-6 shrink-0 text-gray-400 group-hover:text-white"
+                    />
+                    Settings
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+        </div>
 
-        {/* Wallet Balances */}
-        {balances.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            {balances.map((balance) => {
-              const config = NETWORK_CONFIG[balance.wallet.network];
-              const { whole, decimals } = formatBalanceDisplay(
-                balance.nativeBalance?.formatted || "0"
-              );
+        <div className="lg:pl-72">
+          <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-white/10 bg-gray-900 px-4 sm:gap-x-6 sm:px-6 lg:px-8">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="-m-2.5 p-2.5 text-gray-400 hover:text-white lg:hidden"
+            >
+              <span className="sr-only">Open sidebar</span>
+              <Bars3Icon aria-hidden="true" className="size-6" />
+            </button>
 
-              return (
-                <Card key={balance.wallet.id} className="p-6 border-0 shadow-sm">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-full bg-secondary/70 flex items-center justify-center text-muted-foreground">
-                      <NetworkIcon network={balance.wallet.network} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {balance.wallet.name || `${config.nativeName} Wallet`}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {balance.wallet.address.slice(0, 8)}...{balance.wallet.address.slice(-6)}
-                      </p>
-                    </div>
-                  </div>
+            {/* Separator */}
+            <div aria-hidden="true" className="h-6 w-px bg-white/10 lg:hidden" />
 
-                  {/* Native Balance */}
-                  <div className="mb-3">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-2xl font-bold text-foreground">{whole}</span>
-                      <span className="text-lg text-muted-foreground">{decimals}</span>
-                      <span className="text-sm text-muted-foreground ml-1">
-                        {balance.nativeBalance?.symbol || config.nativeSymbol}
+            <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
+              <form action="#" method="GET" className="grid flex-1 grid-cols-1">
+                <input
+                  name="search"
+                  placeholder="Search"
+                  aria-label="Search"
+                  className="col-start-1 row-start-1 block size-full bg-gray-900 pl-8 text-base text-white outline-none placeholder:text-gray-500 sm:text-sm/6"
+                />
+                <MagnifyingGlassIcon
+                  aria-hidden="true"
+                  className="pointer-events-none col-start-1 row-start-1 size-5 self-center text-gray-400"
+                />
+              </form>
+              <div className="flex items-center gap-x-4 lg:gap-x-6">
+                <button type="button" className="-m-2.5 p-2.5 text-gray-400 hover:text-white">
+                  <span className="sr-only">View notifications</span>
+                  <BellIcon aria-hidden="true" className="size-6" />
+                </button>
+
+                {/* Separator */}
+                <div aria-hidden="true" className="hidden lg:block lg:h-6 lg:w-px lg:bg-white/10" />
+
+                {/* Profile dropdown */}
+                <Menu as="div" className="relative">
+                  <MenuButton className="relative flex items-center">
+                    <span className="absolute -inset-1.5" />
+                    <span className="sr-only">Open user menu</span>
+                    <img
+                      alt=""
+                      src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
+                      className="size-8 rounded-full bg-gray-800 outline outline-1 -outline-offset-1 outline-white/10"
+                    />
+                    <span className="hidden lg:flex lg:items-center">
+                      <span aria-hidden="true" className="ml-4 text-sm/6 font-semibold text-white">
+                        Tom Cook
                       </span>
-                    </div>
-                  </div>
-
-                  {/* Token Balances */}
-                  {balance.tokenBalances.length > 0 && (
-                    <div className="border-t pt-3 space-y-2">
-                      <p className="text-xs text-muted-foreground uppercase tracking-wider">
-                        Tokens ({balance.tokenBalances.length})
-                      </p>
-                      {balance.tokenBalances.slice(0, 3).map((tb: typeof balance.tokenBalances[number], i: number) => {
-                        const tbFormatted = formatBalanceDisplay(tb.formatted);
-                        return (
-                          <div key={i} className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">{tb.token.symbol}</span>
-                            <span className="font-medium">
-                              {tbFormatted.whole}{tbFormatted.decimals}
-                            </span>
-                          </div>
-                        );
-                      })}
-                      {balance.tokenBalances.length > 3 && (
-                        <p className="text-xs text-muted-foreground">
-                          +{balance.tokenBalances.length - 3} more
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </Card>
-              );
-            })}
+                      <ChevronDownIcon aria-hidden="true" className="ml-2 size-5 text-gray-500" />
+                    </span>
+                  </MenuButton>
+                  <MenuItems
+                    transition
+                    className="absolute right-0 z-10 mt-2.5 w-32 origin-top-right rounded-md bg-gray-800 py-2 outline outline-1 -outline-offset-1 outline-white/10 transition data-[closed]:scale-95 data-[closed]:transform data-[closed]:opacity-0 data-[enter]:duration-100 data-[leave]:duration-75 data-[enter]:ease-out data-[leave]:ease-in"
+                  >
+                    {userNavigation.map((item) => (
+                      <MenuItem key={item.name}>
+                        <a
+                          href={item.href}
+                          className="block px-3 py-1 text-sm/6 text-white data-[focus]:bg-white/5 data-[focus]:outline-none"
+                        >
+                          {item.name}
+                        </a>
+                      </MenuItem>
+                    ))}
+                  </MenuItems>
+                </Menu>
+              </div>
+            </div>
           </div>
-        )}
 
-        {/* Transactions */}
-        <Card className="p-6 lg:p-8 shadow-sm border-0">
-          <h3 className="text-xl font-semibold mb-6">Transactions</h3>
-          <TransactionTable />
-        </Card>
-      </main>
-    </div>
+          <main className="py-10">
+            <div className="px-4 sm:px-6 lg:px-8">{/* Your content */}</div>
+          </main>
+        </div>
+      </div>
   )
 }
