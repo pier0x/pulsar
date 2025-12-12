@@ -35,7 +35,7 @@ export default function Navbar() {
               <img
                 alt=""
                 src="https://avatars.outpace.systems/avatars/previews/avatar-50.webp"
-                className="size-8 rounded-full"
+                className="size-8 rounded-full shrink-0"
               />
               <span className="hidden lg:flex lg:items-center">
                 <span
