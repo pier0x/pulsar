@@ -16,6 +16,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "~/lib/utils";
+import Logo from "../ui/logo";
 
 const navigation = [
   { name: "Dashboard", href: "#", icon: HomeIcon, current: true },
@@ -38,13 +39,9 @@ export default function Sidebar() {
     <>
       {/* Static sidebar for desktop */}
       <div className="hidden lg:inset-y-0 lg:z-50 lg:flex lg:w-80 lg:flex-col">
-        <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-zinc-800 rounded-3xl px-10">
+        <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-zinc-800/20 rounded-4xl p-10">
           <div className="flex h-16 shrink-0 items-center">
-            <img
-              alt="Your Company"
-              src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=500"
-              className="h-8 w-auto"
-            />
+            <Logo />
           </div>
           <nav className="flex flex-1 flex-col">
             <ul role="list" className="flex flex-1 flex-col gap-y-7">
