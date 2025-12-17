@@ -3,6 +3,10 @@ import {
   PortfolioValueChart,
   type PortfolioDataPoint,
 } from "~/components/ui/portfolio-value-chart";
+import {
+  PortfolioBreakdown,
+  type BreakdownItem,
+} from "~/components/ui/portfolio-breakdown";
 
 const sampleWallets: WalletData[] = [
   {
@@ -67,11 +71,20 @@ const currentValue = historicalData[historicalData.length - 1].value;
 const startValue = historicalData[0].value;
 const changePercent = ((currentValue - startValue) / startValue) * 100;
 
+const breakdownData: BreakdownItem[] = [
+  { name: "Ethereum", value: 12450, color: "#627EEA" },
+  { name: "Bitcoin", value: 8200, color: "#F7931A" },
+  { name: "Polygon", value: 4320, color: "#8247E5" },
+  { name: "Solana", value: 3150, color: "#14F195" },
+  { name: "Arbitrum", value: 2740, color: "#28A0F0" },
+];
+
 export default function Index() {
   const wallets = sampleWallets;
 
   return (
-    <div className="grid gap-5 grid-cols-6 w-full auto-rows-fr">
+    <div className="grid gap-5 grid-cols-6 w-full">
+      {/* Row 1: Portfolio Value Chart + Stacked Cards */}
       <div className="col-span-4 min-h-[360px]">
         <PortfolioValueChart
           data={historicalData}
@@ -81,6 +94,11 @@ export default function Index() {
       </div>
       <div className="col-span-2 min-h-[360px]">
         <StackedCards wallets={wallets} />
+      </div>
+
+      {/* Row 2: Portfolio Breakdown */}
+      <div className="col-span-4">
+        <PortfolioBreakdown data={breakdownData} />
       </div>
     </div>
   );
