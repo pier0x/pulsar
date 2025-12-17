@@ -41,8 +41,11 @@ export default function Index() {
   const wallets = sampleWallets;
 
   return (
-    <div className="flex items-center justify-center min-h-[400px]">
-      <StackedCards wallets={wallets} />
+    <div className="grid gap-5 grid-cols-6 w-full bg-red-400">
+      <div className="col-span-4 w-full bg-blue-400">Hello</div>
+      <div className="col-span-2 w-full bg-green-400">
+        <StackedCards wallets={wallets} />
+      </div>
     </div>
   );
 }
