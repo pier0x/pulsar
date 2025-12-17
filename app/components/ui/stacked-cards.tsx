@@ -195,22 +195,28 @@ export function StackedCards({ wallets, className }: StackedCardsProps) {
             <ChevronLeft className="w-5 h-5" />
           </button>
 
-          {/* Dots indicator */}
-          <div className="flex items-center gap-2">
-            {wallets.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrentIndex(index)}
-                className={cn(
-                  "w-2 h-2 rounded-full transition-all duration-300",
-                  index === currentIndex
-                    ? "bg-blue-500 w-4"
-                    : "bg-zinc-600 hover:bg-zinc-500"
-                )}
-                aria-label={`Go to wallet ${index + 1}`}
-              />
-            ))}
-          </div>
+          {/* Counter for many wallets, dots for few */}
+          {wallets.length <= 5 ? (
+            <div className="flex items-center gap-2">
+              {wallets.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentIndex(index)}
+                  className={cn(
+                    "w-2 h-2 rounded-full transition-all duration-300",
+                    index === currentIndex
+                      ? "bg-blue-500 w-4"
+                      : "bg-zinc-600 hover:bg-zinc-500"
+                  )}
+                  aria-label={`Go to wallet ${index + 1}`}
+                />
+              ))}
+            </div>
+          ) : (
+            <span className="text-zinc-400 text-sm tabular-nums min-w-16 text-center">
+              {currentIndex + 1} / {wallets.length}
+            </span>
+          )}
 
           <button
             onClick={handleNext}
