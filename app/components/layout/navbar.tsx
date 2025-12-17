@@ -38,7 +38,7 @@ export default function Navbar({ title }: NavbarProps) {
 
           {/* Profile dropdown */}
           <Menu as="div" className="relative">
-            <MenuButton className="relative flex items-center">
+            <MenuButton className="relative flex items-center cursor-pointer">
               <img
                 alt=""
                 src="https://avatars.outpace.systems/avatars/previews/avatar-50.webp"
