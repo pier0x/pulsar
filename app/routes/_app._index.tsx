@@ -71,15 +71,15 @@ export default function Index() {
   const wallets = sampleWallets;
 
   return (
-    <div className="grid gap-5 grid-cols-6 w-full">
-      <div className="col-span-4">
+    <div className="grid gap-5 grid-cols-6 w-full auto-rows-fr">
+      <div className="col-span-4 min-h-[360px]">
         <PortfolioValueChart
           data={historicalData}
           currentValue={`$${currentValue.toLocaleString()}`}
           changePercent={changePercent}
         />
       </div>
-      <div className="col-span-2">
+      <div className="col-span-2 min-h-[360px]">
         <StackedCards wallets={wallets} />
       </div>
     </div>

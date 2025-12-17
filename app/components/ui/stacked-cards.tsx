@@ -54,7 +54,12 @@ export function StackedCards({ wallets, className }: StackedCardsProps) {
   // Empty state
   if (wallets.length === 0) {
     return (
-      <div className={cn("relative w-full max-w-md", className)}>
+      <div
+        className={cn(
+          "relative w-full h-full flex flex-col justify-center",
+          className
+        )}
+      >
         <div className="rounded-2xl bg-zinc-900 border border-zinc-800 border-dashed p-8">
           <div className="flex flex-col items-center justify-center text-center space-y-4">
             <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center">
@@ -92,9 +97,9 @@ export function StackedCards({ wallets, className }: StackedCardsProps) {
   const visibleCards = getVisibleCards();
 
   return (
-    <div className={cn("relative w-full max-w-md", className)}>
-      {/* Cards stack */}
-      <div className="relative">
+    <div className={cn("relative w-full h-full flex flex-col", className)}>
+      {/* Cards stack - mt-12 makes room for back cards peeking above */}
+      <div className="relative mt-12">
         <AnimatePresence mode="popLayout">
           {visibleCards
             .slice()
@@ -131,7 +136,7 @@ export function StackedCards({ wallets, className }: StackedCardsProps) {
                     "rounded-2xl bg-zinc-900 border border-zinc-800",
                     isTop
                       ? "relative"
-                      : "absolute inset-x-0 pointer-events-none"
+                      : "absolute inset-x-0 top-0 pointer-events-none"
                   )}
                   style={{
                     zIndex: 3 - stackIndex,
@@ -184,9 +189,12 @@ export function StackedCards({ wallets, className }: StackedCardsProps) {
         </AnimatePresence>
       </div>
 
+      {/* Spacer to push navigation to bottom */}
+      <div className="flex-1" />
+
       {/* Navigation buttons */}
       {wallets.length > 1 && (
-        <div className="flex items-center justify-center gap-4 mt-8">
+        <div className="flex items-center justify-center gap-4 pt-4">
           <button
             onClick={handlePrevious}
             className="p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
