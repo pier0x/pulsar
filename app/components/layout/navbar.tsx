@@ -2,16 +2,25 @@ import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { BellIcon } from "@heroicons/react/24/outline";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
 
+interface NavbarProps {
+  title: string;
+}
+
 const userNavigation = [
   { name: "Your profile", href: "#" },
   { name: "Sign out", href: "#" },
 ];
 
-export default function Navbar() {
+export default function Navbar({ title }: NavbarProps) {
   return (
-    <div className="z-40 flex h-16 shrink-0 items-center gap-x-4 px-4 sm:gap-x-6 sm:px-6 lg:px-8 bg-red-500">
+    <div className="z-40 flex h-16 shrink-0 items-center gap-x-4 px-4 sm:gap-x-6 sm:px-6 lg:px-8">
+      <div className="flex justify-between w-full ">
+        {/* Title */}
+        <div>
+          <h2 className="text-white text-2xl">{title}</h2>
+        </div>
 
-      <div className="flex justify-end w-full">
+        {/* Action items */}
         <div className="flex items-center gap-x-4 lg:gap-x-6">
           <button
             type="button"
