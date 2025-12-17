@@ -31,27 +31,28 @@ const renderActiveShape = (props: any) => {
     <g>
       <text
         x={cx}
-        y={cy - 10}
+        y={cy - 5}
         textAnchor="middle"
         fill="#fff"
-        className="text-lg font-semibold"
+        fontSize={12}
+        fontWeight={600}
       >
         {payload.name}
       </text>
       <text
         x={cx}
-        y={cy + 15}
+        y={cy + 10}
         textAnchor="middle"
         fill="#a1a1aa"
-        className="text-sm"
+        fontSize={11}
       >
-        {`${(percent * 100).toFixed(1)}%`}
+        {`${(percent * 100).toFixed(0)}%`}
       </text>
       <Sector
         cx={cx}
         cy={cy}
         innerRadius={innerRadius}
-        outerRadius={outerRadius + 6}
+        outerRadius={outerRadius + 4}
         startAngle={startAngle}
         endAngle={endAngle}
         fill={fill}
@@ -61,8 +62,8 @@ const renderActiveShape = (props: any) => {
         cy={cy}
         startAngle={startAngle}
         endAngle={endAngle}
-        innerRadius={outerRadius + 8}
-        outerRadius={outerRadius + 12}
+        innerRadius={outerRadius + 6}
+        outerRadius={outerRadius + 9}
         fill={fill}
       />
     </g>
@@ -104,13 +105,13 @@ export function PortfolioBreakdown({
         </motion.p>
       </div>
 
-      <div className="flex items-center gap-6">
+      <div className="flex flex-col items-center">
         {/* Pie Chart */}
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="w-48 h-48 flex-shrink-0"
+          className="w-40 h-40 shrink-0"
         >
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -120,8 +121,8 @@ export function PortfolioBreakdown({
                 data={data}
                 cx="50%"
                 cy="50%"
-                innerRadius={50}
-                outerRadius={70}
+                innerRadius={40}
+                outerRadius={55}
                 dataKey="value"
                 onMouseEnter={onPieEnter}
               >
@@ -138,37 +139,32 @@ export function PortfolioBreakdown({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4, duration: 0.4 }}
-          className="flex-1 space-y-3"
+          className="w-full space-y-1.5 mt-4"
         >
           {data.map((item, index) => {
-            const percent = ((item.value / total) * 100).toFixed(1);
+            const percent = ((item.value / total) * 100).toFixed(0);
             return (
               <motion.div
                 key={item.name}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5 + index * 0.1, duration: 0.3 }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 + index * 0.05, duration: 0.2 }}
                 className={cn(
-                  "flex items-center justify-between p-2 rounded-lg transition-colors cursor-pointer",
+                  "flex items-center justify-between px-2 py-1.5 rounded-lg transition-colors cursor-pointer",
                   activeIndex === index ? "bg-zinc-800" : "hover:bg-zinc-800/50"
                 )}
                 onMouseEnter={() => setActiveIndex(index)}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <span
-                    className="w-3 h-3 rounded-full"
+                    className="w-2.5 h-2.5 rounded-full"
                     style={{ backgroundColor: item.color }}
                   />
-                  <span className="text-white text-sm font-medium">
+                  <span className="text-white text-xs font-medium">
                     {item.name}
                   </span>
                 </div>
-                <div className="text-right">
-                  <span className="text-white text-sm font-medium">
-                    ${item.value.toLocaleString()}
-                  </span>
-                  <span className="text-zinc-500 text-xs ml-2">{percent}%</span>
-                </div>
+                <span className="text-zinc-400 text-xs">{percent}%</span>
               </motion.div>
             );
           })}

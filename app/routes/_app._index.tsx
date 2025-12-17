@@ -7,6 +7,7 @@ import {
   PortfolioBreakdown,
   type BreakdownItem,
 } from "~/components/ui/portfolio-breakdown";
+import { TopMovers, type MoverItem } from "~/components/ui/top-movers";
 
 const sampleWallets: WalletData[] = [
   {
@@ -79,6 +80,18 @@ const breakdownData: BreakdownItem[] = [
   { name: "Arbitrum", value: 2740, color: "#28A0F0" },
 ];
 
+const topGainers: MoverItem[] = [
+  { name: "Solana", symbol: "SOL", changePercent: 12.45, value: "$3,150" },
+  { name: "Arbitrum", symbol: "ARB", changePercent: 8.32, value: "$2,740" },
+  { name: "Polygon", symbol: "MATIC", changePercent: 5.18, value: "$4,320" },
+];
+
+const topLosers: MoverItem[] = [
+  { name: "Chainlink", symbol: "LINK", changePercent: -7.23, value: "$1,420" },
+  { name: "Uniswap", symbol: "UNI", changePercent: -4.56, value: "$890" },
+  { name: "Aave", symbol: "AAVE", changePercent: -2.89, value: "$2,100" },
+];
+
 export default function Index() {
   const wallets = sampleWallets;
 
@@ -96,9 +109,15 @@ export default function Index() {
         <StackedCards wallets={wallets} />
       </div>
 
-      {/* Row 2: Portfolio Breakdown */}
-      <div className="col-span-4">
+      {/* Row 2: Portfolio Breakdown + Top Gainers + Top Losers */}
+      <div className="col-span-2">
         <PortfolioBreakdown data={breakdownData} />
+      </div>
+      <div className="col-span-2">
+        <TopMovers title="Top Gainers" items={topGainers} type="gainers" />
+      </div>
+      <div className="col-span-2">
+        <TopMovers title="Top Losers" items={topLosers} type="losers" />
       </div>
     </div>
   );
