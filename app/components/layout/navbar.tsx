@@ -9,9 +9,7 @@ const userNavigation = [
 
 export default function Navbar() {
   return (
-    <div className="z-40 flex h-16 shrink-0 items-center gap-x-4 px-4 sm:gap-x-6 sm:px-6 lg:px-8">
-      {/* Separator */}
-      <div aria-hidden="true" className="h-6 w-px bg-white/10 lg:hidden" />
+    <div className="z-40 flex h-16 shrink-0 items-center gap-x-4 px-4 sm:gap-x-6 sm:px-6 lg:px-8 bg-red-500">
 
       <div className="flex justify-end w-full">
         <div className="flex items-center gap-x-4 lg:gap-x-6">
