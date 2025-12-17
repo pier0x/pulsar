@@ -41,9 +41,8 @@ export function StackedCards({ cards, className }: StackedCardsProps) {
                 isTop ? "relative" : "pointer-events-none"
               )}
               style={{
-                transform: `translateY(${-index * 16}px) scale(${1 - index * 0.05})`,
+                transform: `translateY(${-index * 24}px) scale(${1 - index * 0.03})`,
                 zIndex: totalVisible - index,
-                opacity: isTop ? 1 : 0.7 - index * 0.15,
               }}
             >
               {/* Card header with date and time */}
