@@ -1,4 +1,8 @@
 import { StackedCards, type WalletData } from "~/components/ui/stacked-cards";
+import {
+  PortfolioValueChart,
+  type PortfolioDataPoint,
+} from "~/components/ui/portfolio-value-chart";
 
 const sampleWallets: WalletData[] = [
   {
@@ -35,15 +39,47 @@ const sampleWallets: WalletData[] = [
   },
 ];
 
+// Generate sample historical data for the past 30 days
+const generateHistoricalData = (): PortfolioDataPoint[] => {
+  const data: PortfolioDataPoint[] = [];
+  const now = new Date();
+  let value = 28000;
+
+  for (let i = 29; i >= 0; i--) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - i);
+
+    // Add some realistic variance
+    const change = (Math.random() - 0.45) * 1500;
+    value = Math.max(20000, value + change);
+
+    data.push({
+      date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      value: Math.round(value),
+    });
+  }
+
+  return data;
+};
+
+const historicalData = generateHistoricalData();
+const currentValue = historicalData[historicalData.length - 1].value;
+const startValue = historicalData[0].value;
+const changePercent = ((currentValue - startValue) / startValue) * 100;
+
 export default function Index() {
-  // Toggle this to test empty state:
-  // const wallets: WalletData[] = [];
   const wallets = sampleWallets;
 
   return (
-    <div className="grid gap-5 grid-cols-6 w-full bg-red-400">
-      <div className="col-span-4 w-full bg-blue-400">Hello</div>
-      <div className="col-span-2 w-full bg-green-400">
+    <div className="grid gap-5 grid-cols-6 w-full">
+      <div className="col-span-4">
+        <PortfolioValueChart
+          data={historicalData}
+          currentValue={`$${currentValue.toLocaleString()}`}
+          changePercent={changePercent}
+        />
+      </div>
+      <div className="col-span-2">
         <StackedCards wallets={wallets} />
       </div>
     </div>
