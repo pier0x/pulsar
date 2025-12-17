@@ -18,7 +18,7 @@ export default function Sidebar() {
         <nav className="flex flex-1 flex-col">
           <ul role="list" className="flex flex-1 flex-col gap-y-7">
             <li>
-              <ul role="list" className="-mx-2 space-y-1">
+              <ul role="list" className="space-y-3">
                 {navigation.map((item) => (
                   <li key={item.name}>
                     <NavLink
@@ -27,9 +27,9 @@ export default function Sidebar() {
                       className={({ isActive }) =>
                         cn(
                           isActive
-                            ? "bg-white/5 text-white"
-                            : "text-gray-400 hover:bg-white/5 hover:text-white",
-                          "group flex gap-x-3 rounded-full px-4 py-2 text-sm/6 font-semibold"
+                            ? "text-white"
+                            : "text-zinc-500 hover:text-zinc-300",
+                          "group flex gap-x-3 py-2 text-sm/6 font-semibold transition-colors"
                         )
                       }
                     >
@@ -40,8 +40,8 @@ export default function Sidebar() {
                             className={cn(
                               isActive
                                 ? "text-white"
-                                : "text-gray-400 group-hover:text-white",
-                              "size-6 shrink-0"
+                                : "text-zinc-500 group-hover:text-zinc-300",
+                              "size-6 shrink-0 transition-colors"
                             )}
                           />
                           {item.name}
@@ -58,9 +58,9 @@ export default function Sidebar() {
                 className={({ isActive }) =>
                   cn(
                     isActive
-                      ? "bg-white/5 text-white"
-                      : "text-gray-300 hover:bg-white/5 hover:text-white",
-                    "group flex gap-x-3 rounded-full px-4 py-2 text-sm/6 font-semibold"
+                      ? "text-white"
+                      : "text-zinc-500 hover:text-zinc-300",
+                    "group flex gap-x-3 py-2 text-sm/6 font-semibold transition-colors"
                   )
                 }
               >
@@ -71,8 +71,8 @@ export default function Sidebar() {
                       className={cn(
                         isActive
                           ? "text-white"
-                          : "text-gray-400 group-hover:text-white",
-                        "size-6 shrink-0"
+                          : "text-zinc-500 group-hover:text-zinc-300",
+                        "size-6 shrink-0 transition-colors"
                       )}
                     />
                     Settings
