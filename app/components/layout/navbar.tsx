@@ -1,8 +1,34 @@
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
-import { Form } from "@remix-run/react";
+import { Form, useLocation } from "@remix-run/react";
 import { BellIcon } from "@heroicons/react/24/outline";
 import { ChevronDownIcon, UserCircleIcon } from "@heroicons/react/20/solid";
 import { Logo } from "../ui";
+
+// Map routes to page titles
+function getPageTitle(pathname: string): string {
+  const titles: Record<string, string> = {
+    "/": "Dashboard",
+    "/accounts": "Accounts",
+    "/settings": "Settings",
+    "/wallets": "Wallets",
+    "/history": "History",
+    "/analytics": "Analytics",
+  };
+  
+  // Check for exact match first
+  if (titles[pathname]) {
+    return titles[pathname];
+  }
+  
+  // Check for partial matches (e.g., /accounts/123)
+  for (const [path, title] of Object.entries(titles)) {
+    if (pathname.startsWith(path) && path !== "/") {
+      return title;
+    }
+  }
+  
+  return "Dashboard";
+}
 
 interface User {
   id: string;
@@ -36,6 +62,9 @@ function getAvatarColor(username: string): string {
 }
 
 export default function Navbar({ user }: NavbarProps) {
+  const location = useLocation();
+  const pageTitle = getPageTitle(location.pathname);
+
   return (
     <div className="z-40 flex h-14 lg:h-16 shrink-0 items-center gap-x-3 sm:gap-x-4 px-1 sm:px-4 lg:px-8">
       <div className="flex justify-between items-center w-full">
@@ -44,7 +73,7 @@ export default function Navbar({ user }: NavbarProps) {
           <div className="lg:hidden">
             <Logo size="sm" />
           </div>
-          <h2 className="hidden lg:block text-white text-2xl font-semibold">Dashboard</h2>
+          <h2 className="hidden lg:block text-white text-2xl font-semibold">{pageTitle}</h2>
         </div>
 
         {/* Action items */}
