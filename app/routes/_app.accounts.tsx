@@ -3,7 +3,7 @@ import { json } from "@remix-run/node";
 import { Form, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
 import { Plus, Trash2, Wallet, Bitcoin } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Button, Input, FormField, Alert, Card, Badge } from "~/components/ui";
+import { Button, Input, FormField, Alert, Card } from "~/components/ui";
 import { requireAuth } from "~/lib/auth";
 import { prisma } from "~/lib/db.server";
 import { detectWalletNetwork } from "~/lib/wallet.server";
@@ -17,6 +17,7 @@ export const meta: MetaFunction = () => {
 };
 
 export async function loader({ request }: LoaderFunctionArgs) {
+  // Auth is already handled by _app.tsx layout, but we need the user for the query
   const user = await requireAuth(request);
 
   const wallets = await prisma.wallet.findMany({
@@ -24,7 +25,22 @@ export async function loader({ request }: LoaderFunctionArgs) {
     orderBy: { createdAt: "desc" },
   });
 
-  return json({ user, wallets });
+  return json({ wallets });
+}
+
+// Badge component for network display
+function NetworkBadge({ network }: { network: string }) {
+  const colors: Record<string, string> = {
+    bitcoin: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+    ethereum: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
+    solana: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+  };
+  
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded-full border ${colors[network] || "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"}`}>
+      {getNetworkDisplayName(network as WalletNetwork)}
+    </span>
+  );
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -117,19 +133,6 @@ function NetworkIcon({ network }: { network: string }) {
       );
     default:
       return <Wallet className="h-5 w-5 text-zinc-500" />;
-  }
-}
-
-function getNetworkColor(network: string): string {
-  switch (network) {
-    case "bitcoin":
-      return "bg-orange-500/10 text-orange-400 border-orange-500/20";
-    case "ethereum":
-      return "bg-indigo-500/10 text-indigo-400 border-indigo-500/20";
-    case "solana":
-      return "bg-purple-500/10 text-purple-400 border-purple-500/20";
-    default:
-      return "bg-zinc-500/10 text-zinc-400 border-zinc-500/20";
   }
 }
 
@@ -243,9 +246,7 @@ export default function AccountsPage() {
                               {formatAddress(wallet.address)}
                             </span>
                           )}
-                          <span className={`text-xs px-2 py-0.5 rounded-full border ${getNetworkColor(wallet.network)}`}>
-                            {getNetworkDisplayName(wallet.network as WalletNetwork)}
-                          </span>
+                          <NetworkBadge network={wallet.network} />
                         </div>
                         {wallet.name && (
                           <span className="font-mono text-xs text-zinc-500">
