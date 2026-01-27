@@ -8,7 +8,7 @@ declare global {
 }
 
 // Prisma 7 with prisma.config.ts handles the datasource URL automatically
-const createPrismaClient = () => new PrismaClient();
+const createPrismaClient = () => new PrismaClient({});
 
 // This is needed because in development we don't want to restart
 // the server with every change, but we want to make sure we don't
