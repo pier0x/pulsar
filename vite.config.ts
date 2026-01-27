@@ -23,4 +23,8 @@ export default defineConfig({
     }),
     tsconfigPaths(),
   ],
+  ssr: {
+    // Don't externalize the generated Prisma client
+    noExternal: [/generated\/prisma/],
+  },
 });

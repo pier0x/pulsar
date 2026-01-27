@@ -1,5 +1,4 @@
-import pkg from "@prisma/client";
-const { PrismaClient } = pkg;
+import { PrismaClient } from "../../generated/prisma/client.js";
 
 let prisma: PrismaClient;
 
@@ -8,7 +7,7 @@ declare global {
   var __db__: PrismaClient | undefined;
 }
 
-// Use @prisma/client directly - it reads DATABASE_URL from environment
+// Prisma 7 generated client
 const createPrismaClient = () => new PrismaClient();
 
 // This is needed because in development we don't want to restart
