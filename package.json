@@ -7,9 +7,9 @@
   "scripts": {
     "setup": "./scripts/setup.sh",
     "dev": "remix vite:dev",
-    "build": "bunx prisma generate && bunx prisma migrate deploy && remix vite:build",
+    "build": "bunx prisma generate && remix vite:build",
     "postinstall": "bunx prisma generate",
-    "start": "remix-serve ./build/server/index.js",
+    "start": "bunx prisma migrate deploy && remix-serve ./build/server/index.js",
     "lint": "eslint",
     "typecheck": "tsc",
     "prisma:generate": "bunx prisma generate",
