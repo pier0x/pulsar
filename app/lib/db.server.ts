@@ -8,7 +8,9 @@ declare global {
 }
 
 const createPrismaClient = () => {
-  return new PrismaClient();
+  return new PrismaClient({
+    datasourceUrl: process.env.DATABASE_URL,
+  });
 };
 
 // This is needed because in development we don't want to restart
