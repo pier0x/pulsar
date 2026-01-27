@@ -3,7 +3,7 @@ import { json, redirect } from "@remix-run/node";
 import { Form, useActionData, useNavigation } from "@remix-run/react";
 import { motion } from "framer-motion";
 import { Button, Input, Select, SelectOption, FormField, Alert, Card } from "~/components/ui";
-import { setSettings, SettingKeys } from "~/lib/settings.server";
+import { setSettings, setSetupStep, SettingKeys } from "~/lib/settings.server";
 import { requireSetupStep } from "~/lib/setup.server";
 import { SetupSteps, TOTAL_SETUP_STEPS } from "~/lib/setup";
 
@@ -56,6 +56,7 @@ export async function action({ request }: ActionFunctionArgs) {
   });
 
   // Move to API keys step
+  await setSetupStep(SetupSteps.API_KEYS);
   return redirect("/setup/api-keys");
 }
 
