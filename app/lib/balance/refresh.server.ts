@@ -441,10 +441,20 @@ export async function getWalletSnapshots(
  * Get aggregate portfolio data across all wallets
  */
 export async function getPortfolioSummary(userId: string) {
-  // Get all wallets for user
+  // Get all wallets for user with their latest snapshot
   const wallets = await prisma.wallet.findMany({
     where: { userId },
-    select: { id: true },
+    select: { 
+      id: true,
+      snapshots: {
+        orderBy: { timestamp: "desc" },
+        take: 1,
+        select: {
+          totalUsdValue: true,
+          timestamp: true,
+        },
+      },
+    },
   });
 
   if (wallets.length === 0) {
@@ -455,30 +465,20 @@ export async function getPortfolioSummary(userId: string) {
     };
   }
 
-  // Get latest snapshot for each wallet
-  const walletIds = wallets.map((w) => w.id);
-  
-  const latestSnapshots = await prisma.$queryRaw<
-    Array<{ walletId: string; totalUsdValue: number; timestamp: Date }>
-  >`
-    SELECT bs.walletId, bs.totalUsdValue, bs.timestamp
-    FROM BalanceSnapshot bs
-    INNER JOIN (
-      SELECT walletId, MAX(timestamp) as maxTime
-      FROM BalanceSnapshot
-      WHERE walletId IN (${walletIds.join(",")})
-      GROUP BY walletId
-    ) latest ON bs.walletId = latest.walletId AND bs.timestamp = latest.maxTime
-  `;
+  // Calculate totals from latest snapshots
+  let totalUsdValue = 0;
+  let lastUpdated: Date | null = null;
 
-  const totalUsdValue = latestSnapshots.reduce(
-    (sum, s) => sum + Number(s.totalUsdValue),
-    0
-  );
-  
-  const lastUpdated = latestSnapshots.length > 0
-    ? new Date(Math.max(...latestSnapshots.map((s) => s.timestamp.getTime())))
-    : null;
+  for (const wallet of wallets) {
+    const latestSnapshot = wallet.snapshots[0];
+    if (latestSnapshot) {
+      totalUsdValue += Number(latestSnapshot.totalUsdValue);
+      const snapshotTime = new Date(latestSnapshot.timestamp);
+      if (!lastUpdated || snapshotTime > lastUpdated) {
+        lastUpdated = snapshotTime;
+      }
+    }
+  }
 
   return {
     totalUsdValue,
