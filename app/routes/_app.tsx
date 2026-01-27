@@ -1,6 +1,17 @@
+import type { LoaderFunctionArgs } from "@remix-run/node";
 import { Outlet } from "@remix-run/react";
 import Sidebar from "~/components/layout/sidebar";
 import Navbar from "~/components/layout/navbar";
+import { requireSetupComplete } from "~/lib/setup.server";
+import { requireAuth } from "~/lib/auth";
+
+export async function loader({ request }: LoaderFunctionArgs) {
+  // First check if setup is complete - redirects to /setup if not
+  await requireSetupComplete();
+  // Then check if user is authenticated - redirects to /auth/login if not
+  await requireAuth(request);
+  return null;
+}
 
 export default function AppLayout() {
   return (
