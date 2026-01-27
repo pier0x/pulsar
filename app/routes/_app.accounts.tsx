@@ -143,7 +143,7 @@ export default function AccountsPage() {
   const isSubmitting = navigation.state === "submitting";
 
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
+    <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-3">
       {/* Add Wallet Card */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -229,28 +229,28 @@ export default function AccountsPage() {
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
                     transition={{ duration: 0.3, delay: index * 0.05 }}
-                    className="flex items-center justify-between p-4 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 transition-colors"
+                    className="flex items-center justify-between p-3 sm:p-4 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 transition-colors gap-3"
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-zinc-900 flex items-center justify-center">
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-900 flex items-center justify-center shrink-0">
                         <NetworkIcon network={wallet.network} />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
                           {wallet.name ? (
-                            <span className="font-medium text-white">
+                            <span className="font-medium text-white text-sm sm:text-base truncate">
                               {wallet.name}
                             </span>
                           ) : (
-                            <span className="font-mono text-sm text-white">
+                            <span className="font-mono text-xs sm:text-sm text-white truncate">
                               {formatAddress(wallet.address)}
                             </span>
                           )}
                           <NetworkBadge network={wallet.network} />
                         </div>
                         {wallet.name && (
-                          <span className="font-mono text-xs text-zinc-500">
-                            {formatAddress(wallet.address, 8, 6)}
+                          <span className="font-mono text-[10px] sm:text-xs text-zinc-500 truncate block">
+                            {formatAddress(wallet.address, 6, 4)}
                           </span>
                         )}
                       </div>

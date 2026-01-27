@@ -96,27 +96,27 @@ export default function Index() {
   const wallets = sampleWallets;
 
   return (
-    <div className="grid gap-5 grid-cols-6 w-full">
+    <div className="grid gap-4 sm:gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-6 w-full">
       {/* Row 1: Portfolio Value Chart + Stacked Cards */}
-      <div className="col-span-4 min-h-[360px]">
+      <div className="col-span-1 md:col-span-2 lg:col-span-4 min-h-[280px] sm:min-h-[320px] lg:min-h-[360px]">
         <PortfolioValueChart
           data={historicalData}
           currentValue={`$${currentValue.toLocaleString()}`}
           changePercent={changePercent}
         />
       </div>
-      <div className="col-span-2 min-h-[360px]">
+      <div className="col-span-1 md:col-span-2 lg:col-span-2 min-h-[320px] lg:min-h-[360px]">
         <StackedCards wallets={wallets} />
       </div>
 
       {/* Row 2: Portfolio Breakdown + Top Gainers + Top Losers */}
-      <div className="col-span-2">
+      <div className="col-span-1 md:col-span-2 lg:col-span-2">
         <PortfolioBreakdown data={breakdownData} />
       </div>
-      <div className="col-span-2">
+      <div className="col-span-1 lg:col-span-2">
         <TopMovers title="Top Gainers" items={topGainers} type="gainers" />
       </div>
-      <div className="col-span-2">
+      <div className="col-span-1 lg:col-span-2">
         <TopMovers title="Top Losers" items={topLosers} type="losers" />
       </div>
     </div>

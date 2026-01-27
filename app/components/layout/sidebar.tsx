@@ -1,7 +1,7 @@
 import { NavLink } from "@remix-run/react";
 import { HomeIcon, WalletIcon, Cog6ToothIcon } from "@heroicons/react/24/outline";
 import { cn } from "~/lib/utils";
-import Logo from "../ui/logo";
+import { Logo } from "../ui";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: HomeIcon },

@@ -44,18 +44,18 @@ export function PortfolioValueChart({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
       className={cn(
-        "rounded-2xl bg-zinc-900 border border-zinc-800 p-6 h-full",
+        "rounded-2xl bg-zinc-900 border border-zinc-800 p-4 sm:p-6 h-full",
         className
       )}
     >
       {/* Header */}
-      <div className="space-y-1 mb-6">
-        <p className="text-zinc-500 text-sm">Portfolio Value</p>
+      <div className="space-y-1 mb-4 sm:mb-6">
+        <p className="text-zinc-500 text-xs sm:text-sm">Portfolio Value</p>
         <motion.h2
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2, duration: 0.4 }}
-          className="text-3xl font-bold text-white"
+          className="text-2xl sm:text-3xl font-bold text-white"
         >
           {currentValue}
         </motion.h2>
@@ -83,7 +83,7 @@ export function PortfolioValueChart({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.4, duration: 0.6 }}
-        className="h-48"
+        className="h-32 sm:h-40 lg:h-48"
       >
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart

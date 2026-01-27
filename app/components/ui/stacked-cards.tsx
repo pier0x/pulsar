@@ -143,7 +143,7 @@ export function StackedCards({ wallets, className }: StackedCardsProps) {
                   }}
                 >
                   {/* Card header with chain and address */}
-                  <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
+                  <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b border-zinc-800">
                     <div className="flex items-center gap-2">
                       <span
                         className={cn(
@@ -151,11 +151,11 @@ export function StackedCards({ wallets, className }: StackedCardsProps) {
                           getChainColor(wallet.chain)
                         )}
                       />
-                      <span className="text-zinc-400 text-sm capitalize">
+                      <span className="text-zinc-400 text-xs sm:text-sm capitalize">
                         {wallet.chain}
                       </span>
                     </div>
-                    <span className="text-zinc-500 text-sm font-mono">
+                    <span className="text-zinc-500 text-xs sm:text-sm font-mono">
                       {truncateAddress(wallet.address)}
                     </span>
                   </div>
@@ -166,20 +166,20 @@ export function StackedCards({ wallets, className }: StackedCardsProps) {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.1, duration: 0.2 }}
-                      className="px-5 py-5 space-y-4"
+                      className="px-4 sm:px-5 py-4 sm:py-5 space-y-3 sm:space-y-4"
                     >
                       <div className="space-y-1">
-                        <h3 className="text-xl font-semibold text-white">
+                        <h3 className="text-lg sm:text-xl font-semibold text-white">
                           {wallet.name}
                         </h3>
-                        <p className="text-zinc-500 text-sm">Wallet</p>
+                        <p className="text-zinc-500 text-xs sm:text-sm">Wallet</p>
                       </div>
 
                       <div className="space-y-1">
-                        <p className="text-2xl font-bold text-white">
+                        <p className="text-xl sm:text-2xl font-bold text-white">
                           {wallet.balanceUsd}
                         </p>
-                        <p className="text-zinc-400 text-sm">{wallet.balance}</p>
+                        <p className="text-zinc-400 text-xs sm:text-sm">{wallet.balance}</p>
                       </div>
                     </motion.div>
                   )}

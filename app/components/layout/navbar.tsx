@@ -2,6 +2,7 @@ import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { Form } from "@remix-run/react";
 import { BellIcon } from "@heroicons/react/24/outline";
 import { ChevronDownIcon, UserCircleIcon } from "@heroicons/react/20/solid";
+import { Logo } from "../ui";
 
 interface User {
   id: string;
@@ -36,27 +37,30 @@ function getAvatarColor(username: string): string {
 
 export default function Navbar({ user }: NavbarProps) {
   return (
-    <div className="z-40 flex h-16 shrink-0 items-center gap-x-4 px-4 sm:gap-x-6 sm:px-6 lg:px-8">
-      <div className="flex justify-between w-full">
-        {/* Title */}
-        <div>
-          <h2 className="text-white text-2xl font-semibold">Dashboard</h2>
+    <div className="z-40 flex h-14 lg:h-16 shrink-0 items-center gap-x-3 sm:gap-x-4 px-1 sm:px-4 lg:px-8">
+      <div className="flex justify-between items-center w-full">
+        {/* Logo on mobile, Title on desktop */}
+        <div className="flex items-center gap-3">
+          <div className="lg:hidden">
+            <Logo size="sm" />
+          </div>
+          <h2 className="hidden lg:block text-white text-2xl font-semibold">Dashboard</h2>
         </div>
 
         {/* Action items */}
-        <div className="flex items-center gap-x-4 lg:gap-x-6">
+        <div className="flex items-center gap-x-2 sm:gap-x-4 lg:gap-x-6">
           <button
             type="button"
-            className="-m-2.5 p-2.5 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+            className="-m-2 p-2 text-zinc-400 hover:text-white transition-colors cursor-pointer"
           >
             <span className="sr-only">View notifications</span>
-            <BellIcon aria-hidden="true" className="size-6" />
+            <BellIcon aria-hidden="true" className="size-5 sm:size-6" />
           </button>
 
           {/* Separator */}
           <div
             aria-hidden="true"
-            className="hidden lg:block lg:h-6 lg:w-px lg:bg-zinc-700"
+            className="hidden sm:block h-5 sm:h-6 w-px bg-zinc-700"
           />
 
           {/* Profile dropdown */}
@@ -67,18 +71,18 @@ export default function Navbar({ user }: NavbarProps) {
                 <img
                   src={user.avatarUrl}
                   alt={user.username}
-                  className="size-9 rounded-full shrink-0 object-cover"
+                  className="size-8 sm:size-9 rounded-full shrink-0 object-cover"
                 />
               ) : (
                 <div
-                  className={`size-9 rounded-full ${getAvatarColor(user.username)} flex items-center justify-center shrink-0`}
+                  className={`size-8 sm:size-9 rounded-full ${getAvatarColor(user.username)} flex items-center justify-center shrink-0`}
                 >
-                  <span className="text-sm font-semibold text-white">
+                  <span className="text-xs sm:text-sm font-semibold text-white">
                     {getInitials(user.username)}
                   </span>
                 </div>
               )}
-              <span className="hidden lg:flex lg:items-center">
+              <span className="hidden sm:flex sm:items-center">
                 <span
                   aria-hidden="true"
                   className="ml-3 text-sm font-semibold text-white group-hover:text-zinc-300 transition-colors"

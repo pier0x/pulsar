@@ -88,18 +88,18 @@ export function PortfolioBreakdown({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
       className={cn(
-        "rounded-2xl bg-zinc-900 border border-zinc-800 p-6 h-full",
+        "rounded-2xl bg-zinc-900 border border-zinc-800 p-4 sm:p-6 h-full",
         className
       )}
     >
       {/* Header */}
-      <div className="mb-6">
-        <p className="text-zinc-500 text-sm">Portfolio Breakdown</p>
+      <div className="mb-4 sm:mb-6">
+        <p className="text-zinc-500 text-xs sm:text-sm">Portfolio Breakdown</p>
         <motion.p
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2, duration: 0.4 }}
-          className="text-2xl font-bold text-white mt-1"
+          className="text-xl sm:text-2xl font-bold text-white mt-1"
         >
           ${total.toLocaleString()}
         </motion.p>
@@ -111,7 +111,7 @@ export function PortfolioBreakdown({
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="w-40 h-40 shrink-0"
+          className="w-32 h-32 sm:w-40 sm:h-40 shrink-0"
         >
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>

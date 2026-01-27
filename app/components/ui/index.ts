@@ -19,7 +19,7 @@ export {
 
 // Display components
 export { Badge, badgeVariants } from "./badge";
-export { Logo } from "./logo";
+export { default as Logo } from "./logo";
 
 // Dashboard components
 export { PortfolioValueChart } from "./portfolio-value-chart";
