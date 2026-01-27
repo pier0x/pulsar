@@ -30,8 +30,7 @@ import type {
   RefreshResult,
   TokenData,
 } from "./types";
-import { Prisma } from "~/generated/prisma";
-const Decimal = Prisma.Decimal;
+// Prisma handles Decimal conversion automatically for PostgreSQL
 
 /**
  * Format raw balance to human-readable number
@@ -308,10 +307,10 @@ export async function refreshAllWallets(
         data: {
           walletId,
           nativeBalance: data.nativeBalance,
-          nativeBalanceUsd: new Decimal(data.nativeBalanceUsd),
-          nativePriceUsd: new Decimal(data.nativePriceUsd),
-          tokensUsdValue: new Decimal(data.tokensUsdValue),
-          totalUsdValue: new Decimal(data.totalUsdValue),
+          nativeBalanceUsd: data.nativeBalanceUsd,
+          nativePriceUsd: data.nativePriceUsd,
+          tokensUsdValue: data.tokensUsdValue,
+          totalUsdValue: data.totalUsdValue,
           tokenSnapshots: {
             create: data.tokens.map((token) => ({
               contractAddress: token.contractAddress,
@@ -320,8 +319,8 @@ export async function refreshAllWallets(
               decimals: token.decimals,
               logoUrl: token.logoUrl,
               balance: token.balance,
-              balanceUsd: new Decimal(token.balanceUsd),
-              priceUsd: new Decimal(token.priceUsd),
+              balanceUsd: token.balanceUsd,
+              priceUsd: token.priceUsd,
             })),
           },
         },
@@ -389,10 +388,10 @@ export async function refreshSingleWallet(walletId: string): Promise<WalletFetch
       data: {
         walletId,
         nativeBalance: result.data.nativeBalance,
-        nativeBalanceUsd: new Decimal(result.data.nativeBalanceUsd),
-        nativePriceUsd: new Decimal(result.data.nativePriceUsd),
-        tokensUsdValue: new Decimal(result.data.tokensUsdValue),
-        totalUsdValue: new Decimal(result.data.totalUsdValue),
+        nativeBalanceUsd: result.data.nativeBalanceUsd,
+        nativePriceUsd: result.data.nativePriceUsd,
+        tokensUsdValue: result.data.tokensUsdValue,
+        totalUsdValue: result.data.totalUsdValue,
         tokenSnapshots: {
           create: result.data.tokens.map((token) => ({
             contractAddress: token.contractAddress,
@@ -401,8 +400,8 @@ export async function refreshSingleWallet(walletId: string): Promise<WalletFetch
             decimals: token.decimals,
             logoUrl: token.logoUrl,
             balance: token.balance,
-            balanceUsd: new Decimal(token.balanceUsd),
-            priceUsd: new Decimal(token.priceUsd),
+            balanceUsd: token.balanceUsd,
+            priceUsd: token.priceUsd,
           })),
         },
       },
