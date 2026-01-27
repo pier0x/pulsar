@@ -22,6 +22,69 @@ A portfolio tracker that anyone can deploy on their own infrastructure — no ac
 - Prisma + SQLite (Better-SQLite3 adapter) for storage
 - bcrypt for password hashing
 
+## Design System
+
+**The homepage dashboard is the reference design.** All pages should follow this style.
+
+### Core Principles
+
+- **Dark theme only** — zinc-900 base background
+- **Consistent card styling** — rounded-2xl, zinc-900 bg, zinc-800 borders
+- **Subtle animations** — framer-motion for smooth transitions
+- **Spacious layout** — generous padding (p-5, p-6)
+
+### Color Palette
+
+```
+Background:     bg-zinc-900
+Card bg:        bg-zinc-900
+Card border:    border-zinc-800
+Text primary:   text-white
+Text secondary: text-zinc-400
+Text muted:     text-zinc-500
+Input bg:       bg-zinc-800 or bg-zinc-800/50
+Input border:   border-zinc-700
+Accent/CTA:     bg-blue-600 hover:bg-blue-500
+Success:        text-emerald-400, bg-emerald-500
+Error:          text-red-400, bg-red-500
+```
+
+### Card Pattern
+
+```tsx
+<div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-6">
+  {/* Header */}
+  <div className="space-y-1 mb-6">
+    <p className="text-zinc-500 text-sm">Label</p>
+    <h2 className="text-2xl font-bold text-white">Title</h2>
+  </div>
+  {/* Content */}
+</div>
+```
+
+### Form Inputs
+
+```tsx
+<input className="w-full h-11 px-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600" />
+```
+
+### Buttons
+
+```tsx
+// Primary
+<button className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors">
+
+// Secondary
+<button className="w-full h-11 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-medium transition-colors">
+```
+
+### Typography
+
+- Page titles: `text-2xl font-bold text-white`
+- Section labels: `text-zinc-500 text-sm`
+- Body text: `text-zinc-400`
+- Links: `text-blue-400 hover:text-blue-300`
+
 ## Package Manager
 
 **Always use `bun`** — never use npm, yarn, or pnpm.

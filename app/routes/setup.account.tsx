@@ -1,16 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { Form, useActionData, useNavigation } from "@remix-run/react";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
+import { motion } from "framer-motion";
 import { register } from "~/lib/auth";
 import { setSetupStep } from "~/lib/settings.server";
 import { requireSetupStep } from "~/lib/setup.server";
@@ -76,92 +67,102 @@ export default function SetupAccountPage() {
   const isSubmitting = navigation.state === "submitting";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="text-sm text-muted-foreground mb-2">
-            Step 1 of {TOTAL_SETUP_STEPS}
+    <div className="min-h-screen flex items-center justify-center bg-zinc-900 p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="w-full max-w-md"
+      >
+        <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-8">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <p className="text-zinc-500 text-sm mb-2">
+              Step 1 of {TOTAL_SETUP_STEPS}
+            </p>
+            <h1 className="text-2xl font-bold text-white mb-2">
+              Create Admin Account
+            </h1>
+            <p className="text-zinc-400 text-sm">
+              Set up your administrator account to manage Pulsar
+            </p>
           </div>
-          <CardTitle className="text-2xl">Create Admin Account</CardTitle>
-          <CardDescription>
-            Set up your administrator account to manage Pulsar
-          </CardDescription>
-        </CardHeader>
 
-        <Form method="post">
-          <CardContent className="space-y-4">
+          <Form method="post" className="space-y-5">
             {actionData?.error && (
-              <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-4 rounded-xl"
+              >
                 {actionData.error}
-              </div>
+              </motion.div>
             )}
 
             <div className="space-y-2">
               <label
                 htmlFor="username"
-                className="text-sm font-medium text-foreground"
+                className="text-sm font-medium text-zinc-300"
               >
                 Username
               </label>
-              <Input
+              <input
                 id="username"
                 name="username"
                 type="text"
                 autoComplete="username"
                 required
                 placeholder="Choose a username"
-                className="h-11"
+                className="w-full h-11 px-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 transition-colors"
               />
             </div>
 
             <div className="space-y-2">
               <label
                 htmlFor="password"
-                className="text-sm font-medium text-foreground"
+                className="text-sm font-medium text-zinc-300"
               >
                 Password
               </label>
-              <Input
+              <input
                 id="password"
                 name="password"
                 type="password"
                 autoComplete="new-password"
                 required
                 placeholder="Choose a strong password"
-                className="h-11"
+                className="w-full h-11 px-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 transition-colors"
               />
             </div>
 
             <div className="space-y-2">
               <label
                 htmlFor="confirmPassword"
-                className="text-sm font-medium text-foreground"
+                className="text-sm font-medium text-zinc-300"
               >
                 Confirm Password
               </label>
-              <Input
+              <input
                 id="confirmPassword"
                 name="confirmPassword"
                 type="password"
                 autoComplete="new-password"
                 required
                 placeholder="Confirm your password"
-                className="h-11"
+                className="w-full h-11 px-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 transition-colors"
               />
             </div>
-          </CardContent>
 
-          <CardFooter>
-            <Button
+            <button
               type="submit"
-              className="w-full h-11"
               disabled={isSubmitting}
+              className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium transition-colors mt-2"
             >
               {isSubmitting ? "Creating account..." : "Continue"}
-            </Button>
-          </CardFooter>
-        </Form>
-      </Card>
+            </button>
+          </Form>
+        </div>
+      </motion.div>
     </div>
   );
 }
