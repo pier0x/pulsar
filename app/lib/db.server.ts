@@ -1,10 +1,11 @@
-import { PrismaClient } from "../../generated/prisma/client.js";
+// Use require to avoid ESM bundling issues with Prisma
+const { PrismaClient } = require("../../generated/prisma/client.js");
 
-let prisma: PrismaClient;
+let prisma: InstanceType<typeof PrismaClient>;
 
 declare global {
   // eslint-disable-next-line no-var
-  var __db__: PrismaClient | undefined;
+  var __db__: InstanceType<typeof PrismaClient> | undefined;
 }
 
 // Prisma 7 generated client
