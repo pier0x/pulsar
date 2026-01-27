@@ -7,15 +7,8 @@ declare global {
   var __db__: PrismaClient | undefined;
 }
 
-const createPrismaClient = () => {
-  return new PrismaClient({
-    datasources: {
-      db: {
-        url: process.env.DATABASE_URL,
-      },
-    },
-  });
-};
+// Prisma 7 with prisma.config.ts handles the datasource URL automatically
+const createPrismaClient = () => new PrismaClient();
 
 // This is needed because in development we don't want to restart
 // the server with every change, but we want to make sure we don't
