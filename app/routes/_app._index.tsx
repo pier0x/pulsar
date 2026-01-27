@@ -44,30 +44,40 @@ const sampleWallets: WalletData[] = [
   },
 ];
 
-// Generate sample historical data for the past 30 days
-const generateHistoricalData = (): PortfolioDataPoint[] => {
-  const data: PortfolioDataPoint[] = [];
-  const now = new Date();
-  let value = 28000;
+// Static historical data for the past 30 days (avoids hydration mismatch from Math.random)
+const historicalData: PortfolioDataPoint[] = [
+  { date: "Dec 28", value: 28000 },
+  { date: "Dec 29", value: 28450 },
+  { date: "Dec 30", value: 27890 },
+  { date: "Dec 31", value: 28920 },
+  { date: "Jan 1", value: 29340 },
+  { date: "Jan 2", value: 28750 },
+  { date: "Jan 3", value: 29180 },
+  { date: "Jan 4", value: 30250 },
+  { date: "Jan 5", value: 29870 },
+  { date: "Jan 6", value: 30420 },
+  { date: "Jan 7", value: 31050 },
+  { date: "Jan 8", value: 30680 },
+  { date: "Jan 9", value: 31290 },
+  { date: "Jan 10", value: 30890 },
+  { date: "Jan 11", value: 31450 },
+  { date: "Jan 12", value: 32100 },
+  { date: "Jan 13", value: 31680 },
+  { date: "Jan 14", value: 32350 },
+  { date: "Jan 15", value: 31920 },
+  { date: "Jan 16", value: 32580 },
+  { date: "Jan 17", value: 33120 },
+  { date: "Jan 18", value: 32750 },
+  { date: "Jan 19", value: 33480 },
+  { date: "Jan 20", value: 32980 },
+  { date: "Jan 21", value: 33650 },
+  { date: "Jan 22", value: 34200 },
+  { date: "Jan 23", value: 33780 },
+  { date: "Jan 24", value: 34520 },
+  { date: "Jan 25", value: 34150 },
+  { date: "Jan 26", value: 34863 },
+];
 
-  for (let i = 29; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-
-    // Add some realistic variance
-    const change = (Math.random() - 0.45) * 1500;
-    value = Math.max(20000, value + change);
-
-    data.push({
-      date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      value: Math.round(value),
-    });
-  }
-
-  return data;
-};
-
-const historicalData = generateHistoricalData();
 const currentValue = historicalData[historicalData.length - 1].value;
 const startValue = historicalData[0].value;
 const changePercent = ((currentValue - startValue) / startValue) * 100;
