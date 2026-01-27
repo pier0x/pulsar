@@ -2,6 +2,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remi
 import { json, redirect } from "@remix-run/node";
 import { Form, useActionData, useNavigation } from "@remix-run/react";
 import { motion } from "framer-motion";
+import { Button, Input, FormField, Alert, Card } from "~/components/ui";
 import { register } from "~/lib/auth";
 import { setSetupStep } from "~/lib/settings.server";
 import { requireSetupStep } from "~/lib/setup.server";
@@ -74,7 +75,7 @@ export default function SetupAccountPage() {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="w-full max-w-md"
       >
-        <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-8">
+        <Card className="p-8">
           {/* Header */}
           <div className="text-center mb-8">
             <p className="text-zinc-500 text-sm mb-2">
@@ -90,78 +91,47 @@ export default function SetupAccountPage() {
 
           <Form method="post" className="space-y-5">
             {actionData?.error && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-4 rounded-xl"
-              >
-                {actionData.error}
-              </motion.div>
+              <Alert variant="error">{actionData.error}</Alert>
             )}
 
-            <div className="space-y-2">
-              <label
-                htmlFor="username"
-                className="text-sm font-medium text-zinc-300"
-              >
-                Username
-              </label>
-              <input
+            <FormField label="Username" htmlFor="username">
+              <Input
                 id="username"
                 name="username"
                 type="text"
                 autoComplete="username"
                 required
                 placeholder="Choose a username"
-                className="w-full h-11 px-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 transition-colors"
               />
-            </div>
+            </FormField>
 
-            <div className="space-y-2">
-              <label
-                htmlFor="password"
-                className="text-sm font-medium text-zinc-300"
-              >
-                Password
-              </label>
-              <input
+            <FormField label="Password" htmlFor="password">
+              <Input
                 id="password"
                 name="password"
                 type="password"
                 autoComplete="new-password"
                 required
                 placeholder="Choose a strong password"
-                className="w-full h-11 px-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 transition-colors"
               />
-            </div>
+            </FormField>
 
-            <div className="space-y-2">
-              <label
-                htmlFor="confirmPassword"
-                className="text-sm font-medium text-zinc-300"
-              >
-                Confirm Password
-              </label>
-              <input
+            <FormField label="Confirm Password" htmlFor="confirmPassword">
+              <Input
                 id="confirmPassword"
                 name="confirmPassword"
                 type="password"
                 autoComplete="new-password"
                 required
                 placeholder="Confirm your password"
-                className="w-full h-11 px-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 transition-colors"
               />
-            </div>
+            </FormField>
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium transition-colors mt-2"
-            >
+            <Button type="submit" disabled={isSubmitting} className="w-full mt-2">
               {isSubmitting ? "Creating account..." : "Continue"}
-            </button>
+            </Button>
           </Form>
-        </div>
+        </Card>
       </motion.div>
     </div>
   );

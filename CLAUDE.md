@@ -85,6 +85,62 @@ Error:          text-red-400, bg-red-500
 - Body text: `text-zinc-400`
 - Links: `text-blue-400 hover:text-blue-300`
 
+## Component Library
+
+All reusable UI components are in `app/components/ui/`. Import from the barrel file:
+
+```tsx
+import { Button, Input, Label, Select, FormField, Alert, Card, Badge } from "~/components/ui";
+```
+
+### Core Components
+
+| Component | Description | Usage |
+|-----------|-------------|-------|
+| `Button` | Primary action button | `<Button variant="default|secondary|ghost|outline">` |
+| `Input` | Text input field | `<Input type="text" placeholder="..." />` |
+| `Label` | Form field label | `<Label htmlFor="id">Label</Label>` |
+| `Select` | Dropdown select | `<Select><SelectOption value="x">X</SelectOption></Select>` |
+| `FormField` | Label + input + hint wrapper | `<FormField label="Name" hint="..."><Input /></FormField>` |
+| `Alert` | Status messages | `<Alert variant="error|success|warning">Message</Alert>` |
+| `Card` | Container card | `<Card>Content</Card>` |
+| `Badge` | Status badge | `<Badge variant="default|success|warning">Text</Badge>` |
+
+### Form Pattern
+
+```tsx
+<Form method="post" className="space-y-5">
+  {error && <Alert variant="error">{error}</Alert>}
+  
+  <FormField label="Email" htmlFor="email" hint="We'll never share your email">
+    <Input id="email" name="email" type="email" required placeholder="you@example.com" />
+  </FormField>
+  
+  <Button type="submit" className="w-full">Submit</Button>
+</Form>
+```
+
+### Page Layout Pattern
+
+```tsx
+<div className="min-h-screen flex items-center justify-center bg-zinc-900 p-4">
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="w-full max-w-md"
+  >
+    <Card className="p-8">
+      {/* Header */}
+      <div className="text-center mb-8">
+        <h1 className="text-2xl font-bold text-white mb-2">Title</h1>
+        <p className="text-zinc-400 text-sm">Description</p>
+      </div>
+      {/* Content */}
+    </Card>
+  </motion.div>
+</div>
+```
+
 ## Package Manager
 
 **Always use `bun`** — never use npm, yarn, or pnpm.
