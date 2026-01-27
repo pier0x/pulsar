@@ -13,12 +13,12 @@ datasource db {
 
 // User accounts for authentication
 model User {
-  id           String    @id @default(cuid())
-  username     String    @unique
+  id           String   @id @default(cuid())
+  username     String   @unique
   passwordHash String
-  avatarUrl    String?   // Random avatar from avatars.outpace.systems
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   sessions Session[]
   wallets  Wallet[]
@@ -38,6 +38,9 @@ model Session {
 }
 
 // Key-value settings storage
+// Keys: setupComplete, setupStep, appName, appTimezone,
+//       alchemyApiKey (encrypted), heliusApiKey (encrypted),
+//       refreshesPerDay, tokenThresholdUsd
 model Setting {
   id        String   @id @default(cuid())
   key       String   @unique
@@ -51,66 +54,100 @@ model Wallet {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name      String?  // Optional friendly name
-  network   String   // "bitcoin", "solana", "ethereum"
-  address   String   // Blockchain wallet address
+  name      String?
+  network   String   // "bitcoin", "ethereum", "arbitrum", "base", "polygon", "solana"
+  address   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  balance       Balance?
-  tokenBalances TokenBalance[]
+  snapshots BalanceSnapshot[]
 
   @@unique([userId, address])
   @@index([userId])
+  @@index([network])
 }
 
-// Native currency balance for a wallet (BTC, ETH, SOL)
-model Balance {
-  id        String   @id @default(cuid())
-  walletId  String   @unique
-  wallet    Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  amount    String   // Store as string to handle big numbers (smallest unit)
-  updatedAt DateTime @updatedAt
-}
-
-// Token metadata (ERC-20, SPL tokens)
-model Token {
-  id              String   @id @default(cuid())
-  network         String   // "ethereum", "solana"
-  contractAddress String   // Token contract/mint address
-  symbol          String
-  name            String
-  decimals        Int
-  logoUrl         String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  balances TokenBalance[]
-
-  @@unique([network, contractAddress])
-}
-
-// Token balance per wallet
-model TokenBalance {
+// Snapshot of wallet balance at a point in time
+// Only created if ALL fetches for this wallet succeed
+model BalanceSnapshot {
   id        String   @id @default(cuid())
   walletId  String
   wallet    Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  tokenId   String
-  token     Token    @relation(fields: [tokenId], references: [id], onDelete: Cascade)
-  amount    String   // String for big number precision (smallest unit)
-  updatedAt DateTime @updatedAt
+  timestamp DateTime @default(now())
 
-  @@unique([walletId, tokenId])
+  // Native balance (ETH, BTC, SOL, etc.)
+  nativeBalance    String  // Raw amount in smallest unit (wei, sats, lamports)
+  nativeBalanceUsd Decimal // USD value at snapshot time
+  nativePriceUsd   Decimal // Price used for calculation
+
+  // Aggregates
+  tokensUsdValue Decimal // Sum of all token values
+  totalUsdValue  Decimal // native + tokens
+
+  tokenSnapshots TokenSnapshot[]
+
   @@index([walletId])
-  @@index([tokenId])
+  @@index([walletId, timestamp])
+  @@index([timestamp])
 }
 
-// Track balance refresh job execution
-model BalanceRefreshJob {
-  id               String    @id @default(cuid())
-  status           String    // "running", "completed", "failed"
-  startedAt        DateTime  @default(now())
-  completedAt      DateTime?
-  walletsProcessed Int       @default(0)
-  errors           String?   // JSON array of error messages
+// Individual token balance within a snapshot
+model TokenSnapshot {
+  id         String          @id @default(cuid())
+  snapshotId String
+  snapshot   BalanceSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  contractAddress String
+  symbol          String
+  name            String?
+  decimals        Int
+  logoUrl         String?
+  balance         String  // Raw amount in smallest unit
+  balanceUsd      Decimal
+  priceUsd        Decimal // Price at snapshot time (for historical accuracy)
+
+  @@index([snapshotId])
+}
+
+// Log of refresh attempts (scheduled or manual)
+model RefreshLog {
+  id        String   @id @default(cuid())
+  timestamp DateTime @default(now())
+  trigger   String   // "scheduled", "manual"
+  status    String   // "success", "partial_failure", "complete_failure"
+
+  walletsAttempted Int
+  walletsSucceeded Int
+  walletsFailed    Int
+
+  durationMs Int?
+
+  errors RefreshError[]
+
+  @@index([timestamp])
+}
+
+// Individual errors during a refresh
+model RefreshError {
+  id           String     @id @default(cuid())
+  refreshLogId String
+  refreshLog   RefreshLog @relation(fields: [refreshLogId], references: [id], onDelete: Cascade)
+
+  walletId      String?
+  walletAddress String?
+  network       String
+  errorType     String  // "api_error", "timeout", "rate_limit", "parse_error", "price_error"
+  errorMessage  String
+  errorDetails  String? // JSON with full error context
+
+  @@index([refreshLogId])
+}
+
+// Rate limiting for manual refresh
+model RateLimit {
+  id         String   @id @default(cuid())
+  key        String   @unique // e.g., "refresh:manual"
+  lastAction DateTime
+  
+  @@index([key])
 }

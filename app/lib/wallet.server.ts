@@ -3,10 +3,28 @@
  */
 
 // Re-export client-safe utilities
-export { type WalletNetwork, formatAddress, getNetworkDisplayName } from "./wallet";
+export { 
+  type WalletNetwork, 
+  type AddressType,
+  formatAddress, 
+  getNetworkDisplayName,
+  getNetworkSymbol,
+  isEvmNetwork,
+  EVM_NETWORKS,
+  NETWORK_INFO,
+} from "./wallet";
 
-export interface WalletDetectionResult {
-  network: import("./wallet").WalletNetwork | null;
+import type { WalletNetwork, AddressType } from "./wallet";
+
+export interface AddressDetectionResult {
+  addressType: AddressType | null;
+  suggestedNetwork: WalletNetwork | null;
+  valid: boolean;
+  error?: string;
+}
+
+export interface WalletValidationResult {
+  network: WalletNetwork | null;
   valid: boolean;
   error?: string;
 }
@@ -46,10 +64,11 @@ function isBitcoinAddress(address: string): boolean {
 }
 
 /**
- * Detect if an address is a valid Ethereum (EVM) address
+ * Detect if an address is a valid EVM address
  * Format: 0x followed by 40 hex characters
+ * Works for Ethereum, Arbitrum, Base, Polygon, etc.
  */
-function isEthereumAddress(address: string): boolean {
+function isEvmAddress(address: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(address);
 }
 
@@ -68,30 +87,30 @@ function isSolanaAddress(address: string): boolean {
     return false;
   }
 
-  // Additional check: Solana addresses don't start with numbers typically
-  // and have a specific character distribution
   return true;
 }
 
 /**
- * Detect the network type of a wallet address
- * Returns the detected network or null if unknown
+ * Detect the address type (bitcoin, evm, solana)
+ * For EVM addresses, the specific network must be selected by the user
  */
-export function detectWalletNetwork(address: string): WalletDetectionResult {
+export function detectAddressType(address: string): AddressDetectionResult {
   const trimmedAddress = address.trim();
 
   if (!trimmedAddress) {
     return {
-      network: null,
+      addressType: null,
+      suggestedNetwork: null,
       valid: false,
       error: "Address is required",
     };
   }
 
-  // Check Ethereum first (most specific pattern with 0x prefix)
-  if (isEthereumAddress(trimmedAddress)) {
+  // Check EVM first (most specific pattern with 0x prefix)
+  if (isEvmAddress(trimmedAddress)) {
     return {
-      network: "ethereum",
+      addressType: "evm",
+      suggestedNetwork: "ethereum", // Default suggestion, user can change
       valid: true,
     };
   }
@@ -99,7 +118,8 @@ export function detectWalletNetwork(address: string): WalletDetectionResult {
   // Check Bitcoin (specific patterns)
   if (isBitcoinAddress(trimmedAddress)) {
     return {
-      network: "bitcoin",
+      addressType: "bitcoin",
+      suggestedNetwork: "bitcoin",
       valid: true,
     };
   }
@@ -107,14 +127,85 @@ export function detectWalletNetwork(address: string): WalletDetectionResult {
   // Check Solana (base58, specific length)
   if (isSolanaAddress(trimmedAddress)) {
     return {
-      network: "solana",
+      addressType: "solana",
+      suggestedNetwork: "solana",
       valid: true,
     };
   }
 
   return {
-    network: null,
+    addressType: null,
+    suggestedNetwork: null,
     valid: false,
-    error: "Unable to detect wallet type. Please enter a valid Bitcoin, Ethereum, or Solana address.",
+    error: "Unable to detect wallet type. Please enter a valid Bitcoin, EVM, or Solana address.",
+  };
+}
+
+/**
+ * Validate a wallet address for a specific network
+ */
+export function validateWalletForNetwork(address: string, network: WalletNetwork): WalletValidationResult {
+  const trimmedAddress = address.trim();
+  const detection = detectAddressType(trimmedAddress);
+
+  if (!detection.valid) {
+    return {
+      network: null,
+      valid: false,
+      error: detection.error,
+    };
+  }
+
+  // Check if the address type matches the selected network
+  const isEvm = ["ethereum", "arbitrum", "base", "polygon"].includes(network);
+  
+  if (network === "bitcoin" && detection.addressType !== "bitcoin") {
+    return {
+      network: null,
+      valid: false,
+      error: "This is not a valid Bitcoin address",
+    };
+  }
+
+  if (network === "solana" && detection.addressType !== "solana") {
+    return {
+      network: null,
+      valid: false,
+      error: "This is not a valid Solana address",
+    };
+  }
+
+  if (isEvm && detection.addressType !== "evm") {
+    return {
+      network: null,
+      valid: false,
+      error: `This is not a valid ${network} address`,
+    };
+  }
+
+  return {
+    network,
+    valid: true,
+  };
+}
+
+/**
+ * Legacy function for backwards compatibility
+ * Auto-detects network (defaults to ethereum for EVM addresses)
+ */
+export function detectWalletNetwork(address: string): WalletValidationResult {
+  const detection = detectAddressType(address);
+  
+  if (!detection.valid) {
+    return {
+      network: null,
+      valid: false,
+      error: detection.error,
+    };
+  }
+
+  return {
+    network: detection.suggestedNetwork,
+    valid: true,
   };
 }
