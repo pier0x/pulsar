@@ -30,7 +30,8 @@ import type {
   RefreshResult,
   TokenData,
 } from "./types";
-import { Decimal } from "~/generated/prisma/runtime/library";
+import { Prisma } from "~/generated/prisma";
+const Decimal = Prisma.Decimal;
 
 /**
  * Format raw balance to human-readable number
