@@ -1,4 +1,4 @@
-import { PrismaClient } from "../../generated/prisma/client";
+import { PrismaClient } from "@prisma/client";
 
 let prisma: PrismaClient;
 
@@ -7,8 +7,8 @@ declare global {
   var __db__: PrismaClient | undefined;
 }
 
-// Prisma 7 with prisma.config.ts handles the datasource URL automatically
-const createPrismaClient = () => new PrismaClient({});
+// Use @prisma/client directly - it reads DATABASE_URL from environment
+const createPrismaClient = () => new PrismaClient();
 
 // This is needed because in development we don't want to restart
 // the server with every change, but we want to make sure we don't
