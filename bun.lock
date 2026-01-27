@@ -7,13 +7,11 @@
       "dependencies": {
         "@headlessui/react": "^2.2.9",
         "@heroicons/react": "^2.2.0",
-        "@prisma/adapter-better-sqlite3": "^7.0.1",
         "@radix-ui/react-slot": "^1.2.4",
         "@remix-run/node": "^2.16.0",
         "@remix-run/react": "^2.16.0",
         "@remix-run/serve": "^2.16.0",
         "bcrypt": "^6.0.0",
-        "better-sqlite3": "^12.5.0",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "dotenv": "^17.2.3",
@@ -31,7 +29,6 @@
         "@remix-run/dev": "^2.16.0",
         "@tailwindcss/vite": "^4.0.0",
         "@types/bcrypt": "^6.0.0",
-        "@types/better-sqlite3": "^7.6.13",
         "@types/node": "^20",
         "@types/node-cron": "^3.0.11",
         "@types/react": "^18",
@@ -245,8 +242,6 @@
 
     "@pkgjs/parseargs": ["@pkgjs/parseargs@0.11.0", "", {}, "sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg=="],
 
-    "@prisma/adapter-better-sqlite3": ["@prisma/adapter-better-sqlite3@7.0.1", "", { "dependencies": { "@prisma/driver-adapter-utils": "7.0.1", "better-sqlite3": "^12.4.5" } }, "sha512-fgnn+lkUV/7pUvPnQSI/ZHONwGU+eisWqU6tvBFGK2ovgBUAJN8zG0fbt8v8Brphyo4h4AA3+jyG0TFFb+qVxQ=="],
-
     "@prisma/client": ["@prisma/client@7.0.1", "", { "dependencies": { "@prisma/client-runtime-utils": "7.0.1" }, "peerDependencies": { "prisma": "*", "typescript": ">=5.4.0" }, "optionalPeers": ["prisma", "typescript"] }, "sha512-O74T6xcfaGAq5gXwCAvfTLvI6fmC3and2g5yLRMkNjri1K8mSpEgclDNuUWs9xj5AwNEMQ88NeD3asI+sovm1g=="],
 
     "@prisma/client-runtime-utils": ["@prisma/client-runtime-utils@7.0.1", "", {}, "sha512-R26BVX9D/iw4toUmZKZf3jniM/9pMGHHdZN5LVP2L7HNiCQKNQQx/9LuMtjepbgRqSqQO3oHN0yzojHLnKTGEw=="],
@@ -256,8 +251,6 @@
     "@prisma/debug": ["@prisma/debug@7.0.1", "", {}, "sha512-5+25XokVeAK2Z2C9W457AFw7Hk032Q3QI3G58KYKXPlpgxy+9FvV1+S1jqfJ2d4Nmq9LP/uACrM6OVhpJMSr8w=="],
 
     "@prisma/dev": ["@prisma/dev@0.13.0", "", { "dependencies": { "@electric-sql/pglite": "0.3.2", "@electric-sql/pglite-socket": "0.0.6", "@electric-sql/pglite-tools": "0.2.7", "@hono/node-server": "1.14.2", "@mrleebo/prisma-ast": "0.12.1", "@prisma/get-platform": "6.8.2", "@prisma/query-plan-executor": "6.18.0", "foreground-child": "3.3.1", "get-port-please": "3.1.2", "hono": "4.7.10", "http-status-codes": "2.3.0", "pathe": "2.0.3", "proper-lockfile": "4.1.2", "remeda": "2.21.3", "std-env": "3.9.0", "valibot": "1.1.0", "zeptomatch": "2.0.2" } }, "sha512-QMmF6zFeUF78yv1HYbHvod83AQnl7u6NtKyDhTRZOJup3h1icWs8R7RUVxBJZvM2tBXNAMpLQYYM/8kPlOPegA=="],
-
-    "@prisma/driver-adapter-utils": ["@prisma/driver-adapter-utils@7.0.1", "", { "dependencies": { "@prisma/debug": "7.0.1" } }, "sha512-sBbxm/yysHLLF2iMAB+qcX/nn3WFgsiC4DQNz0uM6BwGSIs8lIvgo0u8nR9nxe5gvFgKiIH8f4z2fgOEMeXc8w=="],
 
     "@prisma/engines": ["@prisma/engines@7.0.1", "", { "dependencies": { "@prisma/debug": "7.0.1", "@prisma/engines-version": "7.1.0-2.f09f2815f091dbba658cdcd2264306d88bb5bda6", "@prisma/fetch-engine": "7.0.1", "@prisma/get-platform": "7.0.1" } }, "sha512-f+D/vdKeImqUHysd5Bgv8LQ1whl4sbLepHyYMQQMK61cp4WjwJVryophleLUrfEJRpBLGTBI/7fnLVENxxMFPQ=="],
 
@@ -398,8 +391,6 @@
     "@types/acorn": ["@types/acorn@4.0.6", "", { "dependencies": { "@types/estree": "*" } }, "sha512-veQTnWP+1D/xbxVrPC3zHnCZRjSrKfhbMUlEA43iMZLu7EsnTtkJklIuwrCPbOi8YkvDQAiW05VQQFvvz9oieQ=="],
 
     "@types/bcrypt": ["@types/bcrypt@6.0.0", "", { "dependencies": { "@types/node": "*" } }, "sha512-/oJGukuH3D2+D+3H4JWLaAsJ/ji86dhRidzZ/Od7H/i8g+aCmvkeCc6Ni/f9uxGLSQVCRZkX2/lqEFG2BvWtlQ=="],
-
-    "@types/better-sqlite3": ["@types/better-sqlite3@7.6.13", "", { "dependencies": { "@types/node": "*" } }, "sha512-NMv9ASNARoKksWtsq/SHakpYAYnhBrQgGD8zkLYk/jaK8jUGn08CfEdTRgYhMypUQAfzSP8W6gNLe0q19/t4VA=="],
 
     "@types/cookie": ["@types/cookie@0.6.0", "", {}, "sha512-4Kh9a6B2bQciAhf7FSuMRRkUWecJgJu9nPnx3yzpsfXX/c50REIqpHY4C82bXP90qrLtXtkDxTZosYO3UpOwlA=="],
 
