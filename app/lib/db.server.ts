@@ -1,16 +1,13 @@
-// Use createRequire to load Prisma in ESM context
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-const { PrismaClient } = require("../../generated/prisma/client.js");
+import { PrismaClient } from "@prisma/client";
 
-let prisma: InstanceType<typeof PrismaClient>;
+let prisma: PrismaClient;
 
 declare global {
   // eslint-disable-next-line no-var
-  var __db__: InstanceType<typeof PrismaClient> | undefined;
+  var __db__: PrismaClient | undefined;
 }
 
-// Prisma 7 generated client
+// Prisma 6 client
 const createPrismaClient = () => new PrismaClient();
 
 // This is needed because in development we don't want to restart
