@@ -17,7 +17,7 @@ export const meta: MetaFunction = () => {
 };
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const { user } = await requireAuth(request);
+  const user = await requireAuth(request);
 
   const wallets = await prisma.wallet.findMany({
     where: { userId: user.id },
@@ -28,7 +28,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  const { user } = await requireAuth(request);
+  const user = await requireAuth(request);
   const formData = await request.formData();
   const intent = formData.get("intent");
 
