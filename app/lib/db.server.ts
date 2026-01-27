@@ -1,4 +1,6 @@
-// Use require to avoid ESM bundling issues with Prisma
+// Use createRequire to load Prisma in ESM context
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
 const { PrismaClient } = require("../../generated/prisma/client.js");
 
 let prisma: InstanceType<typeof PrismaClient>;
