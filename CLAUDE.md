@@ -445,6 +445,18 @@ User 1──* Session (cascade delete)
 2. **Setup wizard** creates admin account and configures app
 3. All data stays with the user — SQLite file on their server
 
+## Railway Deployment
+
+### Persistent Database
+
+Railway containers are ephemeral. To persist the SQLite database across deployments, a **volume** must be attached:
+
+```bash
+railway volume add --mount-path /app/prisma/data
+```
+
+This mounts persistent storage at the database location. Without this, the database resets on every deploy.
+
 ## Database Commands
 
 ```bash
