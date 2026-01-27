@@ -3,13 +3,18 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remi
 import { json, redirect } from "@remix-run/node";
 import { Form, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, CheckCircle, XCircle } from "lucide-react";
-import { Button, Input, FormField, Alert, Card } from "~/components/ui";
+import { Eye, EyeOff, CheckCircle } from "lucide-react";
+import { Button, Input, FormField, Alert, Card, Select, SelectOption } from "~/components/ui";
 import { 
   setAlchemyApiKey, 
   setHeliusApiKey,
+  setRefreshesPerDay,
+  setTokenThresholdUsd,
+  getRefreshesPerDay,
+  getTokenThresholdUsd,
   hasApiKey,
   SettingKeys,
+  type RefreshesPerDay,
 } from "~/lib/settings.server";
 import { requireSetupStep } from "~/lib/setup.server";
 import { SetupSteps, TOTAL_SETUP_STEPS } from "~/lib/setup";
@@ -26,12 +31,14 @@ export const meta: MetaFunction = () => {
 export async function loader({ request }: LoaderFunctionArgs) {
   await requireSetupStep(SetupSteps.API_KEYS);
   
-  const [hasAlchemy, hasHelius] = await Promise.all([
+  const [hasAlchemy, hasHelius, refreshesPerDay, tokenThreshold] = await Promise.all([
     hasApiKey(SettingKeys.ALCHEMY_API_KEY),
     hasApiKey(SettingKeys.HELIUS_API_KEY),
+    getRefreshesPerDay(),
+    getTokenThresholdUsd(),
   ]);
 
-  return json({ hasAlchemy, hasHelius });
+  return json({ hasAlchemy, hasHelius, refreshesPerDay, tokenThreshold });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -75,7 +82,25 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   if (intent === "continue") {
-    // Move to complete - API keys are optional
+    // Save refresh settings
+    const refreshesPerDayStr = formData.get("refreshesPerDay");
+    const tokenThresholdStr = formData.get("tokenThreshold");
+
+    if (typeof refreshesPerDayStr === "string") {
+      const value = parseInt(refreshesPerDayStr, 10) as RefreshesPerDay;
+      if ([1, 3, 5, 10].includes(value)) {
+        await setRefreshesPerDay(value);
+      }
+    }
+
+    if (typeof tokenThresholdStr === "string") {
+      const value = parseFloat(tokenThresholdStr);
+      if (!isNaN(value) && value >= 0) {
+        await setTokenThresholdUsd(value);
+      }
+    }
+
+    // Move to complete
     return redirect("/setup/complete");
   }
 
@@ -152,7 +177,7 @@ function ApiKeyInput({
 }
 
 export default function SetupApiKeysPage() {
-  const { hasAlchemy, hasHelius } = useLoaderData<typeof loader>();
+  const { hasAlchemy, hasHelius, refreshesPerDay, tokenThreshold } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
@@ -165,7 +190,7 @@ export default function SetupApiKeysPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="w-full max-w-md"
+        className="w-full max-w-lg"
       >
         <Card className="p-8">
           {/* Header */}
@@ -174,14 +199,14 @@ export default function SetupApiKeysPage() {
               Step 3 of {TOTAL_SETUP_STEPS}
             </p>
             <h1 className="text-2xl font-bold text-white mb-2">
-              API Keys
+              API Keys & Refresh Settings
             </h1>
             <p className="text-zinc-400 text-sm">
-              Configure your blockchain API keys to fetch wallet balances
+              Configure how Pulsar fetches your wallet balances
             </p>
           </div>
 
-          <Form method="post" className="space-y-5">
+          <Form method="post" className="space-y-6">
             {testResults && (
               <div className="space-y-2">
                 {testResults.alchemy && (
@@ -197,52 +222,101 @@ export default function SetupApiKeysPage() {
               </div>
             )}
 
-            <ApiKeyInput
-              id="alchemyKey"
-              name="alchemyKey"
-              label="Alchemy API Key"
-              placeholder="Enter your Alchemy API key"
-              hasKey={hasAlchemy}
-              hint="For Ethereum, Arbitrum, Base, Polygon & Bitcoin."
-              linkText="Get one free →"
-              linkUrl="https://dashboard.alchemy.com"
-            />
+            {/* API Keys Section */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium text-zinc-300">API Keys</h3>
+              
+              <ApiKeyInput
+                id="alchemyKey"
+                name="alchemyKey"
+                label="Alchemy API Key"
+                placeholder="Enter your Alchemy API key"
+                hasKey={hasAlchemy}
+                hint="For Ethereum, Arbitrum, Base, Polygon & Bitcoin."
+                linkText="Get one free →"
+                linkUrl="https://dashboard.alchemy.com"
+              />
 
-            <ApiKeyInput
-              id="heliusKey"
-              name="heliusKey"
-              label="Helius API Key"
-              placeholder="Enter your Helius API key"
-              hasKey={hasHelius}
-              hint="For Solana."
-              linkText="Get one free →"
-              linkUrl="https://dev.helius.xyz"
-            />
+              <ApiKeyInput
+                id="heliusKey"
+                name="heliusKey"
+                label="Helius API Key"
+                placeholder="Enter your Helius API key"
+                hasKey={hasHelius}
+                hint="For Solana."
+                linkText="Get one free →"
+                linkUrl="https://dev.helius.xyz"
+              />
 
-            <div className="flex gap-3 pt-2">
               <Button 
                 type="submit" 
                 name="intent" 
                 value="test"
                 variant="secondary"
                 disabled={isSubmitting}
-                className="flex-1"
+                className="w-full"
               >
-                {isSubmitting ? "Testing..." : "Test & Save"}
-              </Button>
-              <Button 
-                type="submit" 
-                name="intent" 
-                value="continue"
-                disabled={isSubmitting}
-                className="flex-1"
-              >
-                {hasAlchemy || hasHelius ? "Continue" : "Skip for Now"}
+                {isSubmitting ? "Testing..." : "Test & Save Keys"}
               </Button>
             </div>
 
+            {/* Divider */}
+            <div className="border-t border-zinc-800" />
+
+            {/* Refresh Settings Section */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium text-zinc-300">Refresh Settings</h3>
+
+              <FormField 
+                label="Auto-Refresh Frequency" 
+                htmlFor="refreshesPerDay"
+                hint="How often to automatically update wallet balances"
+              >
+                <Select
+                  id="refreshesPerDay"
+                  name="refreshesPerDay"
+                  defaultValue={refreshesPerDay.toString()}
+                >
+                  <SelectOption value="1">1x per day (every 24 hours)</SelectOption>
+                  <SelectOption value="3">3x per day (every 8 hours)</SelectOption>
+                  <SelectOption value="5">5x per day (every ~5 hours)</SelectOption>
+                  <SelectOption value="10">10x per day (every ~2.5 hours)</SelectOption>
+                </Select>
+              </FormField>
+
+              <FormField 
+                label="Dust Threshold" 
+                htmlFor="tokenThreshold"
+                hint="Ignore tokens worth less than this amount"
+              >
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">$</span>
+                  <Input
+                    id="tokenThreshold"
+                    name="tokenThreshold"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    defaultValue={tokenThreshold}
+                    className="pl-7"
+                  />
+                </div>
+              </FormField>
+            </div>
+
+            {/* Continue Button */}
+            <Button 
+              type="submit" 
+              name="intent" 
+              value="continue"
+              disabled={isSubmitting}
+              className="w-full"
+            >
+              {hasAlchemy || hasHelius ? "Continue" : "Skip API Keys & Continue"}
+            </Button>
+
             <p className="text-xs text-zinc-500 text-center">
-              You can always configure these later in Settings
+              You can always change these later in Settings
             </p>
           </Form>
         </Card>
