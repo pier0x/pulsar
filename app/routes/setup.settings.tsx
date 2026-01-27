@@ -55,8 +55,8 @@ export async function action({ request }: ActionFunctionArgs) {
     [SettingKeys.APP_TIMEZONE]: timezone,
   });
 
-  // Move to complete
-  return redirect("/setup/complete");
+  // Move to API keys step
+  return redirect("/setup/api-keys");
 }
 
 export default function SetupSettingsPage() {
@@ -121,7 +121,7 @@ export default function SetupSettingsPage() {
             </FormField>
 
             <Button type="submit" disabled={isSubmitting} className="w-full mt-2">
-              {isSubmitting ? "Saving..." : "Complete Setup"}
+              {isSubmitting ? "Saving..." : "Continue"}
             </Button>
           </Form>
         </Card>

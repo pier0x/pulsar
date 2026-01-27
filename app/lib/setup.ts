@@ -8,10 +8,11 @@
 export const SetupSteps = {
   ACCOUNT: 1,
   SETTINGS: 2,
-  COMPLETE: 3,
+  API_KEYS: 3,
+  COMPLETE: 4,
 } as const;
 
-export const TOTAL_SETUP_STEPS = 2;
+export const TOTAL_SETUP_STEPS = 3;
 
 /**
  * Get the route for a specific setup step
@@ -22,6 +23,8 @@ export function getSetupStepRoute(step: number): string {
       return "/setup/account";
     case SetupSteps.SETTINGS:
       return "/setup/settings";
+    case SetupSteps.API_KEYS:
+      return "/setup/api-keys";
     case SetupSteps.COMPLETE:
       return "/setup/complete";
     default:
