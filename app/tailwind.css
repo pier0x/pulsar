@@ -119,6 +119,26 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* Hide scrollbar while keeping scroll functionality */
+  html,
+  body {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+  
+  /* Also hide scrollbar on all scrollable elements */
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Safe area utilities for mobile devices with notches/home indicators */
