@@ -15,9 +15,18 @@ import {
 export type AuthUser = {
   id: string;
   username: string;
+  avatarUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
+
+/**
+ * Generate a random avatar URL
+ */
+function generateAvatarUrl(): string {
+  const num = Math.floor(Math.random() * 50) + 1;
+  return `https://avatars.outpace.systems/avatars/previews/avatar-${num}.webp`;
+}
 
 /**
  * Validate username meets requirements
@@ -82,12 +91,14 @@ export async function register(
     return { error: "Username already taken" };
   }
 
-  // Create user
+  // Create user with random avatar
   const passwordHash = await hashPassword(password);
+  const avatarUrl = generateAvatarUrl();
   const user = await prisma.user.create({
     data: {
       username: username.toLowerCase(),
       passwordHash,
+      avatarUrl,
     },
   });
 
@@ -95,6 +106,7 @@ export async function register(
     user: {
       id: user.id,
       username: user.username,
+      avatarUrl: user.avatarUrl,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     },
@@ -128,6 +140,7 @@ export async function login(
     user: {
       id: user.id,
       username: user.username,
+      avatarUrl: user.avatarUrl,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     },
@@ -199,6 +212,7 @@ export async function getCurrentUser(
   return {
     id: session.user.id,
     username: session.user.username,
+    avatarUrl: session.user.avatarUrl,
     createdAt: session.user.createdAt,
     updatedAt: session.user.updatedAt,
   };
