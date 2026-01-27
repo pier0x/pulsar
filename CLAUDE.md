@@ -32,6 +32,7 @@ A portfolio tracker that anyone can deploy on their own infrastructure — no ac
 - **Consistent card styling** — rounded-2xl, zinc-900 bg, zinc-800 borders
 - **Subtle animations** — framer-motion for smooth transitions
 - **Spacious layout** — generous padding (p-5, p-6)
+- **Always add `cursor-pointer` to buttons** — Tailwind v4+ does not include cursor-pointer by default on buttons
 
 ### Color Palette
 
