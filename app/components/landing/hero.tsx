@@ -93,28 +93,19 @@ export function Hero({ onLoginClick, onRegisterClick }: HeroProps) {
         >
           <button
             onClick={onRegisterClick}
-            className="px-8 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold text-lg hover:from-blue-600 hover:to-purple-600 transition-all duration-200 shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40"
+            className="px-8 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold text-lg hover:from-blue-600 hover:to-purple-600 transition-all duration-200 shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 cursor-pointer"
           >
             Get Started Free
           </button>
           <button
             onClick={onLoginClick}
-            className="px-8 py-3 rounded-xl bg-zinc-800 text-white font-semibold text-lg hover:bg-zinc-700 transition-all duration-200 border border-zinc-700"
+            className="px-8 py-3 rounded-xl bg-zinc-800 text-white font-semibold text-lg hover:bg-zinc-700 transition-all duration-200 border border-zinc-700 cursor-pointer"
           >
             Sign In
           </button>
         </motion.div>
       </motion.div>
 
-      {/* Footer */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5, delay: 0.7 }}
-        className="absolute bottom-8 text-zinc-600 text-sm"
-      >
-        The future of personal finance
-      </motion.div>
     </div>
   );
 }
