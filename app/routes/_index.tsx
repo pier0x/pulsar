@@ -89,11 +89,16 @@ const breakdownData: BreakdownItem[] = [
   { name: "Solana", value: 3175.43, percentage: 9.7, color: "#00FFA3" },
 ];
 
-const topMovers: MoverItem[] = [
-  { symbol: "ETH", name: "Ethereum", change: 5.23, price: 3892.45, isPositive: true },
-  { symbol: "SOL", name: "Solana", change: 8.91, price: 187.32, isPositive: true },
-  { symbol: "MATIC", name: "Polygon", change: -2.34, price: 0.89, isPositive: false },
-  { symbol: "ARB", name: "Arbitrum", change: 3.45, price: 1.23, isPositive: true },
+const topGainers: MoverItem[] = [
+  { symbol: "ETH", name: "Ethereum", changePercent: 5.23, value: "$3,892.45" },
+  { symbol: "SOL", name: "Solana", changePercent: 8.91, value: "$187.32" },
+  { symbol: "ARB", name: "Arbitrum", changePercent: 3.45, value: "$1.23" },
+];
+
+const topLosers: MoverItem[] = [
+  { symbol: "MATIC", name: "Polygon", changePercent: -2.34, value: "$0.89" },
+  { symbol: "AVAX", name: "Avalanche", changePercent: -1.82, value: "$42.15" },
+  { symbol: "LINK", name: "Chainlink", changePercent: -0.95, value: "$18.72" },
 ];
 
 function LandingPage() {
@@ -165,7 +170,10 @@ function Dashboard({ user }: { user: { id: string; username: string; avatarUrl: 
               {/* Top Movers */}
               <section>
                 <h3 className="text-lg font-semibold text-white mb-4">Market Movers</h3>
-                <TopMovers movers={topMovers} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <TopMovers title="Top Gainers" items={topGainers} type="gainers" />
+                  <TopMovers title="Top Losers" items={topLosers} type="losers" />
+                </div>
               </section>
             </div>
           </div>
