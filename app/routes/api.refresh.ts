@@ -2,17 +2,24 @@ import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { requireAuth } from "~/lib/auth";
 import { prisma } from "~/lib/db.server";
-import { refreshAllWallets } from "~/lib/balance/refresh.server";
+import { refreshUserWallets } from "~/lib/balance/refresh.server";
 
-const RATE_LIMIT_KEY = "refresh:manual";
 const RATE_LIMIT_MS = 60 * 1000; // 1 minute
+
+/**
+ * Get rate limit key for a user
+ */
+function getRateLimitKey(userId: string): string {
+  return `refresh:manual:${userId}`;
+}
 
 /**
  * Check if rate limited
  */
-async function checkRateLimit(): Promise<{ limited: boolean; retryAfterMs?: number }> {
+async function checkRateLimit(userId: string): Promise<{ limited: boolean; retryAfterMs?: number }> {
+  const key = getRateLimitKey(userId);
   const rateLimit = await prisma.rateLimit.findUnique({
-    where: { key: RATE_LIMIT_KEY },
+    where: { key },
   });
 
   if (!rateLimit) {
@@ -30,20 +37,21 @@ async function checkRateLimit(): Promise<{ limited: boolean; retryAfterMs?: numb
 /**
  * Update rate limit timestamp
  */
-async function updateRateLimit(): Promise<void> {
+async function updateRateLimit(userId: string): Promise<void> {
+  const key = getRateLimitKey(userId);
   await prisma.rateLimit.upsert({
-    where: { key: RATE_LIMIT_KEY },
+    where: { key },
     update: { lastAction: new Date() },
-    create: { key: RATE_LIMIT_KEY, lastAction: new Date() },
+    create: { key, lastAction: new Date() },
   });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
   // Require authentication
-  await requireAuth(request);
+  const user = await requireAuth(request);
 
-  // Check rate limit
-  const rateLimitCheck = await checkRateLimit();
+  // Check rate limit (per-user)
+  const rateLimitCheck = await checkRateLimit(user.id);
   if (rateLimitCheck.limited) {
     const retryAfterSeconds = Math.ceil((rateLimitCheck.retryAfterMs || 0) / 1000);
     return json(
@@ -61,11 +69,11 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   // Update rate limit before starting
-  await updateRateLimit();
+  await updateRateLimit(user.id);
 
   try {
-    // Run the refresh
-    const result = await refreshAllWallets("manual");
+    // Run the refresh for this user's wallets
+    const result = await refreshUserWallets(user.id, "manual");
 
     return json({
       success: true,

@@ -39,7 +39,7 @@ export interface FetchError {
   walletId: string;
   walletAddress: string;
   network: string;
-  errorType: "api_error" | "timeout" | "rate_limit" | "parse_error" | "price_error" | "unknown";
+  errorType: "api_error" | "timeout" | "rate_limit" | "parse_error" | "price_error" | "network_error" | "unknown";
   errorMessage: string;
   errorDetails?: string;
 }

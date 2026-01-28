@@ -15,12 +15,29 @@ import {
   setAlchemyApiKey,
   setHeliusApiKey,
   getLastScheduledRefresh,
+  getUserTimezone,
+  setUserTimezone,
   SettingKeys,
   type RefreshesPerDay,
 } from "~/lib/settings.server";
 import { testAlchemyConnection } from "~/lib/providers/alchemy.server";
 import { testHeliusConnection } from "~/lib/providers/helius.server";
 import { prisma } from "~/lib/db.server";
+
+const TIMEZONES = [
+  { value: "UTC", label: "UTC" },
+  { value: "America/New_York", label: "Eastern Time (US)" },
+  { value: "America/Chicago", label: "Central Time (US)" },
+  { value: "America/Denver", label: "Mountain Time (US)" },
+  { value: "America/Los_Angeles", label: "Pacific Time (US)" },
+  { value: "Europe/London", label: "London" },
+  { value: "Europe/Paris", label: "Paris" },
+  { value: "Europe/Berlin", label: "Berlin" },
+  { value: "Asia/Tokyo", label: "Tokyo" },
+  { value: "Asia/Shanghai", label: "Shanghai" },
+  { value: "Asia/Singapore", label: "Singapore" },
+  { value: "Australia/Sydney", label: "Sydney" },
+];
 
 export const meta: MetaFunction = () => {
   return [
@@ -30,7 +47,7 @@ export const meta: MetaFunction = () => {
 };
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  await requireAuth(request);
+  const user = await requireAuth(request);
 
   const [
     hasAlchemy,
@@ -38,15 +55,22 @@ export async function loader({ request }: LoaderFunctionArgs) {
     refreshesPerDay,
     tokenThreshold,
     lastRefresh,
+    timezone,
   ] = await Promise.all([
-    hasApiKey(SettingKeys.ALCHEMY_API_KEY),
-    hasApiKey(SettingKeys.HELIUS_API_KEY),
-    getRefreshesPerDay(),
-    getTokenThresholdUsd(),
-    getLastScheduledRefresh(),
+    hasApiKey(user.id, SettingKeys.ALCHEMY_API_KEY),
+    hasApiKey(user.id, SettingKeys.HELIUS_API_KEY),
+    getRefreshesPerDay(user.id),
+    getTokenThresholdUsd(user.id),
+    getLastScheduledRefresh(user.id),
+    getUserTimezone(user.id),
   ]);
 
-  // Get recent refresh logs
+  // Get recent refresh logs for this user's wallets
+  const userWalletIds = await prisma.wallet.findMany({
+    where: { userId: user.id },
+    select: { id: true },
+  });
+
   const recentRefreshes = await prisma.refreshLog.findMany({
     orderBy: { timestamp: "desc" },
     take: 5,
@@ -60,13 +84,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
     hasHelius,
     refreshesPerDay,
     tokenThreshold,
+    timezone,
     lastRefresh: lastRefresh?.toISOString() || null,
     recentRefreshes,
   });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  await requireAuth(request);
+  const user = await requireAuth(request);
   const formData = await request.formData();
   const intent = formData.get("intent");
 
@@ -80,7 +105,7 @@ export async function action({ request }: ActionFunctionArgs) {
     if (typeof alchemyKey === "string" && alchemyKey.trim()) {
       const test = await testAlchemyConnection(alchemyKey.trim());
       if (test.success) {
-        await setAlchemyApiKey(alchemyKey.trim());
+        await setAlchemyApiKey(user.id, alchemyKey.trim());
         results.alchemy = { success: true };
       } else {
         results.alchemy = { success: false, error: test.error };
@@ -91,7 +116,7 @@ export async function action({ request }: ActionFunctionArgs) {
     if (typeof heliusKey === "string" && heliusKey.trim()) {
       const test = await testHeliusConnection(heliusKey.trim());
       if (test.success) {
-        await setHeliusApiKey(heliusKey.trim());
+        await setHeliusApiKey(user.id, heliusKey.trim());
         results.helius = { success: true };
       } else {
         results.helius = { success: false, error: test.error };
@@ -108,18 +133,26 @@ export async function action({ request }: ActionFunctionArgs) {
     if (typeof refreshesPerDayStr === "string") {
       const value = parseInt(refreshesPerDayStr, 10) as RefreshesPerDay;
       if ([1, 3, 5, 10].includes(value)) {
-        await setRefreshesPerDay(value);
+        await setRefreshesPerDay(user.id, value);
       }
     }
 
     if (typeof tokenThresholdStr === "string") {
       const value = parseFloat(tokenThresholdStr);
       if (!isNaN(value) && value >= 0) {
-        await setTokenThresholdUsd(value);
+        await setTokenThresholdUsd(user.id, value);
       }
     }
 
     return json({ intent: "saveRefreshSettings", success: true });
+  }
+
+  if (intent === "savePreferences") {
+    const timezone = formData.get("timezone");
+    if (typeof timezone === "string") {
+      await setUserTimezone(user.id, timezone);
+    }
+    return json({ intent: "savePreferences", success: true });
   }
 
   return json({ error: "Invalid action" }, { status: 400 });
@@ -181,6 +214,7 @@ export default function SettingsPage() {
     hasHelius, 
     refreshesPerDay, 
     tokenThreshold,
+    timezone,
     lastRefresh,
     recentRefreshes,
   } = useLoaderData<typeof loader>();
@@ -193,11 +227,54 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* API Keys */}
+      {/* Preferences */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
+      >
+        <Card>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 rounded-lg bg-purple-500/10">
+              <Settings className="h-5 w-5 text-purple-400" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-white">Preferences</h2>
+              <p className="text-zinc-500 text-sm">
+                Configure your display preferences
+              </p>
+            </div>
+          </div>
+
+          <Form method="post" className="space-y-4">
+            <input type="hidden" name="intent" value="savePreferences" />
+
+            {actionData && "intent" in actionData && actionData.intent === "savePreferences" && (
+              <Alert variant="success">Preferences saved successfully</Alert>
+            )}
+
+            <FormField label="Timezone" htmlFor="timezone">
+              <Select id="timezone" name="timezone" defaultValue={timezone}>
+                {TIMEZONES.map((tz) => (
+                  <SelectOption key={tz.value} value={tz.value}>
+                    {tz.label}
+                  </SelectOption>
+                ))}
+              </Select>
+            </FormField>
+
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Saving..." : "Save Preferences"}
+            </Button>
+          </Form>
+        </Card>
+      </motion.div>
+
+      {/* API Keys */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
       >
         <Card>
           <div className="flex items-center gap-3 mb-6">
@@ -269,7 +346,7 @@ export default function SettingsPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
+        transition={{ duration: 0.4, delay: 0.2 }}
       >
         <Card>
           <div className="flex items-center gap-3 mb-6">
@@ -365,7 +442,7 @@ export default function SettingsPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
+          transition={{ duration: 0.4, delay: 0.3 }}
         >
           <Card>
             <div className="flex items-center gap-3 mb-6">

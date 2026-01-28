@@ -1,6 +1,7 @@
 import { redirect } from "@remix-run/node";
 import { config } from "~/lib/config.server";
 import { prisma } from "~/lib/db.server";
+import { initializeUserSettings } from "~/lib/settings.server";
 import { hashPassword, verifyPassword, validatePassword } from "./password.server";
 import {
   createDatabaseSession,
@@ -101,6 +102,9 @@ export async function register(
       avatarUrl,
     },
   });
+
+  // Initialize default settings for the new user
+  await initializeUserSettings(user.id);
 
   return {
     user: {

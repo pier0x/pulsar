@@ -213,23 +213,25 @@ async function fetchWalletBalance(
 }
 
 /**
- * Main refresh function - fetches all wallets and creates snapshots
+ * Refresh all wallets for a specific user
  */
-export async function refreshAllWallets(
+export async function refreshUserWallets(
+  userId: string,
   trigger: "scheduled" | "manual"
 ): Promise<RefreshResult> {
   const startTime = Date.now();
 
-  // Get API keys and settings
+  // Get user's API keys and settings
   const [alchemyKey, heliusKey, coingeckoKey, tokenThreshold] = await Promise.all([
-    getAlchemyApiKey(),
-    getHeliusApiKey(),
-    getCoinGeckoApiKey(),
-    getTokenThresholdUsd(),
+    getAlchemyApiKey(userId),
+    getHeliusApiKey(userId),
+    getCoinGeckoApiKey(userId),
+    getTokenThresholdUsd(userId),
   ]);
 
-  // Get all wallets
+  // Get user's wallets
   const wallets = await prisma.wallet.findMany({
+    where: { userId },
     select: { id: true, network: true, address: true },
   });
 
@@ -346,12 +348,61 @@ export async function refreshAllWallets(
 }
 
 /**
+ * Refresh all wallets for all users (used by scheduler)
+ */
+export async function refreshAllWallets(
+  trigger: "scheduled" | "manual"
+): Promise<RefreshResult> {
+  const startTime = Date.now();
+
+  // Get all users
+  const users = await prisma.user.findMany({
+    select: { id: true },
+  });
+
+  let totalAttempted = 0;
+  let totalSucceeded = 0;
+  let totalFailed = 0;
+  const allErrors: FetchError[] = [];
+  const allSuccessful: WalletBalanceData[] = [];
+
+  // Process each user
+  for (const user of users) {
+    const result = await refreshUserWallets(user.id, trigger);
+    totalAttempted += result.walletsAttempted;
+    totalSucceeded += result.walletsSucceeded;
+    totalFailed += result.walletsFailed;
+    allErrors.push(...result.errors);
+    allSuccessful.push(...result.successfulWallets);
+  }
+
+  return {
+    trigger,
+    status:
+      allErrors.length === 0
+        ? "success"
+        : allErrors.length === totalAttempted
+        ? "complete_failure"
+        : "partial_failure",
+    walletsAttempted: totalAttempted,
+    walletsSucceeded: totalSucceeded,
+    walletsFailed: totalFailed,
+    durationMs: Date.now() - startTime,
+    successfulWallets: allSuccessful,
+    errors: allErrors,
+  };
+}
+
+/**
  * Refresh a single wallet
  */
-export async function refreshSingleWallet(walletId: string): Promise<WalletFetchResult> {
+export async function refreshSingleWallet(
+  userId: string,
+  walletId: string
+): Promise<WalletFetchResult> {
   const wallet = await prisma.wallet.findUnique({
     where: { id: walletId },
-    select: { id: true, network: true, address: true },
+    select: { id: true, network: true, address: true, userId: true },
   });
 
   if (!wallet) {
@@ -367,11 +418,25 @@ export async function refreshSingleWallet(walletId: string): Promise<WalletFetch
     };
   }
 
+  // Verify wallet belongs to user
+  if (wallet.userId !== userId) {
+    return {
+      success: false,
+      error: {
+        walletId,
+        walletAddress: "",
+        network: "unknown",
+        errorType: "api_error",
+        errorMessage: "Wallet not found",
+      },
+    };
+  }
+
   const [alchemyKey, heliusKey, coingeckoKey, tokenThreshold] = await Promise.all([
-    getAlchemyApiKey(),
-    getHeliusApiKey(),
-    getCoinGeckoApiKey(),
-    getTokenThresholdUsd(),
+    getAlchemyApiKey(userId),
+    getHeliusApiKey(userId),
+    getCoinGeckoApiKey(userId),
+    getTokenThresholdUsd(userId),
   ]);
 
   const result = await fetchWalletBalance(
@@ -438,7 +503,7 @@ export async function getWalletSnapshots(
 }
 
 /**
- * Get aggregate portfolio data across all wallets
+ * Get aggregate portfolio data across all wallets for a user
  */
 export async function getPortfolioSummary(userId: string) {
   // Get all wallets for user with their latest snapshot

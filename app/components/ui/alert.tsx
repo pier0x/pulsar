@@ -33,23 +33,27 @@ function Alert({
   children,
   ...props
 }: AlertProps) {
-  const Comp = animate ? motion.div : "div";
-  const animateProps = animate
-    ? {
-        initial: { opacity: 0, scale: 0.95 },
-        animate: { opacity: 1, scale: 1 },
-      }
-    : {};
+  if (animate) {
+    return (
+      <motion.div
+        data-slot="alert"
+        className={cn(alertVariants({ variant }), className)}
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+      >
+        {children}
+      </motion.div>
+    );
+  }
 
   return (
-    <Comp
+    <div
       data-slot="alert"
       className={cn(alertVariants({ variant }), className)}
-      {...animateProps}
       {...props}
     >
       {children}
-    </Comp>
+    </div>
   );
 }
 

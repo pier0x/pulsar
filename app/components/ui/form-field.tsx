@@ -3,9 +3,9 @@ import { cn } from "~/lib/utils";
 import { Label } from "./label";
 
 export interface FormFieldProps {
-  label: string;
+  label: React.ReactNode;
   htmlFor?: string;
-  hint?: string;
+  hint?: React.ReactNode;
   error?: string;
   className?: string;
   children: React.ReactNode;

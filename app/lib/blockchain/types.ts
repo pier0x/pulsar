@@ -95,6 +95,24 @@ export const NETWORK_CONFIG: Record<WalletNetwork, NetworkConfig> = {
     decimals: 18,
     explorerUrl: "https://etherscan.io",
   },
+  arbitrum: {
+    nativeSymbol: "ETH",
+    nativeName: "Ethereum",
+    decimals: 18,
+    explorerUrl: "https://arbiscan.io",
+  },
+  base: {
+    nativeSymbol: "ETH",
+    nativeName: "Ethereum",
+    decimals: 18,
+    explorerUrl: "https://basescan.org",
+  },
+  polygon: {
+    nativeSymbol: "POL",
+    nativeName: "POL",
+    decimals: 18,
+    explorerUrl: "https://polygonscan.com",
+  },
   solana: {
     nativeSymbol: "SOL",
     nativeName: "Solana",

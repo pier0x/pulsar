@@ -21,6 +21,7 @@ model User {
 
   sessions Session[]
   wallets  Wallet[]
+  settings UserSetting[]
 }
 
 // Database-backed sessions for long-lived auth
@@ -36,16 +37,20 @@ model Session {
   @@index([expiresAt])
 }
 
-// Key-value settings storage
-// Keys: setupComplete, setupStep, appName, appTimezone,
-//       alchemyApiKey (encrypted), heliusApiKey (encrypted),
-//       refreshesPerDay, tokenThresholdUsd
-model Setting {
+// Per-user settings storage
+// Keys: alchemyApiKey (encrypted), heliusApiKey (encrypted),
+//       refreshesPerDay, tokenThresholdUsd, timezone
+model UserSetting {
   id        String   @id @default(cuid())
-  key       String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key       String
   value     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([userId, key])
+  @@index([userId])
 }
 
 // Blockchain wallet addresses for tracking crypto assets
