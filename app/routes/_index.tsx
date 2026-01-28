@@ -133,6 +133,10 @@ function LandingPage() {
 }
 
 function Dashboard({ user }: { user: { id: string; username: string; avatarUrl: string | null } }) {
+  const currentValue = historicalData[historicalData.length - 1].value;
+  const startValue = historicalData[0].value;
+  const changePercent = ((currentValue - startValue) / startValue) * 100;
+
   return (
     <div className="relative h-screen p-2 sm:p-4 flex w-full flex-row overflow-hidden">
       <Sidebar />
@@ -142,39 +146,29 @@ function Dashboard({ user }: { user: { id: string; username: string; avatarUrl: 
         </div>
         <main className="flex-1 overflow-y-auto py-4 lg:py-10 pb-24 lg:pb-10">
           <div className="px-2 sm:px-4 lg:px-8">
-            <div className="space-y-8">
-              {/* Wallet Cards */}
-              <section>
-                <h3 className="text-lg font-semibold text-white mb-4">Your Wallets</h3>
+            <div className="grid gap-4 sm:gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-6 w-full">
+              {/* Row 1: Portfolio Value Chart + Stacked Cards */}
+              <div className="col-span-1 md:col-span-2 lg:col-span-4 min-h-[280px] sm:min-h-[320px] lg:min-h-[360px]">
+                <PortfolioValueChart
+                  data={historicalData}
+                  currentValue={`$${currentValue.toLocaleString()}`}
+                  changePercent={changePercent}
+                />
+              </div>
+              <div className="col-span-1 md:col-span-2 lg:col-span-2 min-h-[320px] lg:min-h-[360px]">
                 <StackedCards wallets={sampleWallets} />
-              </section>
-
-              {/* Charts Row */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <section>
-                  <h3 className="text-lg font-semibold text-white mb-4">Portfolio Value</h3>
-                  <PortfolioValueChart 
-                    data={historicalData} 
-                    currentValue={32863.42}
-                    changePercent={4.8}
-                    changeValue={1503.21}
-                  />
-                </section>
-
-                <section>
-                  <h3 className="text-lg font-semibold text-white mb-4">Portfolio Breakdown</h3>
-                  <PortfolioBreakdown data={breakdownData} totalValue={32763.42} />
-                </section>
               </div>
 
-              {/* Top Movers */}
-              <section>
-                <h3 className="text-lg font-semibold text-white mb-4">Market Movers</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <TopMovers title="Top Gainers" items={topGainers} type="gainers" />
-                  <TopMovers title="Top Losers" items={topLosers} type="losers" />
-                </div>
-              </section>
+              {/* Row 2: Portfolio Breakdown + Top Gainers + Top Losers */}
+              <div className="col-span-1 md:col-span-2 lg:col-span-2">
+                <PortfolioBreakdown data={breakdownData} />
+              </div>
+              <div className="col-span-1 lg:col-span-2">
+                <TopMovers title="Top Gainers" items={topGainers} type="gainers" />
+              </div>
+              <div className="col-span-1 lg:col-span-2">
+                <TopMovers title="Top Losers" items={topLosers} type="losers" />
+              </div>
             </div>
           </div>
         </main>
