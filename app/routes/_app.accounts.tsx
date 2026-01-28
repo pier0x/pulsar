@@ -362,23 +362,21 @@ export default function AccountsPage() {
   const { wallets } = useLoaderData<typeof loader>();
 
   return (
-    <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-3">
+    <div className="flex flex-col gap-4 sm:gap-6">
       {/* Add Account Card */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="lg:col-span-1"
       >
         <AddAccountForm />
       </motion.div>
 
-      {/* Wallets List */}
+      {/* Accounts List */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.1 }}
-        className="lg:col-span-2"
       >
         <Card>
           <div className="mb-6">
