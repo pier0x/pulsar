@@ -1,25 +1,33 @@
 # Pulsar
 
-An open source, self-hostable crypto portfolio tracker.
+**Your Wealth, One Dashboard** — The all-in-one personal finance platform for the future.
 
 ## Vision
 
-A portfolio tracker that anyone can deploy on their own infrastructure — no accounts, no third-party dependencies, full ownership of your data.
+The financial landscape is evolving rapidly. Your wealth is scattered across crypto wallets, stock brokerages, DeFi protocols, staking platforms, and traditional banks. Pulsar aims to be the unified dashboard that connects it all — giving you a complete picture of your financial life.
+
+### What Pulsar Will Support
+
+- **Crypto Wallets** — Multi-chain tracking (Ethereum, Bitcoin, Solana, L2s)
+- **Stocks & ETFs** — Brokerage account integration
+- **Staking & Yields** — DeFi positions and staking rewards
+- **Vaults** — Secure savings and fixed deposits
+- **Traditional Finance** — Bank accounts and credit cards (future)
 
 ## Core Principles
 
-1. **Beginner Friendly** — Non-technical users should be able to deploy and use it without friction
-2. **Simple to Deploy** — One-click deploy to Railway/Docker, minimal configuration
-3. **Easy to Customize** — Clean codebase, well-documented, easy to extend
-4. **Beautiful UI** — Modern, responsive design that works on any device
+1. **User-first Design** — Beautiful, intuitive interface that anyone can use
+2. **Security by Default** — Per-user encrypted API keys, no wallet connections required
+3. **Modular Architecture** — Easy to add new asset types and integrations
+4. **Real-time Updates** — Automated syncing with configurable refresh rates
 
 ## Tech Stack
 
 - Remix + React 18 + TypeScript
 - Vite for bundling
-- Tailwind CSS 4 + shadcn/ui
+- Tailwind CSS 4
 - Recharts for data visualization
-- Prisma + SQLite (Better-SQLite3 adapter) for storage
+- Prisma + PostgreSQL
 - bcrypt for password hashing
 
 ## Design System
@@ -73,10 +81,10 @@ Error:          text-red-400, bg-red-500
 
 ```tsx
 // Primary
-<button className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors">
+<button className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors cursor-pointer">
 
 // Secondary
-<button className="w-full h-11 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-medium transition-colors">
+<button className="w-full h-11 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-medium transition-colors cursor-pointer">
 ```
 
 ### Typography
@@ -94,64 +102,15 @@ All reusable UI components are in `app/components/ui/`. Import from the barrel f
 import { Button, Input, Label, Select, FormField, Alert, Card, Badge } from "~/components/ui";
 ```
 
-### Core Components
-
-| Component | Description | Usage |
-|-----------|-------------|-------|
-| `Button` | Primary action button | `<Button variant="default|secondary|ghost|outline">` |
-| `Input` | Text input field | `<Input type="text" placeholder="..." />` |
-| `Label` | Form field label | `<Label htmlFor="id">Label</Label>` |
-| `Select` | Dropdown select | `<Select><SelectOption value="x">X</SelectOption></Select>` |
-| `FormField` | Label + input + hint wrapper | `<FormField label="Name" hint="..."><Input /></FormField>` |
-| `Alert` | Status messages | `<Alert variant="error|success|warning">Message</Alert>` |
-| `Card` | Container card | `<Card>Content</Card>` |
-| `Badge` | Status badge | `<Badge variant="default|success|warning">Text</Badge>` |
-
-### Form Pattern
-
-```tsx
-<Form method="post" className="space-y-5">
-  {error && <Alert variant="error">{error}</Alert>}
-  
-  <FormField label="Email" htmlFor="email" hint="We'll never share your email">
-    <Input id="email" name="email" type="email" required placeholder="you@example.com" />
-  </FormField>
-  
-  <Button type="submit" className="w-full">Submit</Button>
-</Form>
-```
-
-### Page Layout Pattern
-
-```tsx
-<div className="min-h-screen flex items-center justify-center bg-zinc-900 p-4">
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    className="w-full max-w-md"
-  >
-    <Card className="p-8">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <h1 className="text-2xl font-bold text-white mb-2">Title</h1>
-        <p className="text-zinc-400 text-sm">Description</p>
-      </div>
-      {/* Content */}
-    </Card>
-  </motion.div>
-</div>
-```
-
 ## Package Manager
 
-**Always use `bun`** — never use npm, yarn, or pnpm.
+**Use `bun` for local dev, `npm` also works** — Railway uses bun by default.
 
 ```bash
 bun install          # Install dependencies
 bun run dev          # Start dev server
 bun run build        # Build for production
 bun add <package>    # Add a dependency
-bun remove <package> # Remove a dependency
 bunx prisma ...      # Run prisma commands
 ```
 
@@ -160,324 +119,178 @@ bunx prisma ...      # Run prisma commands
 ```
 app/
 ├── routes/                  # Remix routes
-│   ├── _index.tsx           # Dashboard (protected)
-│   ├── auth.login.tsx       # Login page
-│   ├── auth.register.tsx    # Registration redirect
+│   ├── _index.tsx           # Landing page (guests) / Dashboard (authenticated)
+│   ├── _app.tsx             # Authenticated layout (sidebar, navbar)
+│   ├── _app.accounts.tsx    # Accounts/wallets management
+│   ├── _app.settings.tsx    # User settings (API keys, preferences)
+│   ├── auth.login.tsx       # Login action (modal-based)
+│   ├── auth.register.tsx    # Registration action (modal-based)
 │   ├── auth.logout.tsx      # Logout handler
-│   ├── setup._index.tsx     # Setup wizard router
-│   ├── setup.account.tsx    # Setup step 1: Create admin
-│   ├── setup.settings.tsx   # Setup step 2: Configure app
-│   └── setup.complete.tsx   # Setup step 3: Finish
+│   └── api.refresh.ts       # Manual balance refresh API
 ├── components/
-│   ├── ui/                  # shadcn/ui components
-│   │   ├── button.tsx       # Button with variants
-│   │   ├── card.tsx         # Card container
-│   │   ├── input.tsx        # Form input
-│   │   ├── badge.tsx        # Status badges
-│   │   ├── asset-card.tsx   # Asset display card
-│   │   ├── portfolio-chart.tsx  # Recharts line chart
-│   │   └── transaction-table.tsx # Transaction history
-│   ├── auth/                # Auth components
-│   │   └── auth-form.tsx    # Reusable login form
-│   └── layout/              # Layout components
-│       └── sidebar.tsx      # Navigation sidebar
-├── config/                  # Configuration system
-│   ├── public/              # Client-safe config
-│   │   ├── app.ts           # App name, URL, locale
-│   │   └── features.ts      # Feature flags
-│   ├── private/             # Server-only config
-│   │   ├── auth.server.ts   # Auth policies
-│   │   ├── secrets.server.ts    # APP_KEY, SESSION_SECRET
-│   │   ├── database.server.ts   # Database config
-│   │   └── services.server.ts   # External API keys
-│   ├── index.ts             # Public config export
-│   └── index.server.ts      # Full config export
+│   ├── ui/                  # UI components
+│   ├── auth/                # Auth components (modal)
+│   ├── landing/             # Landing page components
+│   └── layout/              # Layout components (sidebar, navbar)
 ├── lib/
 │   ├── auth/                # Authentication system
-│   │   ├── auth.server.ts   # Login/register logic
-│   │   ├── session.server.ts    # Session management
-│   │   ├── password.server.ts   # Password hashing
-│   │   ├── guards.server.ts     # Route protection
-│   │   └── index.ts         # Public exports
-│   ├── config.ts            # config() helper (public)
-│   ├── config.server.ts     # config() helper (full)
-│   ├── settings.server.ts   # Key-value settings store
-│   ├── setup.server.ts      # Setup utilities
-│   ├── env.ts               # env() helper
-│   ├── utils.ts             # Tailwind utilities
+│   ├── balance/             # Balance refresh system
+│   ├── providers/           # External API providers (Alchemy, Helius)
+│   ├── settings.server.ts   # Per-user settings store
 │   └── db.server.ts         # Prisma client
-├── root.tsx                 # Root layout
-└── tailwind.css             # Global styles
+└── root.tsx                 # Root layout
 
 prisma/
-├── schema.prisma    # Database schema
-├── migrations/      # SQL migrations
-└── data/            # SQLite database file (gitignored)
+├── schema.prisma            # Database schema
+└── migrations/              # SQL migrations
 ```
 
 ## Routes
 
 | Route | Purpose | Auth |
 |-------|---------|------|
-| `/` | Dashboard with portfolio overview | Required |
-| `/auth/login` | Login page | Guest only |
+| `/` | Landing page (guests) or Dashboard (authenticated) | Dynamic |
+| `/accounts` | Wallet/account management | Required |
+| `/settings` | User settings (API keys, refresh, timezone) | Required |
+| `/auth/login` | Login action (POST) + redirect | Guest only |
+| `/auth/register` | Registration action (POST) + redirect | Guest only |
 | `/auth/logout` | Logout (POST only) | Required |
-| `/setup/*` | Initial setup wizard | First run only |
+| `/api/refresh` | Manual balance refresh | Required |
 
 ## Authentication System
 
-Complete session-based authentication with database-backed sessions.
+Modal-based authentication with database-backed sessions.
 
-### How It Works
+### Flow
 
-1. **Registration** (during setup only)
-   - Username: 3-32 chars, alphanumeric + underscore
-   - Password: minimum 8 characters
-   - Hashed with bcrypt (12 rounds)
-
-2. **Login**
-   - Validates credentials against database
-   - Creates session record with 30-day lifetime
-   - Sets HttpOnly cookie with session ID
-
-3. **Session Management**
-   - Sessions stored in database (not just cookies)
-   - Sliding expiration: refreshes after 24 hours of inactivity
-   - Automatic cleanup of expired sessions
-
-4. **Logout**
-   - POST-only endpoint (CSRF protection)
-   - Deletes session from database
-   - Clears session cookie
+1. **Landing page** (`/`) shows for unauthenticated users with Login/Register modals
+2. **Dashboard** (`/`) shows for authenticated users
+3. **Sessions** stored in database with 30-day lifetime, sliding expiration
 
 ### Route Guards
 
 ```typescript
 import { requireAuth, redirectIfAuthenticated, optionalAuth } from "~/lib/auth";
 
-// In loaders
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  // Require login, redirect to /auth/login if not
-  const { user, session } = await requireAuth(request);
+// Require login, redirect to / if not authenticated
+const user = await requireAuth(request);
 
-  // Redirect logged-in users away (for login page)
-  await redirectIfAuthenticated(request);
-
-  // Get user if logged in, null otherwise
-  const user = await optionalAuth(request);
-};
-```
-
-### Auth Configuration
-
-Located in `app/config/private/auth.server.ts`:
-
-```typescript
-{
-  session: {
-    lifetime: 30 * 24 * 60 * 60 * 1000,      // 30 days
-    refreshThreshold: 24 * 60 * 60 * 1000,    // 24 hours
-    cookieName: "__session"
-  },
-  password: {
-    minLength: 8,
-    bcryptRounds: 12
-  },
-  username: {
-    minLength: 3,
-    maxLength: 32,
-    pattern: /^[a-zA-Z0-9_]+$/
-  }
-}
-```
-
-### Security Features
-
-- **Password hashing**: bcrypt with 12 rounds
-- **HttpOnly cookies**: JavaScript cannot access session
-- **SameSite=lax**: CSRF protection
-- **Generic errors**: No user enumeration ("Invalid credentials")
-- **Session validation**: Verified on every request
-- **Sliding expiration**: Prevents stale sessions
-
-## Setup Wizard
-
-First-time setup flow that runs before the app is usable.
-
-### Steps
-
-1. **Account** (`/setup/account`) — Create admin username & password
-2. **Settings** (`/setup/settings`) — Configure app name & timezone
-3. **Complete** (`/setup/complete`) — Auto-login and redirect to dashboard
-
-### Behavior
-
-- Setup status tracked in `Setting` table (`setup_step`, `setup_complete`)
-- Cannot skip steps or go backward
-- After setup, `/setup/*` routes redirect to dashboard
-- Login/register routes redirect to setup if not complete
-
-### Checking Setup Status
-
-```typescript
-import { isSetupComplete, getSetupStep } from "~/lib/settings.server";
-
-const complete = await isSetupComplete();  // boolean
-const step = await getSetupStep();         // 1, 2, or 3
+// Check auth without redirecting
+const user = await optionalAuth(request);
 ```
 
 ## Settings System
 
-Key-value store for persistent settings using the `Setting` model.
+Per-user settings with encrypted API key storage.
 
 ```typescript
 import {
-  getSetting,
-  getSettingWithDefault,
-  setSetting,
-  getSettings,
-  setSettings
+  getUserSetting,
+  setUserSetting,
+  getAlchemyApiKey,
+  setAlchemyApiKey,
+  getRefreshesPerDay,
 } from "~/lib/settings.server";
 
-// Single values
-const appName = await getSetting('app_name');
-const timezone = await getSettingWithDefault('timezone', 'UTC');
-await setSetting('app_name', 'My Portfolio');
-
-// Multiple values
-const settings = await getSettings(['app_name', 'timezone']);
-await setSettings({ app_name: 'My Portfolio', timezone: 'America/New_York' });
+// All settings functions require userId
+const apiKey = await getAlchemyApiKey(userId);
+await setRefreshesPerDay(userId, 5);
 ```
 
-## Configuration System
+### Setting Keys
 
-Laravel-style configuration with public/private separation for security.
+- `alchemy_api_key` — Encrypted Alchemy API key
+- `helius_api_key` — Encrypted Helius API key
+- `timezone` — User's timezone preference
+- `refreshes_per_day` — Auto-refresh frequency (1, 3, 5, or 10)
+- `token_threshold_usd` — Minimum token value to track
 
-### Environment Variables
+## Balance Refresh System
 
-Use the `env()` helper for type-safe access:
+Scheduled and manual balance refreshing for all users.
 
-```typescript
-import { env } from "~/lib/env";
+### Scheduler
 
-env('APP_NAME')                    // string | undefined
-env('APP_NAME', 'Pulsar')          // string with fallback
-env.string('APP_NAME', 'Pulsar')   // explicit string
-env.int('PORT', 3000)              // number
-env.bool('APP_DEBUG', false)       // boolean
-env.array('ALLOWED_HOSTS', [])     // string[] (comma-separated)
-env.required('DATABASE_URL')       // throws if not set
-```
+- Runs every 4 hours for all users
+- Uses each user's individual API keys and settings
+- Creates snapshots in the database
 
-### Config Helper
+### Manual Refresh
 
-**In components (client-safe):**
-```typescript
-import { config } from "~/lib/config";
-
-config('app.name')           // "Pulsar"
-config('features.priceAlerts') // false
-```
-
-**In loaders/actions (full access):**
-```typescript
-import { config } from "~/lib/config.server";
-
-config('app.name')                              // Public config
-config('database.connections.sqlite.url')       // Database URL
-config('services.blockchain.coingecko.apiKey')  // API keys
-config('secrets.appKey')                        // App secrets
-```
-
-### Passing Config to Components
-
-Use loaders to safely pass config to client components:
-
-```typescript
-// In a loader
-export const loader = () => {
-  return json({
-    config: config.public()  // Only public config
-  });
-};
-
-// Or specific keys
-export const loader = () => {
-  return json({
-    config: config.forClient(['app.name', 'features.priceAlerts'])
-  });
-};
-```
-
-### Adding New Config
-
-**Public config** (safe for browser):
-1. Create/edit file in `app/config/public/`
-2. Add to `app/config/index.ts`
-
-**Private config** (server-only):
-1. Create file in `app/config/private/` with `.server.ts` suffix
-2. Add to `app/config/index.server.ts`
-
-### Security
-
-- Files ending in `.server.ts` are never bundled for the client (Remix guarantee)
-- `config()` from `~/lib/config` only accesses public config
-- `config.forClient()` only allows `app.*` and `features.*` keys
+- POST to `/api/refresh`
+- Rate limited to 1 request per minute per user
 
 ## Database Schema
 
 ### Models
 
-- **User** — Admin accounts (username, passwordHash)
-- **Session** — Database-backed auth sessions (userId, expiresAt, lastActiveAt)
-- **Setting** — Key-value store for app settings
+- **User** — User accounts (username, passwordHash, avatarUrl)
+- **Session** — Database-backed auth sessions
+- **UserSetting** — Per-user key-value settings (encrypted API keys)
+- **Wallet** — User's tracked wallet addresses
+- **BalanceSnapshot** — Historical balance data
+- **TokenSnapshot** — Token balances within a snapshot
 
 ### Relationships
 
 ```
-User 1──* Session (cascade delete)
+User 1──* Session
+User 1──* UserSetting
+User 1──* Wallet 1──* BalanceSnapshot 1──* TokenSnapshot
 ```
 
-## How It Works
+## External Services
 
-1. User deploys their own instance (Railway recommended)
-2. **Setup wizard** creates admin account and configures app
-3. All data stays with the user — SQLite file on their server
+| Service | Purpose | Config |
+|---------|---------|--------|
+| Alchemy | EVM chains + Bitcoin | Per-user API key |
+| Helius | Solana | Per-user API key |
+| CoinGecko | Price data | Optional API key |
 
-## Railway Deployment
+## Deployment
 
-### Persistent Database
+### Railway (Recommended)
 
-Railway containers are ephemeral. To persist the SQLite database across deployments, a **volume** must be attached:
+1. Connect GitHub repo
+2. Add PostgreSQL database
+3. Set environment variables:
+   - `DATABASE_URL` — Auto-set by Railway
+   - `ENCRYPTION_KEY` — Generate with `openssl rand -base64 32`
+   - `SESSION_SECRET` — Generate with `openssl rand -base64 32`
+4. Deploy
+
+### Environment Variables
 
 ```bash
-railway volume add --mount-path /app/prisma/data
+# Required
+DATABASE_URL=postgresql://...
+ENCRYPTION_KEY=base64-encoded-32-byte-key
+SESSION_SECRET=random-string
+
+# Optional
+NODE_ENV=production
+PORT=3000
 ```
-
-This mounts persistent storage at the database location. Without this, the database resets on every deploy.
-
-## Database Commands
-
-```bash
-bunx prisma migrate dev    # Run migrations (dev)
-bunx prisma generate       # Generate client
-bunx prisma studio         # Open database GUI
-bunx prisma migrate reset  # Reset database (dev only)
-```
-
-## External Services (Configured)
-
-API integrations are configured but not yet implemented:
-
-| Service | Purpose | Env Variable |
-|---------|---------|--------------|
-| CoinGecko | Price data | `COINGECKO_API_KEY` |
-| Etherscan | Ethereum data | `ETHERSCAN_API_KEY` |
-| Alchemy | RPC provider | `ALCHEMY_API_KEY` |
-| Infura | RPC provider | `INFURA_PROJECT_ID` |
 
 ## Roadmap
 
-- [ ] Multi-user support (optional)
-- [ ] Price alerts & notifications
+### Phase 1: Crypto (Current)
+- [x] Multi-chain wallet tracking
+- [x] Real-time balance updates
+- [x] Portfolio analytics
+- [x] Per-user API keys
+
+### Phase 2: Expanded Assets
+- [ ] Stock portfolio tracking (brokerage integration)
+- [ ] Staking & yield tracking
+- [ ] DeFi position monitoring
+
+### Phase 3: Full Finance
+- [ ] Vault/savings tracking
+- [ ] Bank account integration
+- [ ] Tax reporting
+- [ ] Mobile apps (iOS/Android)
+
+---
+
+**Pulsar** — The future of personal finance 🚀

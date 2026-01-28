@@ -23,8 +23,8 @@ import MobileNav from "~/components/layout/mobile-nav";
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "Pulsar - Track Your Crypto Portfolio" },
-    { name: "description", content: "Monitor all your wallets across multiple chains in one beautiful dashboard" },
+    { title: "Pulsar - Your Wealth, One Dashboard" },
+    { name: "description", content: "The all-in-one personal finance platform. Track crypto, stocks, staking, vaults and more — all in one place." },
   ];
 };
 

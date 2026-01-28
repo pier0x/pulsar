@@ -59,12 +59,12 @@ export function AuthModal({ isOpen, onClose, mode, onSwitchMode }: AuthModalProp
                 {/* Header */}
                 <div className="text-center mb-8">
                   <DialogTitle className="text-2xl font-bold text-white mb-2">
-                    {isLogin ? "Welcome back" : "Create an account"}
+                    {isLogin ? "Welcome back" : "Create your account"}
                   </DialogTitle>
                   <p className="text-zinc-400 text-sm">
                     {isLogin
-                      ? "Enter your credentials to access your account"
-                      : "Sign up to start tracking your portfolio"}
+                      ? "Sign in to access your dashboard"
+                      : "Start tracking all your assets in one place"}
                   </p>
                 </div>
 
