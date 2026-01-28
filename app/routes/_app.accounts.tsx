@@ -4,7 +4,7 @@ import { json } from "@remix-run/node";
 import { Form, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
 import { Plus, Trash2, Wallet, Bitcoin, RefreshCw, Building2, LineChart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Button, Input, FormField, Alert, Card, Select, SelectOption } from "~/components/ui";
+import { Button, Input, FormField, Alert, Card } from "~/components/ui";
 import { requireAuth } from "~/lib/auth";
 import { prisma } from "~/lib/db.server";
 import { detectAddressType, validateWalletForNetwork } from "~/lib/wallet.server";
@@ -71,7 +71,6 @@ export async function action({ request }: ActionFunctionArgs) {
   if (intent === "add") {
     const address = formData.get("address");
     const name = formData.get("name");
-    const network = formData.get("network");
 
     if (typeof address !== "string" || !address.trim()) {
       return json({ error: "Wallet address is required" }, { status: 400 });
@@ -83,18 +82,40 @@ export async function action({ request }: ActionFunctionArgs) {
       return json({ error: detection.error || "Invalid wallet address" }, { status: 400 });
     }
 
-    // For EVM addresses, network must be selected
-    let finalNetwork: WalletNetwork;
+    const walletName = typeof name === "string" && name.trim() ? name.trim() : null;
+
+    // For EVM addresses, create entries for all EVM networks
     if (detection.addressType === "evm") {
-      if (typeof network !== "string" || !EVM_NETWORKS.includes(network as WalletNetwork)) {
-        return json({ error: "Please select a network for this EVM address" }, { status: 400 });
+      // Check if already exists on any EVM network
+      const existing = await prisma.wallet.findFirst({
+        where: {
+          userId: user.id,
+          address: address.trim(),
+          network: { in: EVM_NETWORKS },
+        },
+      });
+
+      if (existing) {
+        return json({ error: "This EVM address is already added" }, { status: 400 });
       }
-      finalNetwork = network as WalletNetwork;
-    } else {
-      finalNetwork = detection.suggestedNetwork!;
+
+      // Create wallet entries for all EVM networks
+      await prisma.wallet.createMany({
+        data: EVM_NETWORKS.map((network) => ({
+          userId: user.id,
+          network,
+          address: address.trim(),
+          name: walletName,
+        })),
+      });
+
+      return json({ success: true });
     }
 
-    // Validate address for the selected network
+    // For non-EVM (Bitcoin, Solana), create single entry
+    const finalNetwork = detection.suggestedNetwork!;
+
+    // Validate address for the network
     const validation = validateWalletForNetwork(address.trim(), finalNetwork);
     if (!validation.valid) {
       return json({ error: validation.error || "Invalid address for this network" }, { status: 400 });
@@ -110,7 +131,7 @@ export async function action({ request }: ActionFunctionArgs) {
     });
 
     if (existing) {
-      return json({ error: "This wallet address is already added for this network" }, { status: 400 });
+      return json({ error: "This wallet address is already added" }, { status: 400 });
     }
 
     await prisma.wallet.create({
@@ -118,7 +139,7 @@ export async function action({ request }: ActionFunctionArgs) {
         userId: user.id,
         network: finalNetwork,
         address: address.trim(),
-        name: typeof name === "string" && name.trim() ? name.trim() : null,
+        name: walletName,
       },
     });
 
@@ -196,7 +217,6 @@ function AddAccountForm() {
   const [accountType, setAccountType] = useState<AccountType>("wallet");
   const [address, setAddress] = useState("");
   const [addressType, setAddressType] = useState<"bitcoin" | "evm" | "solana" | null>(null);
-  const [selectedNetwork, setSelectedNetwork] = useState<WalletNetwork>("ethereum");
 
   // Detect address type when address changes
   useEffect(() => {
@@ -226,7 +246,6 @@ function AddAccountForm() {
     if (actionData && "success" in actionData && actionData.success) {
       setAddress("");
       setAddressType(null);
-      setSelectedNetwork("ethereum");
     }
   }, [actionData]);
 
@@ -302,29 +321,16 @@ function AddAccountForm() {
             />
           </FormField>
 
-          {/* Network selector for EVM addresses */}
+          {/* Auto-detected network indicator */}
           {addressType === "evm" && (
-            <FormField 
-              label="Network" 
-              htmlFor="network"
-              hint="Select which network this address is on"
-            >
-              <Select
-                id="network"
-                name="network"
-                value={selectedNetwork}
-                onChange={(e) => setSelectedNetwork(e.target.value as WalletNetwork)}
-              >
-                {EVM_NETWORKS.map((net) => (
-                  <SelectOption key={net} value={net}>
-                    {getNetworkDisplayName(net)}
-                  </SelectOption>
-                ))}
-              </Select>
-            </FormField>
+            <div className="flex items-center gap-2 text-sm text-zinc-400 flex-wrap">
+              <span>Networks:</span>
+              {EVM_NETWORKS.map((net) => (
+                <NetworkBadge key={net} network={net} />
+              ))}
+            </div>
           )}
 
-          {/* Auto-detected network indicator */}
           {addressType && addressType !== "evm" && (
             <div className="flex items-center gap-2 text-sm text-zinc-400">
               <span>Detected:</span>
