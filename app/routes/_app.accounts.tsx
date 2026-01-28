@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { Form, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
-import { Plus, Trash2, Wallet, Bitcoin, RefreshCw } from "lucide-react";
+import { Plus, Trash2, Wallet, Bitcoin, RefreshCw, Building2, LineChart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button, Input, FormField, Alert, Card, Select, SelectOption } from "~/components/ui";
 import { requireAuth } from "~/lib/auth";
@@ -180,11 +180,20 @@ function NetworkIcon({ network }: { network: string }) {
   }
 }
 
-function AddWalletForm() {
+type AccountType = "wallet" | "cex" | "broker";
+
+const accountTypes: { id: AccountType; label: string; icon: typeof Wallet; enabled: boolean }[] = [
+  { id: "wallet", label: "Wallet", icon: Wallet, enabled: true },
+  { id: "cex", label: "CEX", icon: Building2, enabled: false },
+  { id: "broker", label: "Broker", icon: LineChart, enabled: false },
+];
+
+function AddAccountForm() {
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
   
+  const [accountType, setAccountType] = useState<AccountType>("wallet");
   const [address, setAddress] = useState("");
   const [addressType, setAddressType] = useState<"bitcoin" | "evm" | "solana" | null>(null);
   const [selectedNetwork, setSelectedNetwork] = useState<WalletNetwork>("ethereum");
@@ -224,76 +233,127 @@ function AddWalletForm() {
   return (
     <Card>
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-white mb-1">Add Wallet</h2>
+        <h2 className="text-lg font-semibold text-white mb-1">Add Account</h2>
         <p className="text-zinc-500 text-sm">
-          Enter a wallet address to track.
+          Connect an account to track your portfolio.
         </p>
       </div>
 
-      <Form method="post" className="space-y-4">
-        <input type="hidden" name="intent" value="add" />
-
-        {actionData && "error" in actionData && (
-          <Alert variant="error">{actionData.error}</Alert>
-        )}
-
-        <FormField label="Name (optional)" htmlFor="name">
-          <Input
-            id="name"
-            name="name"
-            type="text"
-            placeholder="e.g., Main Wallet"
-          />
-        </FormField>
-
-        <FormField label="Wallet Address" htmlFor="address">
-          <Input
-            id="address"
-            name="address"
-            type="text"
-            required
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="0x... / bc1... / So1..."
-            className="font-mono text-sm"
-          />
-        </FormField>
-
-        {/* Network selector for EVM addresses */}
-        {addressType === "evm" && (
-          <FormField 
-            label="Network" 
-            htmlFor="network"
-            hint="Select which network this address is on"
-          >
-            <Select
-              id="network"
-              name="network"
-              value={selectedNetwork}
-              onChange={(e) => setSelectedNetwork(e.target.value as WalletNetwork)}
+      {/* Account Type Tabs */}
+      <div className="flex gap-1 p-1 bg-zinc-800/50 rounded-lg mb-6">
+        {accountTypes.map((type) => {
+          const Icon = type.icon;
+          const isSelected = accountType === type.id;
+          const isDisabled = !type.enabled;
+          
+          return (
+            <button
+              key={type.id}
+              type="button"
+              onClick={() => type.enabled && setAccountType(type.id)}
+              disabled={isDisabled}
+              className={`
+                flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all cursor-pointer
+                ${isSelected 
+                  ? "bg-zinc-700 text-white" 
+                  : isDisabled
+                    ? "text-zinc-600 cursor-not-allowed"
+                    : "text-zinc-400 hover:text-zinc-300 hover:bg-zinc-800"
+                }
+              `}
+              title={isDisabled ? "Coming soon" : undefined}
             >
-              {EVM_NETWORKS.map((net) => (
-                <SelectOption key={net} value={net}>
-                  {getNetworkDisplayName(net)}
-                </SelectOption>
-              ))}
-            </Select>
+              <Icon className="h-4 w-4" />
+              <span className="hidden sm:inline">{type.label}</span>
+              {isDisabled && <span className="text-[10px] text-zinc-500 hidden sm:inline">(Soon)</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Wallet Form */}
+      {accountType === "wallet" && (
+        <Form method="post" className="space-y-4">
+          <input type="hidden" name="intent" value="add" />
+
+          {actionData && "error" in actionData && (
+            <Alert variant="error">{actionData.error}</Alert>
+          )}
+
+          <FormField label="Name (optional)" htmlFor="name">
+            <Input
+              id="name"
+              name="name"
+              type="text"
+              placeholder="e.g., Main Wallet"
+            />
           </FormField>
-        )}
 
-        {/* Auto-detected network indicator */}
-        {addressType && addressType !== "evm" && (
-          <div className="flex items-center gap-2 text-sm text-zinc-400">
-            <span>Detected:</span>
-            <NetworkBadge network={addressType === "bitcoin" ? "bitcoin" : "solana"} />
-          </div>
-        )}
+          <FormField label="Wallet Address" htmlFor="address">
+            <Input
+              id="address"
+              name="address"
+              type="text"
+              required
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="0x... / bc1... / So1..."
+              className="font-mono text-sm"
+            />
+          </FormField>
 
-        <Button type="submit" className="w-full" disabled={isSubmitting || !address.trim()}>
-          <Plus className="h-4 w-4 mr-2" />
-          {isSubmitting ? "Adding..." : "Add Wallet"}
-        </Button>
-      </Form>
+          {/* Network selector for EVM addresses */}
+          {addressType === "evm" && (
+            <FormField 
+              label="Network" 
+              htmlFor="network"
+              hint="Select which network this address is on"
+            >
+              <Select
+                id="network"
+                name="network"
+                value={selectedNetwork}
+                onChange={(e) => setSelectedNetwork(e.target.value as WalletNetwork)}
+              >
+                {EVM_NETWORKS.map((net) => (
+                  <SelectOption key={net} value={net}>
+                    {getNetworkDisplayName(net)}
+                  </SelectOption>
+                ))}
+              </Select>
+            </FormField>
+          )}
+
+          {/* Auto-detected network indicator */}
+          {addressType && addressType !== "evm" && (
+            <div className="flex items-center gap-2 text-sm text-zinc-400">
+              <span>Detected:</span>
+              <NetworkBadge network={addressType === "bitcoin" ? "bitcoin" : "solana"} />
+            </div>
+          )}
+
+          <Button type="submit" className="w-full cursor-pointer" disabled={isSubmitting || !address.trim()}>
+            <Plus className="h-4 w-4 mr-2" />
+            {isSubmitting ? "Adding..." : "Add Wallet"}
+          </Button>
+        </Form>
+      )}
+
+      {/* CEX Placeholder */}
+      {accountType === "cex" && (
+        <div className="text-center py-8">
+          <Building2 className="h-12 w-12 text-zinc-600 mx-auto mb-3" />
+          <p className="text-zinc-400 text-sm">CEX integration coming soon</p>
+        </div>
+      )}
+
+      {/* Broker Placeholder */}
+      {accountType === "broker" && (
+        <div className="text-center py-8">
+          <LineChart className="h-12 w-12 text-zinc-600 mx-auto mb-3" />
+          <p className="text-zinc-400 text-sm">Broker integration coming soon</p>
+        </div>
+      )}
     </Card>
   );
 }
@@ -303,14 +363,14 @@ export default function AccountsPage() {
 
   return (
     <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-3">
-      {/* Add Wallet Card */}
+      {/* Add Account Card */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
         className="lg:col-span-1"
       >
-        <AddWalletForm />
+        <AddAccountForm />
       </motion.div>
 
       {/* Wallets List */}
@@ -322,11 +382,11 @@ export default function AccountsPage() {
       >
         <Card>
           <div className="mb-6">
-            <h2 className="text-lg font-semibold text-white mb-1">Your Wallets</h2>
+            <h2 className="text-lg font-semibold text-white mb-1">Your Accounts</h2>
             <p className="text-zinc-500 text-sm">
               {wallets.length === 0
-                ? "No wallets added yet"
-                : `${wallets.length} wallet${wallets.length === 1 ? "" : "s"} tracked`}
+                ? "No accounts added yet"
+                : `${wallets.length} account${wallets.length === 1 ? "" : "s"} tracked`}
             </p>
           </div>
 
@@ -335,7 +395,7 @@ export default function AccountsPage() {
               <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-4">
                 <Wallet className="h-8 w-8 text-zinc-600" />
               </div>
-              <p className="text-zinc-500">Add your first wallet to start tracking your portfolio.</p>
+              <p className="text-zinc-500">Add your first account to start tracking your portfolio.</p>
             </div>
           ) : (
             <div className="space-y-3">
