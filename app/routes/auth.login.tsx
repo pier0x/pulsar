@@ -1,26 +1,12 @@
-import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { useActionData, useSearchParams } from "@remix-run/react";
-import { AuthForm } from "~/components/auth/auth-form";
 import { login, createLoginSession, redirectIfAuthenticated } from "~/lib/auth";
-import { getSetupRedirect } from "~/lib/setup.server";
-
-export const meta: MetaFunction = () => {
-  return [
-    { title: "Sign In - Pulsar" },
-    { name: "description", content: "Sign in to your Pulsar account" },
-  ];
-};
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  // Check if setup is complete first
-  const setupRedirect = await getSetupRedirect();
-  if (setupRedirect) {
-    throw redirect(setupRedirect);
-  }
-
+  // If already authenticated, redirect to home
   await redirectIfAuthenticated(request);
-  return json({});
+  // Redirect to landing page - login is now a modal
+  throw redirect("/");
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -43,18 +29,5 @@ export async function action({ request }: ActionFunctionArgs) {
     request,
     result.user.id,
     typeof redirectTo === "string" ? redirectTo : "/"
-  );
-}
-
-export default function LoginPage() {
-  const actionData = useActionData<typeof action>();
-  const [searchParams] = useSearchParams();
-  const redirectTo = searchParams.get("redirectTo") || undefined;
-
-  return (
-    <AuthForm
-      error={actionData?.error}
-      redirectTo={redirectTo}
-    />
   );
 }

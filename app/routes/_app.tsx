@@ -4,13 +4,10 @@ import { Outlet, useLoaderData } from "@remix-run/react";
 import Sidebar from "~/components/layout/sidebar";
 import Navbar from "~/components/layout/navbar";
 import MobileNav from "~/components/layout/mobile-nav";
-import { requireSetupComplete } from "~/lib/setup.server";
 import { requireAuth } from "~/lib/auth";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  // First check if setup is complete - redirects to /setup if not
-  await requireSetupComplete();
-  // Then check if user is authenticated - redirects to /auth/login if not
+  // Require authentication - redirects to / if not logged in
   const user = await requireAuth(request);
   return json({ user });
 }

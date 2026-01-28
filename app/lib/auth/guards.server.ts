@@ -1,6 +1,5 @@
 import { redirect } from "@remix-run/node";
 import { getCurrentUser, type AuthUser } from "./auth.server";
-import { getSetupRedirect } from "~/lib/setup.server";
 
 /**
  * Require authentication for a route
@@ -14,20 +13,13 @@ import { getSetupRedirect } from "~/lib/setup.server";
  */
 export async function requireAuth(
   request: Request,
-  redirectTo: string = "/auth/login"
+  redirectTo: string = "/"
 ): Promise<AuthUser> {
-  // First check if setup is complete
-  const setupRedirect = await getSetupRedirect();
-  if (setupRedirect) {
-    throw redirect(setupRedirect);
-  }
-
   const user = await getCurrentUser(request);
 
   if (!user) {
-    const url = new URL(request.url);
-    const searchParams = new URLSearchParams([["redirectTo", url.pathname]]);
-    throw redirect(`${redirectTo}?${searchParams}`);
+    // Redirect to landing page - auth is handled via modal
+    throw redirect(redirectTo);
   }
 
   return user;
