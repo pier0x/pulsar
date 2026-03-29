@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
-import { Form, useLocation } from "@remix-run/react";
-import { BellIcon } from "@heroicons/react/24/outline";
+import { Form, useLocation, useFetcher } from "@remix-run/react";
+import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import { ChevronDownIcon, UserCircleIcon } from "@heroicons/react/20/solid";
 import { Logo } from "../ui";
 
@@ -61,6 +62,28 @@ function getAvatarColor(username: string): string {
   return colors[index];
 }
 
+function RefreshButton() {
+  const fetcher = useFetcher<{ success?: boolean; error?: string }>();
+  const isRefreshing = fetcher.state !== "idle";
+
+  return (
+    <fetcher.Form method="post" action="/api/refresh">
+      <button
+        type="submit"
+        disabled={isRefreshing}
+        className="-m-2 p-2 text-zinc-400 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+        title="Refresh balances"
+      >
+        <span className="sr-only">Refresh balances</span>
+        <ArrowPathIcon
+          aria-hidden="true"
+          className={`size-5 sm:size-6 ${isRefreshing ? "animate-spin" : ""}`}
+        />
+      </button>
+    </fetcher.Form>
+  );
+}
+
 export default function Navbar({ user }: NavbarProps) {
   const location = useLocation();
   const pageTitle = getPageTitle(location.pathname);
@@ -78,13 +101,7 @@ export default function Navbar({ user }: NavbarProps) {
 
         {/* Action items */}
         <div className="flex items-center gap-x-2 sm:gap-x-4 lg:gap-x-6">
-          <button
-            type="button"
-            className="-m-2 p-2 text-zinc-400 hover:text-white transition-colors cursor-pointer"
-          >
-            <span className="sr-only">View notifications</span>
-            <BellIcon aria-hidden="true" className="size-5 sm:size-6" />
-          </button>
+          <RefreshButton />
 
           {/* Separator */}
           <div
