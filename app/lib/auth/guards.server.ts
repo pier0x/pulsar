@@ -3,7 +3,6 @@ import { getCurrentUser, type AuthUser } from "./auth.server";
 
 /**
  * Require authentication for a route
- * Also checks if setup is complete - redirects to setup if not
  *
  * @example
  * export async function loader({ request }: LoaderFunctionArgs) {
@@ -27,7 +26,7 @@ export async function requireAuth(
 
 /**
  * Redirect to a destination if already authenticated
- * Use this on login/register pages to redirect logged-in users
+ * Redirect to home if already authenticated
  *
  * @example
  * export async function loader({ request }: LoaderFunctionArgs) {

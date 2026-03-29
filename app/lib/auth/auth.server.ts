@@ -1,8 +1,6 @@
 import { redirect } from "@remix-run/node";
-import { config } from "~/lib/config.server";
 import { prisma } from "~/lib/db.server";
-import { initializeUserSettings } from "~/lib/settings.server";
-import { hashPassword, verifyPassword, validatePassword } from "./password.server";
+import { verifyPassword } from "./password.server";
 import {
   createDatabaseSession,
   createSessionCookie,
@@ -20,102 +18,6 @@ export type AuthUser = {
   createdAt: Date;
   updatedAt: Date;
 };
-
-/**
- * Generate a random avatar URL
- */
-function generateAvatarUrl(): string {
-  const num = Math.floor(Math.random() * 50) + 1;
-  return `https://avatars.outpace.systems/avatars/previews/avatar-${num}.webp`;
-}
-
-/**
- * Validate username meets requirements
- */
-export function validateUsername(username: string): {
-  valid: boolean;
-  error?: string;
-} {
-  const minLength = config<number>("auth.username.minLength", 3);
-  const maxLength = config<number>("auth.username.maxLength", 32);
-  const pattern = config<RegExp>("auth.username.pattern", /^[a-zA-Z0-9_]+$/);
-
-  if (!username || username.length < minLength) {
-    return {
-      valid: false,
-      error: `Username must be at least ${minLength} characters`,
-    };
-  }
-
-  if (username.length > maxLength) {
-    return {
-      valid: false,
-      error: `Username must be at most ${maxLength} characters`,
-    };
-  }
-
-  if (!pattern.test(username)) {
-    return {
-      valid: false,
-      error: "Username can only contain letters, numbers, and underscores",
-    };
-  }
-
-  return { valid: true };
-}
-
-/**
- * Register a new user
- */
-export async function register(
-  username: string,
-  password: string
-): Promise<{ user?: AuthUser; error?: string }> {
-  // Validate username
-  const usernameValidation = validateUsername(username);
-  if (!usernameValidation.valid) {
-    return { error: usernameValidation.error };
-  }
-
-  // Validate password
-  const passwordValidation = validatePassword(password);
-  if (!passwordValidation.valid) {
-    return { error: passwordValidation.error };
-  }
-
-  // Check if username already exists
-  const existingUser = await prisma.user.findUnique({
-    where: { username: username.toLowerCase() },
-  });
-
-  if (existingUser) {
-    return { error: "Username already taken" };
-  }
-
-  // Create user with random avatar
-  const passwordHash = await hashPassword(password);
-  const avatarUrl = generateAvatarUrl();
-  const user = await prisma.user.create({
-    data: {
-      username: username.toLowerCase(),
-      passwordHash,
-      avatarUrl,
-    },
-  });
-
-  // Initialize default settings for the new user
-  await initializeUserSettings(user.id);
-
-  return {
-    user: {
-      id: user.id,
-      username: user.username,
-      avatarUrl: user.avatarUrl,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    },
-  };
-}
 
 /**
  * Attempt to log in a user
