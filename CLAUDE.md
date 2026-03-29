@@ -1,25 +1,10 @@
 # Pulsar
 
-**Your Wealth, One Dashboard** — The all-in-one personal finance platform for the future.
+**Your Wealth, One Dashboard** — Personal finance dashboard for tracking crypto and other assets.
 
-## Vision
+## Overview
 
-The financial landscape is evolving rapidly. Your wealth is scattered across crypto wallets, stock brokerages, DeFi protocols, staking platforms, and traditional banks. Pulsar aims to be the unified dashboard that connects it all — giving you a complete picture of your financial life.
-
-### What Pulsar Will Support
-
-- **Crypto Wallets** — Multi-chain tracking (Ethereum, Bitcoin, Solana, L2s)
-- **Stocks & ETFs** — Brokerage account integration
-- **Staking & Yields** — DeFi positions and staking rewards
-- **Vaults** — Secure savings and fixed deposits
-- **Traditional Finance** — Bank accounts and credit cards (future)
-
-## Core Principles
-
-1. **User-first Design** — Beautiful, intuitive interface that anyone can use
-2. **Security by Default** — Per-user encrypted API keys, no wallet connections required
-3. **Modular Architecture** — Easy to add new asset types and integrations
-4. **Real-time Updates** — Automated syncing with configurable refresh rates
+Single-user personal portfolio tracker. Not a SaaS — built for one person's use. Auth exists for basic access control on the deployed instance, not for multi-tenancy.
 
 ## Tech Stack
 
@@ -104,7 +89,7 @@ import { Button, Input, Label, Select, FormField, Alert, Card, Badge } from "~/c
 
 ## Package Manager
 
-**Use `bun` for local dev, `npm` also works** — Railway uses bun by default.
+**Use `bun` for local dev** — Railway uses bun by default.
 
 ```bash
 bun install          # Install dependencies
@@ -119,12 +104,12 @@ bunx prisma ...      # Run prisma commands
 ```
 app/
 ├── routes/                  # Remix routes
-│   ├── _index.tsx           # Landing page (guests) / Dashboard (authenticated)
+│   ├── _index.tsx           # Landing / Dashboard
 │   ├── _app.tsx             # Authenticated layout (sidebar, navbar)
 │   ├── _app.accounts.tsx    # Accounts/wallets management
-│   ├── _app.settings.tsx    # User settings (API keys, preferences)
-│   ├── auth.login.tsx       # Login action (modal-based)
-│   ├── auth.register.tsx    # Registration action (modal-based)
+│   ├── _app.settings.tsx    # Settings (API keys, preferences)
+│   ├── auth.login.tsx       # Login action
+│   ├── auth.register.tsx    # Registration action
 │   ├── auth.logout.tsx      # Logout handler
 │   └── api.refresh.ts       # Manual balance refresh API
 ├── components/
@@ -133,10 +118,10 @@ app/
 │   ├── landing/             # Landing page components
 │   └── layout/              # Layout components (sidebar, navbar)
 ├── lib/
-│   ├── auth/                # Authentication system
+│   ├── auth/                # Authentication
 │   ├── balance/             # Balance refresh system
 │   ├── providers/           # External API providers (Alchemy, Helius)
-│   ├── settings.server.ts   # Per-user settings store
+│   ├── settings.server.ts   # Settings store
 │   └── db.server.ts         # Prisma client
 └── root.tsx                 # Root layout
 
@@ -147,150 +132,80 @@ prisma/
 
 ## Routes
 
-| Route | Purpose | Auth |
-|-------|---------|------|
-| `/` | Landing page (guests) or Dashboard (authenticated) | Dynamic |
-| `/accounts` | Wallet/account management | Required |
-| `/settings` | User settings (API keys, refresh, timezone) | Required |
-| `/auth/login` | Login action (POST) + redirect | Guest only |
-| `/auth/register` | Registration action (POST) + redirect | Guest only |
-| `/auth/logout` | Logout (POST only) | Required |
-| `/api/refresh` | Manual balance refresh | Required |
+| Route | Purpose |
+|-------|---------|
+| `/` | Landing page or Dashboard |
+| `/accounts` | Wallet/account management |
+| `/settings` | Settings (API keys, refresh, timezone) |
+| `/auth/login` | Login (POST) |
+| `/auth/register` | Registration (POST) |
+| `/auth/logout` | Logout (POST) |
+| `/api/refresh` | Manual balance refresh |
 
-## Authentication System
+## Authentication
 
-Modal-based authentication with database-backed sessions.
+Simple auth for access control on the deployed instance. Not multi-user — just keeps the dashboard private.
 
-### Flow
+- Modal-based login/register on the landing page
+- Database-backed sessions (30-day lifetime, sliding expiration)
 
-1. **Landing page** (`/`) shows for unauthenticated users with Login/Register modals
-2. **Dashboard** (`/`) shows for authenticated users
-3. **Sessions** stored in database with 30-day lifetime, sliding expiration
-
-### Route Guards
-
-```typescript
-import { requireAuth, redirectIfAuthenticated, optionalAuth } from "~/lib/auth";
-
-// Require login, redirect to / if not authenticated
-const user = await requireAuth(request);
-
-// Check auth without redirecting
-const user = await optionalAuth(request);
-```
-
-## Settings System
-
-Per-user settings with encrypted API key storage.
+## Settings
 
 ```typescript
 import {
-  getUserSetting,
-  setUserSetting,
-  getAlchemyApiKey,
-  setAlchemyApiKey,
+  getUserSetting, setUserSetting,
+  getAlchemyApiKey, setAlchemyApiKey,
   getRefreshesPerDay,
 } from "~/lib/settings.server";
-
-// All settings functions require userId
-const apiKey = await getAlchemyApiKey(userId);
-await setRefreshesPerDay(userId, 5);
 ```
 
-### Setting Keys
+### Keys
 
 - `alchemy_api_key` — Encrypted Alchemy API key
 - `helius_api_key` — Encrypted Helius API key
-- `timezone` — User's timezone preference
+- `timezone` — Timezone preference
 - `refreshes_per_day` — Auto-refresh frequency (1, 3, 5, or 10)
 - `token_threshold_usd` — Minimum token value to track
 
-## Balance Refresh System
+## Balance Refresh
 
-Scheduled and manual balance refreshing for all users.
+- Scheduler runs every 4 hours
+- Manual refresh: POST `/api/refresh` (rate limited to 1/min)
 
-### Scheduler
+## Database Models
 
-- Runs every 4 hours for all users
-- Uses each user's individual API keys and settings
-- Creates snapshots in the database
-
-### Manual Refresh
-
-- POST to `/api/refresh`
-- Rate limited to 1 request per minute per user
-
-## Database Schema
-
-### Models
-
-- **User** — User accounts (username, passwordHash, avatarUrl)
-- **Session** — Database-backed auth sessions
-- **UserSetting** — Per-user key-value settings (encrypted API keys)
-- **Wallet** — User's tracked wallet addresses
+- **User** — Account (username, passwordHash)
+- **Session** — Auth sessions
+- **UserSetting** — Key-value settings (encrypted API keys)
+- **Wallet** — Tracked wallet addresses
 - **BalanceSnapshot** — Historical balance data
 - **TokenSnapshot** — Token balances within a snapshot
 
-### Relationships
-
-```
-User 1──* Session
-User 1──* UserSetting
-User 1──* Wallet 1──* BalanceSnapshot 1──* TokenSnapshot
-```
-
 ## External Services
 
-| Service | Purpose | Config |
-|---------|---------|--------|
-| Alchemy | EVM chains + Bitcoin | Per-user API key |
-| Helius | Solana | Per-user API key |
-| CoinGecko | Price data | Optional API key |
+| Service | Purpose |
+|---------|---------|
+| Alchemy | EVM chains + Bitcoin |
+| Helius | Solana |
+| CoinGecko | Price data |
 
-## Deployment
-
-### Railway (Recommended)
-
-1. Connect GitHub repo
-2. Add PostgreSQL database
-3. Set environment variables:
-   - `DATABASE_URL` — Auto-set by Railway
-   - `ENCRYPTION_KEY` — Generate with `openssl rand -base64 32`
-   - `SESSION_SECRET` — Generate with `openssl rand -base64 32`
-4. Deploy
-
-### Environment Variables
+## Environment Variables
 
 ```bash
-# Required
 DATABASE_URL=postgresql://...
 ENCRYPTION_KEY=base64-encoded-32-byte-key
 SESSION_SECRET=random-string
-
-# Optional
-NODE_ENV=production
-PORT=3000
 ```
+
+## Deployment
+
+Railway with PostgreSQL. Deployed at: https://pulsar-production-a05b.up.railway.app
 
 ## Roadmap
 
-### Phase 1: Crypto (Current)
-- [x] Multi-chain wallet tracking
-- [x] Real-time balance updates
-- [x] Portfolio analytics
-- [x] Per-user API keys
-
-### Phase 2: Expanded Assets
-- [ ] Stock portfolio tracking (brokerage integration)
+- [ ] Stock portfolio tracking
 - [ ] Staking & yield tracking
 - [ ] DeFi position monitoring
-
-### Phase 3: Full Finance
 - [ ] Vault/savings tracking
-- [ ] Bank account integration
+- [ ] Multi-currency support
 - [ ] Tax reporting
-- [ ] Mobile apps (iOS/Android)
-
----
-
-**Pulsar** — The future of personal finance 🚀

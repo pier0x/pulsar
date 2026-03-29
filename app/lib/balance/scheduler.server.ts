@@ -1,6 +1,6 @@
 /**
  * Balance refresh scheduler using node-cron
- * Runs scheduled refreshes for all users on a fixed schedule
+ * Runs scheduled refreshes for all wallets on a fixed schedule
  */
 
 import cron, { type ScheduledTask } from "node-cron";
@@ -12,7 +12,7 @@ let scheduledTask: ScheduledTask | null = null;
 const CRON_EXPRESSION = "0 0,4,8,12,16,20 * * *";
 
 /**
- * Run a scheduled refresh for all users
+ * Run a scheduled refresh for all wallets
  */
 async function runScheduledRefresh(): Promise<void> {
   console.log(`[Scheduler] Starting scheduled balance refresh at ${new Date().toISOString()}`);

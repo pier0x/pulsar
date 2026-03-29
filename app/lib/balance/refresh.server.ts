@@ -348,7 +348,7 @@ export async function refreshUserWallets(
 }
 
 /**
- * Refresh all wallets for all users (used by scheduler)
+ * Refresh all wallets for all wallets (used by scheduler)
  */
 export async function refreshAllWallets(
   trigger: "scheduled" | "manual"
@@ -366,7 +366,7 @@ export async function refreshAllWallets(
   const allErrors: FetchError[] = [];
   const allSuccessful: WalletBalanceData[] = [];
 
-  // Process each user
+  // Process each wallet owner
   for (const user of users) {
     const result = await refreshUserWallets(user.id, trigger);
     totalAttempted += result.walletsAttempted;
