@@ -136,7 +136,7 @@ prisma/
 |-------|---------|
 | `/` | Landing page or Dashboard |
 | `/accounts` | Wallet/account management |
-| `/settings` | Settings (API keys, refresh, timezone) |
+| `/settings` | Settings (timezone, token threshold) |
 | `/auth/login` | Login (POST) |
 | `/auth/register` | Disabled (returns 403) |
 | `/auth/logout` | Logout (POST) |
@@ -153,21 +153,12 @@ Simple auth to keep the deployed instance private. Single user — registration 
 
 ## Settings
 
+Per-user settings stored in DB (timezone, token threshold). API keys come from env vars.
+
 ```typescript
-import {
-  getUserSetting, setUserSetting,
-  getAlchemyApiKey, setAlchemyApiKey,
-  getRefreshesPerDay,
-} from "~/lib/settings.server";
+import { getTokenThresholdUsd, getUserTimezone } from "~/lib/settings.server";
+import { getAlchemyApiKey, getHeliusApiKey, getCoinGeckoApiKey } from "~/lib/settings.server";
 ```
-
-### Keys
-
-- `alchemy_api_key` — Encrypted Alchemy API key
-- `helius_api_key` — Encrypted Helius API key
-- `timezone` — Timezone preference
-- `refreshes_per_day` — Auto-refresh frequency (1, 3, 5, or 10)
-- `token_threshold_usd` — Minimum token value to track
 
 ## Balance Refresh
 
@@ -185,18 +176,25 @@ import {
 
 ## External Services
 
-| Service | Purpose |
-|---------|---------|
-| Alchemy | EVM chains + Bitcoin |
-| Helius | Solana |
-| CoinGecko | Price data |
+| Service | Purpose | Env Var |
+|---------|---------|---------|
+| Alchemy | EVM chains + Bitcoin | `ALCHEMY_API_KEY` |
+| Helius | Solana | `HELIUS_API_KEY` |
+| CoinGecko | Price data (optional) | `COINGECKO_API_KEY` |
 
 ## Environment Variables
 
 ```bash
+# Required
 DATABASE_URL=postgresql://...
-ENCRYPTION_KEY=base64-encoded-32-byte-key
+APP_KEY=random-string
 SESSION_SECRET=random-string
+ENCRYPTION_SECRET=random-string
+
+# API Keys
+ALCHEMY_API_KEY=...        # EVM chains + Bitcoin
+HELIUS_API_KEY=...         # Solana
+COINGECKO_API_KEY=...      # Price data (optional)
 ```
 
 ## Deployment
