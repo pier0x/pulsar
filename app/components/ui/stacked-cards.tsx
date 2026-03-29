@@ -60,7 +60,7 @@ export function StackedCards({ wallets, className }: StackedCardsProps) {
           className
         )}
       >
-        <div className="rounded-2xl bg-zinc-900 border border-zinc-800 border-dashed p-8">
+        <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-8">
           <div className="flex flex-col items-center justify-center text-center space-y-4">
             <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center">
               <Wallet className="w-6 h-6 text-zinc-500" />
@@ -72,7 +72,7 @@ export function StackedCards({ wallets, className }: StackedCardsProps) {
               </p>
             </div>
             <Link
-              to="/accounts/add"
+              to="/accounts"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
             >
               <Plus className="w-4 h-4" />
