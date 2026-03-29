@@ -1,13 +1,12 @@
-import { useState } from "react";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, useFetcher } from "@remix-run/react";
+import { motion } from "framer-motion";
 import { getCurrentUser } from "~/lib/auth";
 import { requireOwnerOrOnboard } from "~/lib/onboard.server";
-import { Hero } from "~/components/landing/hero";
-import { AuthModal } from "~/components/auth/auth-modal";
+import { Logo, Button, Input, FormField, Alert } from "~/components/ui";
 
-// Import dashboard components
+// Dashboard components
 import { StackedCards, type WalletData } from "~/components/ui/stacked-cards";
 import {
   PortfolioValueChart,
@@ -25,7 +24,7 @@ import MobileNav from "~/components/layout/mobile-nav";
 export const meta: MetaFunction = () => {
   return [
     { title: "Pulsar - Your Wealth, One Dashboard" },
-    { name: "description", content: "The all-in-one personal finance platform. Track crypto, stocks, staking, vaults and more — all in one place." },
+    { name: "description", content: "Track all your assets in one place." },
   ];
 };
 
@@ -35,7 +34,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
   return json({ user });
 }
 
-// Sample data for dashboard
+// --- Sample data for dashboard ---
+
 const sampleWallets: WalletData[] = [
   {
     id: "1",
@@ -103,19 +103,73 @@ const topLosers: MoverItem[] = [
   { symbol: "LINK", name: "Chainlink", changePercent: -0.95, value: "$18.72" },
 ];
 
-function LandingPage() {
-  const [modalOpen, setModalOpen] = useState(false);
+// --- Login page ---
+
+function LoginPage() {
+  const fetcher = useFetcher<{ error?: string }>();
+  const isSubmitting = fetcher.state === "submitting";
+  const error = fetcher.data?.error;
 
   return (
-    <>
-      <Hero onLoginClick={() => setModalOpen(true)} />
-      <AuthModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-      />
-    </>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-900 p-4">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-emerald-500/10 rounded-full blur-3xl" />
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="relative z-10 w-full max-w-md"
+      >
+        <div className="flex justify-center mb-8">
+          <Logo size="lg" />
+        </div>
+
+        <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-8 shadow-xl">
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold text-white mb-2">Welcome back</h1>
+            <p className="text-zinc-400 text-sm">Sign in to access your dashboard</p>
+          </div>
+
+          <fetcher.Form method="post" action="/auth/login" className="space-y-5">
+            <input type="hidden" name="redirectTo" value="/" />
+
+            {error && <Alert variant="error">{error}</Alert>}
+
+            <FormField label="Username" htmlFor="username">
+              <Input
+                id="username"
+                name="username"
+                type="text"
+                autoComplete="username"
+                required
+                placeholder="Enter your username"
+              />
+            </FormField>
+
+            <FormField label="Password" htmlFor="password">
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                placeholder="Enter your password"
+              />
+            </FormField>
+
+            <Button type="submit" disabled={isSubmitting} className="w-full">
+              {isSubmitting ? "Signing in..." : "Sign in"}
+            </Button>
+          </fetcher.Form>
+        </div>
+      </motion.div>
+    </div>
   );
 }
+
+// --- Dashboard ---
 
 function Dashboard({ user }: { user: { id: string; username: string; avatarUrl: string | null } }) {
   const currentValue = historicalData[historicalData.length - 1].value;
@@ -132,7 +186,6 @@ function Dashboard({ user }: { user: { id: string; username: string; avatarUrl: 
         <main className="flex-1 overflow-y-auto py-4 lg:py-10 pb-24 lg:pb-10">
           <div className="px-2 sm:px-4 lg:px-8">
             <div className="grid gap-4 sm:gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-6 w-full">
-              {/* Row 1: Portfolio Value Chart + Stacked Cards */}
               <div className="col-span-1 md:col-span-2 lg:col-span-4 min-h-[280px] sm:min-h-[320px] lg:min-h-[360px]">
                 <PortfolioValueChart
                   data={historicalData}
@@ -143,8 +196,6 @@ function Dashboard({ user }: { user: { id: string; username: string; avatarUrl: 
               <div className="col-span-1 md:col-span-2 lg:col-span-2 min-h-[320px] lg:min-h-[360px]">
                 <StackedCards wallets={sampleWallets} />
               </div>
-
-              {/* Row 2: Portfolio Breakdown + Top Gainers + Top Losers */}
               <div className="col-span-1 md:col-span-2 lg:col-span-2">
                 <PortfolioBreakdown data={breakdownData} />
               </div>
@@ -163,11 +214,13 @@ function Dashboard({ user }: { user: { id: string; username: string; avatarUrl: 
   );
 }
 
+// --- Root ---
+
 export default function IndexPage() {
   const { user } = useLoaderData<typeof loader>();
 
   if (!user) {
-    return <LandingPage />;
+    return <LoginPage />;
   }
 
   return <Dashboard user={user} />;
