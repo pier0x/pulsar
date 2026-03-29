@@ -1,10 +1,9 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useFetcher } from "@remix-run/react";
-import { motion } from "framer-motion";
 import { getCurrentUser } from "~/lib/auth";
 import { requireOwnerOrOnboard } from "~/lib/onboard.server";
-import { Logo, Button, Input, FormField, Alert } from "~/components/ui";
+import { Logo, Button, Input, FormField, Alert, Card } from "~/components/ui";
 
 // Dashboard components
 import { StackedCards, type WalletData } from "~/components/ui/stacked-cards";
@@ -111,31 +110,17 @@ function LoginPage() {
   const error = fetcher.data?.error;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-900 p-4">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-emerald-500/10 rounded-full blur-3xl" />
-      </div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="relative z-10 w-full max-w-md"
-      >
-        <div className="flex justify-center mb-8">
+    <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4">
+      <div className="w-full max-w-sm space-y-6">
+        <div className="flex justify-center">
           <Logo size="lg" />
         </div>
 
-        <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-8 shadow-xl">
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-white mb-2">Welcome back</h1>
-            <p className="text-zinc-400 text-sm">Sign in to access your dashboard</p>
-          </div>
+        <Card className="p-6">
+          {error && <Alert variant="error" className="mb-5">{error}</Alert>}
 
-          <fetcher.Form method="post" action="/auth/login" className="space-y-5">
+          <fetcher.Form method="post" action="/auth/login" className="space-y-4">
             <input type="hidden" name="redirectTo" value="/" />
-
-            {error && <Alert variant="error">{error}</Alert>}
 
             <FormField label="Username" htmlFor="username">
               <Input
@@ -144,7 +129,6 @@ function LoginPage() {
                 type="text"
                 autoComplete="username"
                 required
-                placeholder="Enter your username"
               />
             </FormField>
 
@@ -155,7 +139,6 @@ function LoginPage() {
                 type="password"
                 autoComplete="current-password"
                 required
-                placeholder="Enter your password"
               />
             </FormField>
 
@@ -163,8 +146,8 @@ function LoginPage() {
               {isSubmitting ? "Signing in..." : "Sign in"}
             </Button>
           </fetcher.Form>
-        </div>
-      </motion.div>
+        </Card>
+      </div>
     </div>
   );
 }
