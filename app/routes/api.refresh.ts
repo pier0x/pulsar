@@ -82,10 +82,20 @@ export async function action({ request }: ActionFunctionArgs) {
       walletsSucceeded: result.walletsSucceeded,
       walletsFailed: result.walletsFailed,
       durationMs: result.durationMs,
-      errors: result.errors.map((e) => ({
-        network: e.network,
-        message: e.errorMessage,
-      })),
+      wallets: [
+        ...result.successfulWallets.map((w) => ({
+          network: w.network,
+          address: w.address,
+          status: "success" as const,
+          totalUsd: w.totalUsdValue,
+        })),
+        ...result.errors.map((e) => ({
+          network: e.network,
+          address: e.walletAddress,
+          status: "error" as const,
+          error: e.errorMessage,
+        })),
+      ],
     });
   } catch (error) {
     console.error("[API Refresh] Error:", error);

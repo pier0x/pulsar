@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { Form, useLocation, useFetcher } from "@remix-run/react";
-import { ArrowPathIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, XMarkIcon, CheckCircleIcon, ExclamationCircleIcon } from "@heroicons/react/24/outline";
 import { ChevronDownIcon, UserCircleIcon } from "@heroicons/react/20/solid";
 import { Logo } from "../ui";
+import { NETWORK_INFO, type WalletNetwork } from "~/lib/wallet";
 
 // Map routes to page titles
 function getPageTitle(pathname: string): string {
@@ -62,14 +63,74 @@ function getAvatarColor(username: string): string {
   return colors[index];
 }
 
+interface WalletResult {
+  network: string;
+  address: string;
+  status: "success" | "error";
+  totalUsd?: number;
+  error?: string;
+}
+
+interface RefreshResponse {
+  success?: boolean;
+  error?: string;
+  status?: string;
+  walletsAttempted?: number;
+  walletsSucceeded?: number;
+  walletsFailed?: number;
+  durationMs?: number;
+  wallets?: WalletResult[];
+}
+
+function formatAddress(addr: string): string {
+  if (!addr || addr.length <= 12) return addr;
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
 function RefreshButton() {
-  const fetcher = useFetcher<{ success?: boolean; error?: string }>();
+  const fetcher = useFetcher<RefreshResponse>();
   const isRefreshing = fetcher.state !== "idle";
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [lastResult, setLastResult] = useState<RefreshResponse | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Store result when refresh completes
+  useEffect(() => {
+    if (fetcher.data && fetcher.state === "idle") {
+      setLastResult(fetcher.data);
+    }
+  }, [fetcher.data, fetcher.state]);
+
+  // Open panel when refresh starts
+  useEffect(() => {
+    if (isRefreshing) {
+      setPanelOpen(true);
+    }
+  }, [isRefreshing]);
+
+  // Close panel on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setPanelOpen(false);
+      }
+    }
+    if (panelOpen) {
+      document.addEventListener("mousedown", handleClick);
+      return () => document.removeEventListener("mousedown", handleClick);
+    }
+  }, [panelOpen]);
+
+  const handleRefresh = () => {
+    setLastResult(null);
+    fetcher.submit(null, { method: "post", action: "/api/refresh" });
+  };
 
   return (
-    <fetcher.Form method="post" action="/api/refresh">
+    <div className="relative" ref={panelRef}>
       <button
-        type="submit"
+        type="button"
+        onClick={handleRefresh}
         disabled={isRefreshing}
         className="-m-2 p-2 text-zinc-400 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
         title="Refresh balances"
@@ -80,7 +141,98 @@ function RefreshButton() {
           className={`size-5 sm:size-6 ${isRefreshing ? "animate-spin" : ""}`}
         />
       </button>
-    </fetcher.Form>
+
+      {/* Progress overlay */}
+      {panelOpen && (
+        <div className="absolute right-0 top-full mt-2 w-80 rounded-xl bg-zinc-900 border border-zinc-800 shadow-2xl z-50 overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+            <span className="text-sm font-medium text-white">
+              {isRefreshing ? "Refreshing…" : lastResult?.error ? "Refresh failed" : "Refresh complete"}
+            </span>
+            <button
+              onClick={() => setPanelOpen(false)}
+              className="p-1 text-zinc-500 hover:text-white transition-colors cursor-pointer rounded-md hover:bg-zinc-800"
+            >
+              <XMarkIcon className="size-4" />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="max-h-64 overflow-y-auto">
+            {isRefreshing && !lastResult && (
+              <div className="flex items-center gap-3 px-4 py-6">
+                <ArrowPathIcon className="size-5 text-blue-400 animate-spin shrink-0" />
+                <span className="text-sm text-zinc-400">Fetching balances for all wallets…</span>
+              </div>
+            )}
+
+            {lastResult?.error && (
+              <div className="flex items-center gap-3 px-4 py-4">
+                <ExclamationCircleIcon className="size-5 text-red-400 shrink-0" />
+                <span className="text-sm text-red-400">{lastResult.error}</span>
+              </div>
+            )}
+
+            {lastResult?.wallets && lastResult.wallets.length > 0 && (
+              <div className="divide-y divide-zinc-800/50">
+                {lastResult.wallets.map((w, i) => {
+                  const info = NETWORK_INFO[w.network as WalletNetwork];
+                  const networkName = info?.displayName || w.network;
+                  const isSuccess = w.status === "success";
+
+                  return (
+                    <div key={`${w.network}-${w.address}-${i}`} className="flex items-center gap-3 px-4 py-2.5">
+                      {isSuccess ? (
+                        <CheckCircleIcon className="size-4 text-emerald-400 shrink-0" />
+                      ) : (
+                        <ExclamationCircleIcon className="size-4 text-red-400 shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-white">{networkName}</span>
+                          <span className="text-[10px] text-zinc-500 font-mono truncate">
+                            {formatAddress(w.address)}
+                          </span>
+                        </div>
+                        {isSuccess && w.totalUsd !== undefined && (
+                          <span className="text-[11px] text-zinc-400">
+                            ${w.totalUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        )}
+                        {!isSuccess && w.error && (
+                          <span className="text-[11px] text-red-400/70 truncate block">{w.error}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {lastResult?.wallets && lastResult.wallets.length === 0 && (
+              <div className="px-4 py-6 text-center">
+                <span className="text-sm text-zinc-500">No wallets to refresh</span>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          {lastResult && !lastResult.error && (
+            <div className="px-4 py-2.5 border-t border-zinc-800 flex items-center justify-between">
+              <span className="text-[11px] text-zinc-500">
+                {lastResult.walletsSucceeded}/{lastResult.walletsAttempted} wallets
+              </span>
+              {lastResult.durationMs && (
+                <span className="text-[11px] text-zinc-500">
+                  {(lastResult.durationMs / 1000).toFixed(1)}s
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
