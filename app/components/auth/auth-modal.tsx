@@ -1,24 +1,18 @@
 import { Fragment } from "react";
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from "@headlessui/react";
 import { useFetcher } from "@remix-run/react";
-import { motion } from "framer-motion";
 import { X } from "lucide-react";
 import { Button, Input, FormField, Alert } from "~/components/ui";
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  mode: "login" | "register";
-  onSwitchMode: () => void;
 }
 
-export function AuthModal({ isOpen, onClose, mode, onSwitchMode }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const fetcher = useFetcher<{ error?: string }>();
   const isSubmitting = fetcher.state === "submitting";
   const error = fetcher.data?.error;
-
-  const isLogin = mode === "login";
-  const action = isLogin ? "/auth/login" : "/auth/register";
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -59,17 +53,15 @@ export function AuthModal({ isOpen, onClose, mode, onSwitchMode }: AuthModalProp
                 {/* Header */}
                 <div className="text-center mb-8">
                   <DialogTitle className="text-2xl font-bold text-white mb-2">
-                    {isLogin ? "Welcome back" : "Create your account"}
+                    Welcome back
                   </DialogTitle>
                   <p className="text-zinc-400 text-sm">
-                    {isLogin
-                      ? "Sign in to access your dashboard"
-                      : "Start tracking all your assets in one place"}
+                    Sign in to access your dashboard
                   </p>
                 </div>
 
                 {/* Form */}
-                <fetcher.Form method="post" action={action} className="space-y-5">
+                <fetcher.Form method="post" action="/auth/login" className="space-y-5">
                   <input type="hidden" name="redirectTo" value="/" />
 
                   {error && <Alert variant="error">{error}</Alert>}
@@ -81,7 +73,7 @@ export function AuthModal({ isOpen, onClose, mode, onSwitchMode }: AuthModalProp
                       type="text"
                       autoComplete="username"
                       required
-                      placeholder={isLogin ? "Enter your username" : "Choose a username"}
+                      placeholder="Enter your username"
                     />
                   </FormField>
 
@@ -90,48 +82,16 @@ export function AuthModal({ isOpen, onClose, mode, onSwitchMode }: AuthModalProp
                       id="password"
                       name="password"
                       type="password"
-                      autoComplete={isLogin ? "current-password" : "new-password"}
+                      autoComplete="current-password"
                       required
-                      placeholder={isLogin ? "Enter your password" : "Choose a strong password"}
+                      placeholder="Enter your password"
                     />
                   </FormField>
 
-                  {!isLogin && (
-                    <FormField label="Confirm Password" htmlFor="confirmPassword">
-                      <Input
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        type="password"
-                        autoComplete="new-password"
-                        required
-                        placeholder="Confirm your password"
-                      />
-                    </FormField>
-                  )}
-
                   <Button type="submit" disabled={isSubmitting} className="w-full">
-                    {isSubmitting
-                      ? isLogin
-                        ? "Signing in..."
-                        : "Creating account..."
-                      : isLogin
-                      ? "Sign in"
-                      : "Create account"}
+                    {isSubmitting ? "Signing in..." : "Sign in"}
                   </Button>
                 </fetcher.Form>
-
-                {/* Switch mode */}
-                <div className="mt-6 text-center">
-                  <p className="text-zinc-500 text-sm">
-                    {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-                    <button
-                      onClick={onSwitchMode}
-                      className="text-blue-400 hover:text-blue-300 font-medium"
-                    >
-                      {isLogin ? "Sign up" : "Sign in"}
-                    </button>
-                  </p>
-                </div>
               </DialogPanel>
             </TransitionChild>
           </div>

@@ -4,7 +4,6 @@ import { Wallet, TrendingUp, Shield, Zap } from "lucide-react";
 
 interface HeroProps {
   onLoginClick: () => void;
-  onRegisterClick: () => void;
 }
 
 const features = [
@@ -14,7 +13,7 @@ const features = [
   { icon: Zap, label: "Real-time Sync" },
 ];
 
-export function Hero({ onLoginClick, onRegisterClick }: HeroProps) {
+export function Hero({ onLoginClick }: HeroProps) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-900 p-4">
       {/* Background gradient effect */}
@@ -84,22 +83,16 @@ export function Hero({ onLoginClick, onRegisterClick }: HeroProps) {
           ))}
         </motion.div>
 
-        {/* CTA Buttons */}
+        {/* CTA Button */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.5 }}
-          className="flex flex-col sm:flex-row gap-4 justify-center"
+          className="flex justify-center"
         >
           <button
-            onClick={onRegisterClick}
-            className="px-8 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold text-lg hover:from-blue-600 hover:to-purple-600 transition-all duration-200 shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 cursor-pointer"
-          >
-            Get Started Free
-          </button>
-          <button
             onClick={onLoginClick}
-            className="px-8 py-3 rounded-xl bg-zinc-800 text-white font-semibold text-lg hover:bg-zinc-700 transition-all duration-200 border border-zinc-700 cursor-pointer"
+            className="px-8 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold text-lg hover:from-blue-600 hover:to-purple-600 transition-all duration-200 shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 cursor-pointer"
           >
             Sign In
           </button>

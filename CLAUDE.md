@@ -138,16 +138,18 @@ prisma/
 | `/accounts` | Wallet/account management |
 | `/settings` | Settings (API keys, refresh, timezone) |
 | `/auth/login` | Login (POST) |
-| `/auth/register` | Registration (POST) |
+| `/auth/register` | Disabled (returns 403) |
 | `/auth/logout` | Logout (POST) |
 | `/api/refresh` | Manual balance refresh |
 
 ## Authentication
 
-Simple auth for access control on the deployed instance. Not multi-user — just keeps the dashboard private.
+Simple auth to keep the deployed instance private. Single user — registration is disabled.
 
-- Modal-based login/register on the landing page
+- Login modal on the landing page (no sign-up option)
+- Registration route returns 403
 - Database-backed sessions (30-day lifetime, sliding expiration)
+- Owner account already exists in the database
 
 ## Settings
 

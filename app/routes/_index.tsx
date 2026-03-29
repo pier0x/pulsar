@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+import { useLoaderData } from "@remix-run/react";
 import { getCurrentUser } from "~/lib/auth";
 import { Hero } from "~/components/landing/hero";
 import { AuthModal } from "~/components/auth/auth-modal";
@@ -103,30 +103,13 @@ const topLosers: MoverItem[] = [
 
 function LandingPage() {
   const [modalOpen, setModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
-
-  const openLogin = () => {
-    setAuthMode("login");
-    setModalOpen(true);
-  };
-
-  const openRegister = () => {
-    setAuthMode("register");
-    setModalOpen(true);
-  };
-
-  const switchMode = () => {
-    setAuthMode(authMode === "login" ? "register" : "login");
-  };
 
   return (
     <>
-      <Hero onLoginClick={openLogin} onRegisterClick={openRegister} />
+      <Hero onLoginClick={() => setModalOpen(true)} />
       <AuthModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        mode={authMode}
-        onSwitchMode={switchMode}
       />
     </>
   );
