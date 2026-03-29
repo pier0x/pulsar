@@ -1,11 +1,11 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { login, createLoginSession, redirectIfAuthenticated } from "~/lib/auth";
+import { requireOwnerOrOnboard } from "~/lib/onboard.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  // If already authenticated, redirect to home
+  await requireOwnerOrOnboard();
   await redirectIfAuthenticated(request);
-  // Redirect to landing page - login is now a modal
   throw redirect("/");
 }
 

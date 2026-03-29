@@ -21,6 +21,11 @@ export {
 } from "./guards.server";
 
 export {
+  hashPassword,
+  validatePassword,
+} from "./password.server";
+
+export {
   destroyAllUserSessions,
   cleanupExpiredSessions,
 } from "./session.server";

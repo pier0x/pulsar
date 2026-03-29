@@ -5,9 +5,10 @@ import Sidebar from "~/components/layout/sidebar";
 import Navbar from "~/components/layout/navbar";
 import MobileNav from "~/components/layout/mobile-nav";
 import { requireAuth } from "~/lib/auth";
+import { requireOwnerOrOnboard } from "~/lib/onboard.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  // Require authentication - redirects to / if not logged in
+  await requireOwnerOrOnboard();
   const user = await requireAuth(request);
   return json({ user });
 }

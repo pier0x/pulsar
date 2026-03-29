@@ -3,6 +3,7 @@ import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { getCurrentUser } from "~/lib/auth";
+import { requireOwnerOrOnboard } from "~/lib/onboard.server";
 import { Hero } from "~/components/landing/hero";
 import { AuthModal } from "~/components/auth/auth-modal";
 
@@ -29,6 +30,7 @@ export const meta: MetaFunction = () => {
 };
 
 export async function loader({ request }: LoaderFunctionArgs) {
+  await requireOwnerOrOnboard();
   const user = await getCurrentUser(request);
   return json({ user });
 }
