@@ -16,28 +16,28 @@ export interface TokenData {
   logoUrl: string | null;
 }
 
-export interface WalletBalanceData {
-  walletId: string;
+export interface AccountBalanceData {
+  accountId: string;
   network: WalletNetwork;
   address: string;
-  
+
   // Native balance
   nativeBalance: string; // Raw balance in smallest unit
   nativeBalanceFormatted: number; // Human-readable
   nativeBalanceUsd: number;
   nativePriceUsd: number;
-  
+
   // Tokens (filtered by threshold)
   tokens: TokenData[];
   tokensUsdValue: number;
-  
+
   // Total
   totalUsdValue: number;
 }
 
 export interface FetchError {
-  walletId: string;
-  walletAddress: string;
+  accountId: string;
+  accountAddress: string;
   network: string;
   errorType: "api_error" | "timeout" | "rate_limit" | "parse_error" | "price_error" | "network_error" | "unknown";
   errorMessage: string;
@@ -51,10 +51,10 @@ export interface RefreshResult {
   walletsSucceeded: number;
   walletsFailed: number;
   durationMs: number;
-  successfulWallets: WalletBalanceData[];
+  successfulWallets: AccountBalanceData[];
   errors: FetchError[];
 }
 
-export type WalletFetchResult =
-  | { success: true; data: WalletBalanceData }
+export type AccountFetchResult =
+  | { success: true; data: AccountBalanceData }
   | { success: false; error: FetchError };

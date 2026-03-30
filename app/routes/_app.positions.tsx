@@ -403,7 +403,7 @@ export default function Positions() {
 
       {/* Error alert */}
       {actionData && "error" in actionData && (
-        <Alert variant="destructive">{actionData.error}</Alert>
+        <Alert variant="error">{actionData.error}</Alert>
       )}
 
       {/* Add Transaction Form */}

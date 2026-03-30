@@ -1,12 +1,13 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useFetcher } from "@remix-run/react";
+import { useLoaderData, useFetcher, useSearchParams, Link } from "@remix-run/react";
 import { getCurrentUser } from "~/lib/auth";
 import { requireOwnerOrOnboard } from "~/lib/onboard.server";
 import { getLastRefreshData } from "~/lib/lastRefresh.server";
 import { Logo, Button, Input, FormField, Alert, Card } from "~/components/ui";
 import { prisma } from "~/lib/db.server";
 import { NETWORK_INFO, EVM_NETWORKS, type WalletNetwork } from "~/lib/wallet";
+import { motion } from "framer-motion";
 
 // Dashboard components
 import { StackedCards, type WalletData } from "~/components/ui/stacked-cards";
@@ -31,6 +32,8 @@ export const meta: MetaFunction = () => {
   ];
 };
 
+type FilterType = "all" | "onchain" | "bank" | "brokerage";
+
 function formatUsd(value: number): string {
   return `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
@@ -40,77 +43,173 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getCurrentUser(request);
 
   if (!user) {
-    return json({ user: null, wallets: [], chartData: [], breakdownData: [], gainers: [], losers: [], currentValue: "$0.00", changePercent: 0, lastRefresh: null });
+    return json({ user: null, wallets: [], chartData: [], breakdownData: [], gainers: [], losers: [], currentValue: "$0.00", changePercent: 0, lastRefresh: null, activeFilter: "all" as FilterType });
   }
 
-  // Fetch wallets with latest 2 snapshots each (for movers comparison)
-  const wallets = await prisma.wallet.findMany({
-    where: { userId: user.id },
-    include: {
-      snapshots: {
-        orderBy: { timestamp: "desc" },
-        take: 2,
-        include: { tokenSnapshots: true },
-      },
-    },
-  });
+  const url = new URL(request.url);
+  const filterParam = url.searchParams.get("filter");
+  const activeFilter: FilterType =
+    filterParam === "onchain" || filterParam === "bank" || filterParam === "brokerage"
+      ? filterParam
+      : "all";
 
-  // --- Build WalletData[] (group EVM wallets by address) ---
-  const evmByAddress = new Map<string, typeof wallets>();
-  const nonEvmWallets: typeof wallets = [];
+  const showOnchain = activeFilter === "all" || activeFilter === "onchain";
+  const showBank = activeFilter === "all" || activeFilter === "bank";
+  const showBrokerage = activeFilter === "all" || activeFilter === "brokerage";
 
-  for (const w of wallets) {
-    if (EVM_NETWORKS.includes(w.network as WalletNetwork)) {
-      const key = w.address.toLowerCase();
-      const group = evmByAddress.get(key) || [];
-      group.push(w);
-      evmByAddress.set(key, group);
-    } else {
-      nonEvmWallets.push(w);
-    }
-  }
+  // Fetch on-chain accounts
+  const onchainAccounts = showOnchain
+    ? await prisma.account.findMany({
+        where: { userId: user.id, type: "onchain" },
+        include: {
+          snapshots: {
+            orderBy: { timestamp: "desc" },
+            take: 2,
+            include: { tokenSnapshots: true },
+          },
+        },
+      })
+    : [];
+
+  // Fetch bank accounts
+  const bankAccounts = showBank
+    ? await prisma.account.findMany({
+        where: { userId: user.id, type: "bank", provider: "plaid" },
+        include: {
+          snapshots: {
+            orderBy: { timestamp: "desc" },
+            take: 1,
+          },
+          plaidConnection: {
+            select: { institutionName: true },
+          },
+        },
+      })
+    : [];
+
+  // Fetch brokerage accounts
+  const brokerageAccounts = showBrokerage
+    ? await prisma.account.findMany({
+        where: { userId: user.id, type: "brokerage", provider: "plaid" },
+        include: {
+          snapshots: {
+            orderBy: { timestamp: "desc" },
+            take: 2,
+            include: { holdings: true },
+          },
+          plaidConnection: {
+            select: { institutionName: true },
+          },
+        },
+      })
+    : [];
+
+  // --- Build WalletData[] ---
 
   const walletCards: WalletData[] = [];
 
-  // Grouped EVM wallets
+  // Group EVM accounts by address
+  const evmByAddress = new Map<string, typeof onchainAccounts>();
+  const nonEvmAccounts: typeof onchainAccounts = [];
+
+  for (const a of onchainAccounts) {
+    if (!a.network || !a.address) continue;
+    if (EVM_NETWORKS.includes(a.network as WalletNetwork)) {
+      const key = a.address.toLowerCase();
+      const group = evmByAddress.get(key) || [];
+      group.push(a);
+      evmByAddress.set(key, group);
+    } else {
+      nonEvmAccounts.push(a);
+    }
+  }
+
+  // Grouped EVM accounts
   for (const [, group] of evmByAddress) {
-    const primary = group.find(w => w.network === "ethereum") || group[0];
-    const totalUsd = group.reduce((sum, w) => {
-      const snap = w.snapshots[0];
+    const primary = group.find((a) => a.network === "ethereum") || group[0];
+    const totalUsd = group.reduce((sum, a) => {
+      const snap = a.snapshots[0];
       return sum + (snap ? Number(snap.totalUsdValue) : 0);
     }, 0);
     const primarySnap = primary.snapshots[0];
     const nativeInfo = NETWORK_INFO[primary.network as WalletNetwork];
     const nativeBalFormatted = primarySnap
       ? formatNativeBalance(primarySnap.nativeBalance, primary.network as WalletNetwork)
-      : `0 ${nativeInfo.symbol}`;
+      : `0 ${nativeInfo?.symbol || "ETH"}`;
 
     walletCards.push({
       id: primary.id,
       name: primary.name || "Wallet",
-      chain: group.length > 1 ? "Multi-chain" : NETWORK_INFO[primary.network as WalletNetwork].displayName,
-      address: primary.address,
+      chain: group.length > 1 ? "Multi-chain" : NETWORK_INFO[primary.network as WalletNetwork]?.displayName || primary.network || "Unknown",
+      address: primary.address || "",
       balance: nativeBalFormatted,
       balanceUsd: formatUsd(totalUsd),
     });
   }
 
-  // Non-EVM wallets
-  for (const w of nonEvmWallets) {
-    const snap = w.snapshots[0];
-    const network = w.network as WalletNetwork;
+  // Non-EVM accounts
+  for (const a of nonEvmAccounts) {
+    if (!a.network || !a.address) continue;
+    const snap = a.snapshots[0];
+    const network = a.network as WalletNetwork;
     const info = NETWORK_INFO[network];
     const totalUsd = snap ? Number(snap.totalUsdValue) : 0;
     const nativeBalFormatted = snap
       ? formatNativeBalance(snap.nativeBalance, network)
-      : `0 ${info.symbol}`;
+      : `0 ${info?.symbol || ""}`;
 
     walletCards.push({
-      id: w.id,
-      name: w.name || "Wallet",
-      chain: info.displayName,
-      address: w.address,
+      id: a.id,
+      name: a.name || "Wallet",
+      chain: info?.displayName || network,
+      address: a.address,
       balance: nativeBalFormatted,
+      balanceUsd: formatUsd(totalUsd),
+    });
+  }
+
+  // Bank account cards
+  for (const a of bankAccounts) {
+    const snap = a.snapshots[0];
+    const totalUsd = snap ? Number(snap.totalUsdValue) : 0;
+    const institution = a.plaidConnection?.institutionName || "Bank";
+    const subtype = a.plaidSubtype
+      ? a.plaidSubtype.charAt(0).toUpperCase() + a.plaidSubtype.slice(1)
+      : "Account";
+
+    walletCards.push({
+      id: a.id,
+      name: a.name || institution,
+      chain: subtype,
+      address: "",
+      balance: institution,
+      balanceUsd: formatUsd(totalUsd),
+    });
+  }
+
+  // Brokerage account cards
+  for (const a of brokerageAccounts) {
+    const snap = a.snapshots[0];
+    const totalUsd = snap ? Number(snap.totalUsdValue) : 0;
+    const holdingsValue = snap?.holdingsValue ? Number(snap.holdingsValue) : totalUsd;
+    const institution = a.plaidConnection?.institutionName || "Brokerage";
+    const subtype = a.plaidSubtype
+      ? a.plaidSubtype.charAt(0).toUpperCase() + a.plaidSubtype.slice(1)
+      : "Brokerage";
+
+    // Top holdings preview
+    const topHoldings = snap?.holdings
+      ?.sort((a, b) => Number(b.valueUsd) - Number(a.valueUsd))
+      .slice(0, 3)
+      .map((h) => h.ticker)
+      .join(", ") || "";
+
+    walletCards.push({
+      id: a.id,
+      name: a.name || institution,
+      chain: subtype,
+      address: topHoldings ? `${topHoldings}...` : "",
+      balance: `${formatUsd(holdingsValue)} holdings`,
       balanceUsd: formatUsd(totalUsd),
     });
   }
@@ -119,49 +218,39 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const allSnapshots = await prisma.balanceSnapshot.findMany({
-    where: {
-      wallet: { userId: user.id },
-      timestamp: { gte: thirtyDaysAgo },
-    },
-    select: { timestamp: true, totalUsdValue: true },
-    orderBy: { timestamp: "asc" },
-  });
+  const accountIds = [
+    ...onchainAccounts.map((a) => a.id),
+    ...bankAccounts.map((a) => a.id),
+    ...brokerageAccounts.map((a) => a.id),
+  ];
 
-  // Aggregate by date string
-  const dailyTotals = new Map<string, number>();
-  for (const snap of allSnapshots) {
-    const dateKey = snap.timestamp.toISOString().slice(0, 10); // YYYY-MM-DD
-    dailyTotals.set(dateKey, (dailyTotals.get(dateKey) || 0) + Number(snap.totalUsdValue));
-  }
+  const snapshotsByDateAccount = new Map<string, Map<string, number>>();
 
-  // For each date, we actually want the latest snapshot per wallet, not sum of all snapshots
-  // Let's recompute: group snapshots by (date, walletId), take the latest per wallet per day, then sum
-  const snapshotsByDateWallet = new Map<string, Map<string, number>>();
-  const allSnapshotsWithWallet = await prisma.balanceSnapshot.findMany({
-    where: {
-      wallet: { userId: user.id },
-      timestamp: { gte: thirtyDaysAgo },
-    },
-    select: { timestamp: true, totalUsdValue: true, walletId: true },
-    orderBy: { timestamp: "asc" },
-  });
+  if (accountIds.length > 0) {
+    const allSnapshots = await prisma.accountSnapshot.findMany({
+      where: {
+        accountId: { in: accountIds },
+        timestamp: { gte: thirtyDaysAgo },
+      },
+      select: { timestamp: true, totalUsdValue: true, accountId: true },
+      orderBy: { timestamp: "asc" },
+    });
 
-  for (const snap of allSnapshotsWithWallet) {
-    const dateKey = snap.timestamp.toISOString().slice(0, 10);
-    if (!snapshotsByDateWallet.has(dateKey)) {
-      snapshotsByDateWallet.set(dateKey, new Map());
+    for (const snap of allSnapshots) {
+      const dateKey = snap.timestamp.toISOString().slice(0, 10);
+      if (!snapshotsByDateAccount.has(dateKey)) {
+        snapshotsByDateAccount.set(dateKey, new Map());
+      }
+      snapshotsByDateAccount.get(dateKey)!.set(snap.accountId, Number(snap.totalUsdValue));
     }
-    // Later snapshot overwrites earlier one for same wallet on same day
-    snapshotsByDateWallet.get(dateKey)!.set(snap.walletId, Number(snap.totalUsdValue));
   }
 
   const chartData: PortfolioDataPoint[] = [];
-  const sortedDates = [...snapshotsByDateWallet.keys()].sort();
+  const sortedDates = [...snapshotsByDateAccount.keys()].sort();
   for (const dateKey of sortedDates) {
-    const walletValues = snapshotsByDateWallet.get(dateKey)!;
+    const accountValues = snapshotsByDateAccount.get(dateKey)!;
     let dayTotal = 0;
-    for (const val of walletValues.values()) {
+    for (const val of accountValues.values()) {
       dayTotal += val;
     }
     const d = new Date(dateKey + "T00:00:00Z");
@@ -174,79 +263,160 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const changePercent = firstValue > 0 ? ((lastValue - firstValue) / firstValue) * 100 : 0;
   const currentValue = formatUsd(lastValue);
 
-  // --- Build BreakdownItem[] (aggregate latest snapshots by network) ---
-  const networkTotals = new Map<WalletNetwork, number>();
-  for (const w of wallets) {
-    const snap = w.snapshots[0];
-    if (!snap) continue;
-    const network = w.network as WalletNetwork;
-    networkTotals.set(network, (networkTotals.get(network) || 0) + Number(snap.totalUsdValue));
-  }
-
+  // --- Build BreakdownItem[] (category-aware) ---
   const breakdownData: BreakdownItem[] = [];
-  for (const [network, value] of networkTotals) {
-    if (value <= 0) continue;
-    const info = NETWORK_INFO[network];
-    breakdownData.push({
-      name: info.displayName,
-      value: Math.round(value * 100) / 100,
-      color: info.color,
-    });
-  }
-  breakdownData.sort((a, b) => b.value - a.value);
 
-  // --- Build TopMovers (compare latest vs previous snapshot per token) ---
-  const tokenChanges: MoverItem[] = [];
-
-  for (const w of wallets) {
-    const [latest, previous] = w.snapshots;
-    if (!latest) continue;
-
-    for (const token of latest.tokenSnapshots) {
-      const latestUsd = Number(token.balanceUsd);
-      if (latestUsd <= 0) continue;
-
-      let prevUsd = 0;
-      if (previous) {
-        const prevToken = previous.tokenSnapshots.find(
-          t => t.contractAddress.toLowerCase() === token.contractAddress.toLowerCase()
-        );
-        if (prevToken) {
-          prevUsd = Number(prevToken.balanceUsd);
-        }
-      }
-
-      const change = prevUsd > 0 ? ((latestUsd - prevUsd) / prevUsd) * 100 : 0;
-      tokenChanges.push({
-        name: token.name || token.symbol,
-        symbol: token.symbol,
-        changePercent: Math.round(change * 100) / 100,
-        value: formatUsd(latestUsd),
+  // On-chain: breakdown by network
+  if (showOnchain) {
+    const networkTotals = new Map<string, number>();
+    for (const a of onchainAccounts) {
+      const snap = a.snapshots[0];
+      if (!snap || !a.network) continue;
+      const network = a.network as WalletNetwork;
+      networkTotals.set(network, (networkTotals.get(network) || 0) + Number(snap.totalUsdValue));
+    }
+    for (const [network, value] of networkTotals) {
+      if (value <= 0) continue;
+      const info = NETWORK_INFO[network as WalletNetwork];
+      if (!info) continue;
+      breakdownData.push({
+        name: info.displayName,
+        value: Math.round(value * 100) / 100,
+        color: info.color,
       });
     }
+  }
 
-    // Also include native token as a mover
-    if (latest) {
-      const network = w.network as WalletNetwork;
-      const info = NETWORK_INFO[network];
-      const latestNativeUsd = Number(latest.nativeBalanceUsd);
-      if (latestNativeUsd > 0) {
-        let prevNativeUsd = 0;
+  // Bank: breakdown by institution
+  if (showBank) {
+    const bankTotals = new Map<string, number>();
+    for (const a of bankAccounts) {
+      const snap = a.snapshots[0];
+      if (!snap) continue;
+      const institution = a.plaidConnection?.institutionName || a.name || "Bank";
+      bankTotals.set(institution, (bankTotals.get(institution) || 0) + Number(snap.totalUsdValue));
+    }
+    // Cycle through emerald shades for each institution
+    const bankColors = ["#34d399", "#10b981", "#059669", "#047857"];
+    let bankIdx = 0;
+    for (const [institution, value] of bankTotals) {
+      if (value <= 0) continue;
+      breakdownData.push({
+        name: institution,
+        value: Math.round(value * 100) / 100,
+        color: bankColors[bankIdx % bankColors.length],
+      });
+      bankIdx++;
+    }
+  }
+
+  // Brokerage: breakdown by institution
+  if (showBrokerage) {
+    const brokerageTotals = new Map<string, number>();
+    for (const a of brokerageAccounts) {
+      const snap = a.snapshots[0];
+      if (!snap) continue;
+      const institution = a.plaidConnection?.institutionName || a.name || "Brokerage";
+      brokerageTotals.set(institution, (brokerageTotals.get(institution) || 0) + Number(snap.totalUsdValue));
+    }
+    const brokerageColors = ["#a78bfa", "#8b5cf6", "#7c3aed", "#6d28d9"];
+    let brokerageIdx = 0;
+    for (const [institution, value] of brokerageTotals) {
+      if (value <= 0) continue;
+      breakdownData.push({
+        name: institution,
+        value: Math.round(value * 100) / 100,
+        color: brokerageColors[brokerageIdx % brokerageColors.length],
+      });
+      brokerageIdx++;
+    }
+  }
+
+  breakdownData.sort((a, b) => b.value - a.value);
+
+  // --- Build TopMovers ---
+  const tokenChanges: MoverItem[] = [];
+
+  // On-chain token movers
+  if (showOnchain) {
+    for (const a of onchainAccounts) {
+      const [latest, previous] = a.snapshots;
+      if (!latest) continue;
+
+      for (const token of latest.tokenSnapshots) {
+        const latestUsd = Number(token.balanceUsd);
+        if (latestUsd <= 0) continue;
+
+        let prevUsd = 0;
         if (previous) {
-          prevNativeUsd = Number(previous.nativeBalanceUsd);
+          const prevToken = previous.tokenSnapshots.find(
+            (t) => t.contractAddress.toLowerCase() === token.contractAddress.toLowerCase()
+          );
+          if (prevToken) prevUsd = Number(prevToken.balanceUsd);
         }
-        const change = prevNativeUsd > 0 ? ((latestNativeUsd - prevNativeUsd) / prevNativeUsd) * 100 : 0;
+
+        const change = prevUsd > 0 ? ((latestUsd - prevUsd) / prevUsd) * 100 : 0;
         tokenChanges.push({
-          name: info.displayName,
-          symbol: info.symbol,
+          name: token.name || token.symbol,
+          symbol: token.symbol,
           changePercent: Math.round(change * 100) / 100,
-          value: formatUsd(latestNativeUsd),
+          value: formatUsd(latestUsd),
+        });
+      }
+
+      // Native token as a mover
+      if (latest && a.network) {
+        const network = a.network as WalletNetwork;
+        const info = NETWORK_INFO[network];
+        if (info) {
+          const latestNativeUsd = Number(latest.nativeBalanceUsd);
+          if (latestNativeUsd > 0) {
+            const prevNativeUsd = previous ? Number(previous.nativeBalanceUsd) : 0;
+            const change = prevNativeUsd > 0 ? ((latestNativeUsd - prevNativeUsd) / prevNativeUsd) * 100 : 0;
+            tokenChanges.push({
+              name: info.displayName,
+              symbol: info.symbol,
+              changePercent: Math.round(change * 100) / 100,
+              value: formatUsd(latestNativeUsd),
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // Brokerage stock movers
+  if (showBrokerage) {
+    for (const a of brokerageAccounts) {
+      const [latest, previous] = a.snapshots;
+      if (!latest?.holdings) continue;
+
+      for (const holding of latest.holdings) {
+        const latestUsd = Number(holding.valueUsd);
+        if (latestUsd <= 0) continue;
+
+        let prevUsd = 0;
+        if (previous?.holdings) {
+          const prevHolding = previous.holdings.find(
+            (h) => h.ticker === holding.ticker
+          );
+          if (prevHolding) prevUsd = Number(prevHolding.valueUsd);
+        }
+
+        // Only include if we have a previous snapshot to compare
+        if (prevUsd <= 0) continue;
+        const change = ((latestUsd - prevUsd) / prevUsd) * 100;
+        tokenChanges.push({
+          name: holding.name || holding.ticker,
+          symbol: holding.ticker,
+          changePercent: Math.round(change * 100) / 100,
+          value: formatUsd(latestUsd),
         });
       }
     }
   }
 
-  // Deduplicate by symbol (keep the one with highest absolute value)
+  // Deduplicate by symbol (keep highest absolute change)
   const bySymbol = new Map<string, MoverItem>();
   for (const item of tokenChanges) {
     const existing = bySymbol.get(item.symbol);
@@ -257,12 +427,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const uniqueMovers = [...bySymbol.values()];
 
   const gainers = uniqueMovers
-    .filter(m => m.changePercent > 0)
+    .filter((m) => m.changePercent > 0)
     .sort((a, b) => b.changePercent - a.changePercent)
     .slice(0, 5);
 
   const losers = uniqueMovers
-    .filter(m => m.changePercent < 0)
+    .filter((m) => m.changePercent < 0)
     .sort((a, b) => a.changePercent - b.changePercent)
     .slice(0, 5);
 
@@ -278,22 +448,23 @@ export async function loader({ request }: LoaderFunctionArgs) {
     currentValue,
     changePercent: Math.round(changePercent * 100) / 100,
     lastRefresh,
+    activeFilter,
   });
 }
 
 /**
  * Format native balance from raw (wei/sats/lamports) to human-readable with symbol
  */
-function formatNativeBalance(rawBalance: string, network: WalletNetwork): string {
+function formatNativeBalance(rawBalance: string | null, network: WalletNetwork): string {
+  if (!rawBalance) return `0 ${NETWORK_INFO[network]?.symbol || ""}`;
   const info = NETWORK_INFO[network];
 
-  // Hyperliquid stores raw balance as USDC micro-units
   if (network === "hyperliquid") {
     try {
       const usd = parseInt(rawBalance, 10) / 1e6;
-      return `${usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${info.symbol}`;
+      return `${usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${info?.symbol || "USDC"}`;
     } catch {
-      return `0 ${info.symbol}`;
+      return `0 ${info?.symbol || "USDC"}`;
     }
   }
 
@@ -306,7 +477,7 @@ function formatNativeBalance(rawBalance: string, network: WalletNetwork): string
       decimals = 9;
       break;
     default:
-      decimals = 18; // EVM
+      decimals = 18;
   }
 
   try {
@@ -315,9 +486,9 @@ function formatNativeBalance(rawBalance: string, network: WalletNetwork): string
     const intPart = balance / divisor;
     const fracPart = balance % divisor;
     const fracStr = fracPart.toString().padStart(decimals, "0").slice(0, 4);
-    return `${intPart}.${fracStr} ${info.symbol}`;
+    return `${intPart}.${fracStr} ${info?.symbol || ""}`;
   } catch {
-    return `0 ${info.symbol}`;
+    return `0 ${info?.symbol || ""}`;
   }
 }
 
@@ -371,9 +542,72 @@ function LoginPage() {
   );
 }
 
+// --- Filter bar ---
+
+const FILTERS: { id: FilterType; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "onchain", label: "On-chain" },
+  { id: "bank", label: "Banking" },
+  { id: "brokerage", label: "Investments" },
+];
+
+function FilterBar({ activeFilter }: { activeFilter: FilterType }) {
+  const [searchParams] = useSearchParams();
+
+  const filterLink = (filter: FilterType) => {
+    const params = new URLSearchParams(searchParams);
+    if (filter === "all") {
+      params.delete("filter");
+    } else {
+      params.set("filter", filter);
+    }
+    const qs = params.toString();
+    return qs ? `/?${qs}` : "/";
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="flex items-center gap-2 flex-wrap"
+    >
+      {FILTERS.map((f) => {
+        const isActive = f.id === activeFilter;
+        return (
+          <Link
+            key={f.id}
+            to={filterLink(f.id)}
+            prefetch="intent"
+            className={[
+              "px-3 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer",
+              isActive
+                ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
+                : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200",
+            ].join(" ")}
+          >
+            {f.label}
+          </Link>
+        );
+      })}
+    </motion.div>
+  );
+}
+
 // --- Dashboard ---
 
-function Dashboard({ user, wallets, chartData, breakdownData, gainers, losers, currentValue, changePercent, lastRefresh }: {
+function Dashboard({
+  user,
+  wallets,
+  chartData,
+  breakdownData,
+  gainers,
+  losers,
+  currentValue,
+  changePercent,
+  lastRefresh,
+  activeFilter,
+}: {
   user: { id: string; username: string; avatarUrl: string | null };
   wallets: WalletData[];
   chartData: PortfolioDataPoint[];
@@ -383,6 +617,7 @@ function Dashboard({ user, wallets, chartData, breakdownData, gainers, losers, c
   currentValue: string;
   changePercent: number;
   lastRefresh: LastRefreshData | null;
+  activeFilter: FilterType;
 }) {
   return (
     <div className="relative h-screen p-2 sm:p-4 flex w-full flex-row overflow-hidden">
@@ -391,8 +626,13 @@ function Dashboard({ user, wallets, chartData, breakdownData, gainers, losers, c
         <div className="shrink-0 pt-4 lg:pt-10">
           <Navbar user={user} lastRefresh={lastRefresh} />
         </div>
-        <main className="flex-1 overflow-y-auto py-4 lg:py-10 pb-24 lg:pb-10">
+        <main className="flex-1 overflow-y-auto py-4 lg:py-6 pb-24 lg:pb-10">
           <div className="px-2 sm:px-4 lg:px-8">
+            {/* Filter bar */}
+            <div className="mb-4 sm:mb-5">
+              <FilterBar activeFilter={activeFilter} />
+            </div>
+
             <div className="grid gap-4 sm:gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-6 w-full">
               <div className="col-span-1 md:col-span-2 lg:col-span-4 min-h-[280px] sm:min-h-[320px] lg:min-h-[360px]">
                 <PortfolioValueChart
@@ -425,7 +665,7 @@ function Dashboard({ user, wallets, chartData, breakdownData, gainers, losers, c
 // --- Root ---
 
 export default function IndexPage() {
-  const { user, wallets, chartData, breakdownData, gainers, losers, currentValue, changePercent, lastRefresh } = useLoaderData<typeof loader>();
+  const { user, wallets, chartData, breakdownData, gainers, losers, currentValue, changePercent, lastRefresh, activeFilter } = useLoaderData<typeof loader>();
 
   if (!user) {
     return <LoginPage />;
@@ -442,6 +682,7 @@ export default function IndexPage() {
       currentValue={currentValue}
       changePercent={changePercent}
       lastRefresh={lastRefresh}
+      activeFilter={activeFilter as FilterType}
     />
   );
 }

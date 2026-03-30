@@ -1,12 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { Form, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
-import { Plus, Trash2, Wallet, Bitcoin, RefreshCw, Building2, LineChart } from "lucide-react";
+import { Form, useActionData, useLoaderData, useNavigation, useRevalidator } from "@remix-run/react";
+import { Plus, Trash2, Wallet, Bitcoin, Building2, LineChart, Landmark } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { usePlaidLink } from "react-plaid-link";
 import { Button, Input, FormField, Alert, Card } from "~/components/ui";
 import { requireAuth } from "~/lib/auth";
-import { prisma } from "~/lib/db.server";
 import { detectAddressType, validateWalletForNetwork } from "~/lib/wallet.server";
 import { 
   formatAddress, 
@@ -16,6 +16,14 @@ import {
   NETWORK_INFO,
 } from "~/lib/wallet";
 import { hasHyperliquidAccount } from "~/lib/providers/hyperliquid.server";
+import { prisma } from "~/lib/db.server";
+import {
+  getUserAccountsWithLatestSnapshot,
+  createOnchainAccountsForAddress,
+  createOnchainAccount,
+  deleteAccount,
+  deleteOnchainAccountsByAddress,
+} from "~/lib/accounts.server";
 
 export const meta: MetaFunction = () => {
   return [
@@ -26,23 +34,8 @@ export const meta: MetaFunction = () => {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireAuth(request);
-
-  const wallets = await prisma.wallet.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: "desc" },
-    include: {
-      snapshots: {
-        orderBy: { timestamp: "desc" },
-        take: 1,
-        select: {
-          totalUsdValue: true,
-          timestamp: true,
-        },
-      },
-    },
-  });
-
-  return json({ wallets });
+  const accounts = await getUserAccountsWithLatestSnapshot(user.id);
+  return json({ accounts });
 }
 
 // Badge component for network display
@@ -77,105 +70,98 @@ export async function action({ request }: ActionFunctionArgs) {
       return json({ error: "Wallet address is required" }, { status: 400 });
     }
 
-    // Detect address type
     const detection = detectAddressType(address.trim());
     if (!detection.valid) {
       return json({ error: detection.error || "Invalid wallet address" }, { status: 400 });
     }
 
-    const walletName = typeof name === "string" && name.trim() ? name.trim() : null;
+    const walletName = typeof name === "string" && name.trim() ? name.trim() : "Wallet";
 
-    // For EVM addresses, create entries for all EVM networks
     if (detection.addressType === "evm") {
-      // Check if already exists on any EVM network
-      const existing = await prisma.wallet.findFirst({
-        where: {
-          userId: user.id,
-          address: address.trim(),
-          network: { in: EVM_NETWORKS },
-        },
-      });
+      const existing = await getUserAccountsWithLatestSnapshot(user.id);
+      const alreadyExists = existing.some(
+        (a) => a.address?.toLowerCase() === address.trim().toLowerCase() && a.type === "onchain"
+      );
 
-      if (existing) {
+      if (alreadyExists) {
         return json({ error: "This EVM address is already added" }, { status: 400 });
       }
 
-      // Create wallet entries for all EVM networks
-      const networks: string[] = [...EVM_NETWORKS];
+      const networks: Array<{ network: string; provider: "alchemy" | "helius" | "hyperliquid" | "plaid" }> = 
+        EVM_NETWORKS.map((net) => ({ network: net, provider: "alchemy" as const }));
 
-      // Check if address has a Hyperliquid account
       const hasHL = await hasHyperliquidAccount(address.trim());
       if (hasHL) {
-        networks.push("hyperliquid");
+        networks.push({ network: "hyperliquid", provider: "hyperliquid" });
       }
 
-      await prisma.wallet.createMany({
-        data: networks.map((network) => ({
-          userId: user.id,
-          network,
-          address: address.trim(),
-          name: walletName,
-        })),
-      });
-
+      await createOnchainAccountsForAddress(user.id, address.trim(), walletName, networks);
       return json({ success: true, hyperliquid: hasHL });
     }
 
-    // For non-EVM (Bitcoin, Solana), create single entry
     const finalNetwork = detection.suggestedNetwork!;
-
-    // Validate address for the network
     const validation = validateWalletForNetwork(address.trim(), finalNetwork);
     if (!validation.valid) {
       return json({ error: validation.error || "Invalid address for this network" }, { status: 400 });
     }
 
-    // Check for duplicate
-    const existing = await prisma.wallet.findFirst({
-      where: {
-        userId: user.id,
-        address: address.trim(),
-        network: finalNetwork,
-      },
-    });
+    const existing = await getUserAccountsWithLatestSnapshot(user.id);
+    const alreadyExists = existing.some(
+      (a) => a.address?.toLowerCase() === address.trim().toLowerCase() && a.network === finalNetwork
+    );
 
-    if (existing) {
+    if (alreadyExists) {
       return json({ error: "This wallet address is already added" }, { status: 400 });
     }
 
-    await prisma.wallet.create({
-      data: {
-        userId: user.id,
-        network: finalNetwork,
-        address: address.trim(),
-        name: walletName,
-      },
+    const provider = finalNetwork === "solana" ? "helius" : "alchemy";
+    await createOnchainAccount({
+      userId: user.id,
+      name: walletName,
+      provider: provider as "alchemy" | "helius",
+      network: finalNetwork,
+      address: address.trim(),
     });
 
     return json({ success: true });
   }
 
   if (intent === "delete") {
-    const walletId = formData.get("walletId");
+    const accountId = formData.get("accountId");
+    const address = formData.get("address");
+    const isEvm = formData.get("isEvm") === "true";
+    const isBank = formData.get("isBank") === "true";
 
-    if (typeof walletId !== "string") {
-      return json({ error: "Invalid wallet" }, { status: 400 });
+    if (typeof accountId !== "string" && typeof address !== "string") {
+      return json({ error: "Invalid account" }, { status: 400 });
     }
 
-    const wallet = await prisma.wallet.findFirst({
-      where: {
-        id: walletId,
-        userId: user.id,
-      },
-    });
-
-    if (!wallet) {
-      return json({ error: "Wallet not found" }, { status: 404 });
+    if (isEvm && typeof address === "string") {
+      await deleteOnchainAccountsByAddress(user.id, address);
+    } else if (typeof accountId === "string") {
+      // For bank accounts with a plaidConnectionId, we could optionally delete the connection too
+      // For now, just delete the account (other accounts on the same connection stay)
+      if (isBank) {
+        const account = await prisma.account.findFirst({
+          where: { id: accountId, userId: user.id },
+          select: { plaidConnectionId: true },
+        });
+        await deleteAccount(user.id, accountId);
+        // Clean up orphaned PlaidConnection (no remaining accounts)
+        if (account?.plaidConnectionId) {
+          const remaining = await prisma.account.count({
+            where: { plaidConnectionId: account.plaidConnectionId },
+          });
+          if (remaining === 0) {
+            await prisma.plaidConnection.delete({
+              where: { id: account.plaidConnectionId },
+            });
+          }
+        }
+      } else {
+        await deleteAccount(user.id, accountId);
+      }
     }
-
-    await prisma.wallet.delete({
-      where: { id: walletId },
-    });
 
     return json({ success: true });
   }
@@ -210,31 +196,123 @@ function NetworkIcon({ network }: { network: string }) {
   }
 }
 
-type AccountType = "wallet" | "cex" | "broker";
+// ---------------------------------------------------------------------------
+// Connect Bank button using react-plaid-link
+// ---------------------------------------------------------------------------
 
-const accountTypes: { id: AccountType; label: string; icon: typeof Wallet; enabled: boolean }[] = [
-  { id: "wallet", label: "Wallet", icon: Wallet, enabled: true },
-  { id: "cex", label: "CEX", icon: Building2, enabled: false },
-  { id: "broker", label: "Broker", icon: LineChart, enabled: false },
+interface ConnectBankButtonProps {
+  onSuccess: () => void;
+}
+
+function ConnectBankButton({ onSuccess }: ConnectBankButtonProps) {
+  const [linkToken, setLinkToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch a link token from our API
+  const fetchLinkToken = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/plaid/create-link-token", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setError(data.error || "Failed to initialize bank connection");
+        return;
+      }
+      setLinkToken(data.linkToken);
+    } catch (err) {
+      setError("Failed to connect to Plaid");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const handlePlaidSuccess = useCallback(
+    async (publicToken: string, metadata: unknown) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/plaid/exchange-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ publicToken, metadata }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          setError(data.error || "Failed to connect bank account");
+          return;
+        }
+        onSuccess();
+      } catch (err) {
+        setError("Failed to save bank connection");
+      } finally {
+        setIsLoading(false);
+        setLinkToken(null);
+      }
+    },
+    [onSuccess]
+  );
+
+  const { open, ready } = usePlaidLink({
+    token: linkToken ?? "",
+    onSuccess: handlePlaidSuccess,
+    onExit: () => {
+      setLinkToken(null);
+    },
+  });
+
+  // Auto-open when token is ready
+  useEffect(() => {
+    if (linkToken && ready) {
+      open();
+    }
+  }, [linkToken, ready, open]);
+
+  return (
+    <div>
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full cursor-pointer border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800"
+        disabled={isLoading}
+        onClick={fetchLinkToken}
+      >
+        <Landmark className="h-4 w-4 mr-2" />
+        {isLoading ? "Connecting..." : "Connect Bank Account"}
+      </Button>
+      {error && (
+        <p className="mt-2 text-xs text-red-400">{error}</p>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Add Account Form
+// ---------------------------------------------------------------------------
+
+type AccountTabType = "wallet" | "bank";
+
+const accountTabs: { id: AccountTabType; label: string; icon: typeof Wallet }[] = [
+  { id: "wallet", label: "Wallet", icon: Wallet },
+  { id: "bank", label: "Bank", icon: Landmark },
 ];
 
-function AddAccountForm() {
+function AddAccountForm({ onBankConnected }: { onBankConnected: () => void }) {
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
   
-  const [accountType, setAccountType] = useState<AccountType>("wallet");
+  const [accountTab, setAccountTab] = useState<AccountTabType>("wallet");
   const [address, setAddress] = useState("");
   const [addressType, setAddressType] = useState<"bitcoin" | "evm" | "solana" | null>(null);
 
-  // Detect address type when address changes
   useEffect(() => {
     if (!address.trim()) {
       setAddressType(null);
       return;
     }
-
-    // Simple client-side detection
     if (address.startsWith("0x") && address.length === 42) {
       setAddressType("evm");
     } else if (
@@ -250,7 +328,6 @@ function AddAccountForm() {
     }
   }, [address]);
 
-  // Reset form on success
   useEffect(() => {
     if (actionData && "success" in actionData && actionData.success) {
       setAddress("");
@@ -267,40 +344,33 @@ function AddAccountForm() {
         </p>
       </div>
 
-      {/* Account Type Tabs */}
+      {/* Tab switcher */}
       <div className="flex gap-1 p-1 bg-zinc-800/50 rounded-lg mb-6">
-        {accountTypes.map((type) => {
-          const Icon = type.icon;
-          const isSelected = accountType === type.id;
-          const isDisabled = !type.enabled;
-          
+        {accountTabs.map((tab) => {
+          const Icon = tab.icon;
+          const isSelected = accountTab === tab.id;
           return (
             <button
-              key={type.id}
+              key={tab.id}
               type="button"
-              onClick={() => type.enabled && setAccountType(type.id)}
-              disabled={isDisabled}
+              onClick={() => setAccountTab(tab.id)}
               className={`
                 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all cursor-pointer
                 ${isSelected 
                   ? "bg-zinc-700 text-white" 
-                  : isDisabled
-                    ? "text-zinc-600 cursor-not-allowed"
-                    : "text-zinc-400 hover:text-zinc-300 hover:bg-zinc-800"
+                  : "text-zinc-400 hover:text-zinc-300 hover:bg-zinc-800"
                 }
               `}
-              title={isDisabled ? "Coming soon" : undefined}
             >
               <Icon className="h-4 w-4" />
-              <span className="hidden sm:inline">{type.label}</span>
-              {isDisabled && <span className="text-[10px] text-zinc-500 hidden sm:inline">(Soon)</span>}
+              <span>{tab.label}</span>
             </button>
           );
         })}
       </div>
 
       {/* Wallet Form */}
-      {accountType === "wallet" && (
+      {accountTab === "wallet" && (
         <Form method="post" className="space-y-4">
           <input type="hidden" name="intent" value="add" />
 
@@ -330,7 +400,6 @@ function AddAccountForm() {
             />
           </FormField>
 
-          {/* Auto-detected network indicator */}
           {addressType === "evm" && (
             <div className="flex items-center gap-2 text-sm text-zinc-400 flex-wrap">
               <span>Networks:</span>
@@ -354,27 +423,151 @@ function AddAccountForm() {
         </Form>
       )}
 
-      {/* CEX Placeholder */}
-      {accountType === "cex" && (
-        <div className="text-center py-8">
-          <Building2 className="h-12 w-12 text-zinc-600 mx-auto mb-3" />
-          <p className="text-zinc-400 text-sm">CEX integration coming soon</p>
-        </div>
-      )}
-
-      {/* Broker Placeholder */}
-      {accountType === "broker" && (
-        <div className="text-center py-8">
-          <LineChart className="h-12 w-12 text-zinc-600 mx-auto mb-3" />
-          <p className="text-zinc-400 text-sm">Broker integration coming soon</p>
+      {/* Bank tab — Plaid Link */}
+      {accountTab === "bank" && (
+        <div className="space-y-4">
+          <p className="text-sm text-zinc-400">
+            Securely connect your bank account via Plaid. Pulsar only reads balance data — no transaction access.
+          </p>
+          <ConnectBankButton onSuccess={onBankConnected} />
+          <p className="text-xs text-zinc-600 text-center">
+            Powered by Plaid · Bank-level encryption
+          </p>
         </div>
       )}
     </Card>
   );
 }
 
+// ---------------------------------------------------------------------------
+// Main Page
+// ---------------------------------------------------------------------------
+
 export default function AccountsPage() {
-  const { wallets } = useLoaderData<typeof loader>();
+  const { accounts } = useLoaderData<typeof loader>();
+  const { revalidate } = useRevalidator();
+
+  const handleBankConnected = useCallback(() => {
+    revalidate();
+  }, [revalidate]);
+
+  // Group EVM accounts by address for display
+  const evmByAddress = new Map<string, typeof accounts>();
+  const nonEvmAccounts: typeof accounts = [];
+
+  for (const a of accounts) {
+    if (a.type !== "onchain" || !a.address) {
+      nonEvmAccounts.push(a);
+      continue;
+    }
+    if (EVM_NETWORKS.includes(a.network as WalletNetwork)) {
+      const key = a.address.toLowerCase();
+      const group = evmByAddress.get(key) || [];
+      group.push(a);
+      evmByAddress.set(key, group);
+    } else {
+      nonEvmAccounts.push(a);
+    }
+  }
+
+  // Build display items
+  type DisplayItem = {
+    id: string;
+    address: string;
+    name: string;
+    network: string;
+    isEvm: boolean;
+    isBank: boolean;
+    isBrokerage?: boolean;
+    balance: string | null;
+    networks?: string[];
+    subtitle?: string;
+  };
+
+  const displayItems: DisplayItem[] = [];
+
+  // EVM wallets
+  for (const [, group] of evmByAddress) {
+    const primary = group.find((w) => w.network === "ethereum") || group[0];
+    const totalUsd = group.reduce((sum, a) => {
+      const snap = a.snapshots[0];
+      return sum + (snap ? Number(snap.totalUsdValue) : 0);
+    }, 0);
+    const hasAnyBalance = group.some((a) => a.snapshots[0]);
+
+    displayItems.push({
+      id: primary.id,
+      address: primary.address || "",
+      name: primary.name,
+      network: primary.network || "ethereum",
+      isEvm: true,
+      isBank: false,
+      balance: hasAnyBalance
+        ? `$${totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        : null,
+      networks: group.map((a) => a.network || "").filter(Boolean),
+    });
+  }
+
+  // Non-EVM onchain accounts
+  for (const a of nonEvmAccounts) {
+    if (a.type !== "onchain") continue;
+    const snap = a.snapshots[0];
+    displayItems.push({
+      id: a.id,
+      address: a.address || "",
+      name: a.name,
+      network: a.network || "unknown",
+      isEvm: false,
+      isBank: false,
+      balance: snap
+        ? `$${Number(snap.totalUsdValue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        : null,
+    });
+  }
+
+  // Bank accounts
+  const bankAccounts = accounts.filter((a) => a.type === "bank" && a.provider === "plaid");
+  for (const a of bankAccounts) {
+    const snap = a.snapshots[0];
+    const balance = snap ? Number(snap.totalUsdValue) : null;
+    displayItems.push({
+      id: a.id,
+      address: "",
+      name: a.name,
+      network: "bank",
+      isEvm: false,
+      isBank: true,
+      balance: balance !== null
+        ? `$${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        : null,
+      subtitle: a.plaidSubtype
+        ? a.plaidSubtype.charAt(0).toUpperCase() + a.plaidSubtype.slice(1)
+        : "Bank Account",
+    });
+  }
+
+  // Brokerage accounts
+  const brokerageAccounts = accounts.filter((a) => a.type === "brokerage" && a.provider === "plaid");
+  for (const a of brokerageAccounts) {
+    const snap = a.snapshots[0];
+    const balance = snap ? Number(snap.totalUsdValue) : null;
+    displayItems.push({
+      id: a.id,
+      address: "",
+      name: a.name,
+      network: "brokerage",
+      isEvm: false,
+      isBank: false,
+      isBrokerage: true,
+      balance: balance !== null
+        ? `$${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        : null,
+      subtitle: a.plaidSubtype
+        ? a.plaidSubtype.charAt(0).toUpperCase() + a.plaidSubtype.slice(1)
+        : "Brokerage",
+    });
+  }
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6">
@@ -384,7 +577,7 @@ export default function AccountsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
-        <AddAccountForm />
+        <AddAccountForm onBankConnected={handleBankConnected} />
       </motion.div>
 
       {/* Accounts List */}
@@ -397,13 +590,13 @@ export default function AccountsPage() {
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-white mb-1">Your Accounts</h2>
             <p className="text-zinc-500 text-sm">
-              {wallets.length === 0
+              {displayItems.length === 0
                 ? "No accounts added yet"
-                : `${wallets.length} account${wallets.length === 1 ? "" : "s"} tracked`}
+                : `${displayItems.length} account${displayItems.length === 1 ? "" : "s"} tracked`}
             </p>
           </div>
 
-          {wallets.length === 0 ? (
+          {displayItems.length === 0 ? (
             <div className="text-center py-12">
               <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-4">
                 <Wallet className="h-8 w-8 text-zinc-600" />
@@ -413,70 +606,92 @@ export default function AccountsPage() {
           ) : (
             <div className="space-y-3">
               <AnimatePresence mode="popLayout">
-                {wallets.map((wallet, index) => {
-                  const latestSnapshot = wallet.snapshots[0];
-                  const balance = latestSnapshot 
-                    ? `$${Number(latestSnapshot.totalUsdValue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                    : null;
-
-                  return (
-                    <motion.div
-                      key={wallet.id}
-                      layout
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 20 }}
-                      transition={{ duration: 0.3, delay: index * 0.05 }}
-                      className="flex items-center justify-between p-3 sm:p-4 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 transition-colors gap-3"
-                    >
-                      <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-900 flex items-center justify-center shrink-0">
-                          <NetworkIcon network={wallet.network} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {wallet.name ? (
-                              <span className="font-medium text-white text-sm sm:text-base truncate">
-                                {wallet.name}
-                              </span>
-                            ) : (
-                              <span className="font-mono text-xs sm:text-sm text-white truncate">
-                                {formatAddress(wallet.address)}
-                              </span>
-                            )}
-                            <NetworkBadge network={wallet.network} />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {wallet.name && (
-                              <span className="font-mono text-[10px] sm:text-xs text-zinc-500 truncate">
-                                {formatAddress(wallet.address, 6, 4)}
-                              </span>
-                            )}
-                            {balance && (
-                              <span className="text-[10px] sm:text-xs text-emerald-400 font-medium">
-                                {balance}
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                {displayItems.map((item, index) => (
+                  <motion.div
+                    key={item.id}
+                    layout
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                    className="flex items-center justify-between p-3 sm:p-4 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 transition-colors gap-3"
+                  >
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-900 flex items-center justify-center shrink-0">
+                        {item.isBank ? (
+                          <Landmark className="h-5 w-5 text-emerald-400" />
+                        ) : item.isBrokerage ? (
+                          <LineChart className="h-5 w-5 text-violet-400" />
+                        ) : (
+                          <NetworkIcon network={item.network} />
+                        )}
                       </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-white text-sm sm:text-base truncate">
+                            {item.name}
+                          </span>
+                          {item.isBank ? (
+                            <span className="text-xs px-2 py-0.5 rounded-full border border-emerald-700/50 text-emerald-400 bg-emerald-500/10">
+                              {item.subtitle || "Bank"}
+                            </span>
+                          ) : item.isBrokerage ? (
+                            <span className="text-xs px-2 py-0.5 rounded-full border border-violet-700/50 text-violet-400 bg-violet-500/10">
+                              {item.subtitle || "Brokerage"}
+                            </span>
+                          ) : item.isEvm ? (
+                            <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-700 text-zinc-400">
+                              Multi-chain
+                            </span>
+                          ) : (
+                            <NetworkBadge network={item.network} />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {!item.isBank && !item.isBrokerage && (
+                            <span className="font-mono text-[10px] sm:text-xs text-zinc-500 truncate">
+                              {formatAddress(item.address, 6, 4)}
+                            </span>
+                          )}
+                          {item.balance && (
+                            <span className={`text-[10px] sm:text-xs font-medium ${item.isBrokerage ? "text-violet-400" : "text-emerald-400"}`}>
+                              {item.balance}
+                            </span>
+                          )}
+                          {!item.balance && (
+                            <span className="text-[10px] sm:text-xs text-zinc-600">
+                              No balance yet
+                            </span>
+                          )}
+                        </div>
+                        {item.isEvm && item.networks && item.networks.length > 0 && (
+                          <div className="flex items-center gap-1 mt-1 flex-wrap">
+                            {item.networks.map((net) => (
+                              <NetworkBadge key={net} network={net} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
-                      <Form method="post">
-                        <input type="hidden" name="intent" value="delete" />
-                        <input type="hidden" name="walletId" value={wallet.id} />
-                        <Button
-                          type="submit"
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-zinc-500 hover:text-red-400 hover:bg-red-500/10"
-                          title="Remove wallet"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </Form>
-                    </motion.div>
-                  );
-                })}
+                    <Form method="post">
+                      <input type="hidden" name="intent" value="delete" />
+                      <input type="hidden" name="accountId" value={item.id} />
+                      <input type="hidden" name="address" value={item.address} />
+                      <input type="hidden" name="isEvm" value={item.isEvm ? "true" : "false"} />
+                      <input type="hidden" name="isBank" value={(item.isBank || item.isBrokerage) ? "true" : "false"} />
+                      <Button
+                        type="submit"
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-zinc-500 hover:text-red-400 hover:bg-red-500/10"
+                        title="Remove account"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </Form>
+                  </motion.div>
+                ))}
               </AnimatePresence>
             </div>
           )}

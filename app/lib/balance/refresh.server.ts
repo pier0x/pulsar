@@ -22,10 +22,12 @@ import {
   getNativeTokenPrice,
   getTokenPrices,
 } from "~/lib/providers/coingecko.server";
+import { getBalances as getPlaidBalances, getInvestmentHoldings } from "~/lib/providers/plaid.server";
+import { createAccountSnapshot } from "~/lib/accounts.server";
 import type { WalletNetwork } from "~/lib/wallet";
 import type {
-  WalletBalanceData,
-  WalletFetchResult,
+  AccountBalanceData,
+  AccountFetchResult,
   FetchError,
   RefreshResult,
   TokenData,
@@ -40,33 +42,33 @@ function formatBalance(rawBalance: string, decimals: number): number {
   const divisor = BigInt(10 ** decimals);
   const intPart = balance / divisor;
   const fracPart = balance % divisor;
-  
+
   // Combine integer and fractional parts
   const fracStr = fracPart.toString().padStart(decimals, "0");
   return parseFloat(`${intPart}.${fracStr}`);
 }
 
 /**
- * Fetch balance data for a single wallet
+ * Fetch balance data for a single on-chain account
  */
-async function fetchWalletBalance(
-  wallet: { id: string; network: string; address: string },
+async function fetchAccountBalance(
+  account: { id: string; network: string; address: string },
   alchemyKey: string | null,
   heliusKey: string | null,
   tokenThreshold: number
-): Promise<WalletFetchResult> {
-  const network = wallet.network as WalletNetwork;
+): Promise<AccountFetchResult> {
+  const network = account.network as WalletNetwork;
 
   try {
     // Hyperliquid: special case — returns USD values directly
     if (network === "hyperliquid") {
-      const hlResult = await fetchHyperliquidBalance(wallet.address);
+      const hlResult = await fetchHyperliquidBalance(account.address);
       if (!hlResult.success) {
         return {
           success: false,
           error: {
-            walletId: wallet.id,
-            walletAddress: wallet.address,
+            accountId: account.id,
+            accountAddress: account.address,
             network,
             errorType: "api_error",
             errorMessage: hlResult.error,
@@ -82,9 +84,9 @@ async function fetchWalletBalance(
       return {
         success: true,
         data: {
-          walletId: wallet.id,
+          accountId: account.id,
           network,
-          address: wallet.address,
+          address: account.address,
           nativeBalance: rawBalance,
           nativeBalanceFormatted: totalUsd,
           nativeBalanceUsd: totalUsd,
@@ -105,19 +107,19 @@ async function fetchWalletBalance(
         return {
           success: false,
           error: {
-            walletId: wallet.id,
-            walletAddress: wallet.address,
+            accountId: account.id,
+            accountAddress: account.address,
             network,
             errorType: "api_error",
             errorMessage: "Helius API key not configured",
           },
         };
       }
-      nativeResult = await fetchSolanaNativeBalance(wallet.address, heliusKey);
-      tokensResult = await fetchSolanaTokenBalances(wallet.address, heliusKey);
+      nativeResult = await fetchSolanaNativeBalance(account.address, heliusKey);
+      tokensResult = await fetchSolanaTokenBalances(account.address, heliusKey);
     } else if (network === "bitcoin") {
       // Bitcoin uses Blockstream (no key needed) via Alchemy module
-      nativeResult = await fetchNativeBalance(wallet.address, network, alchemyKey || "");
+      nativeResult = await fetchNativeBalance(account.address, network, alchemyKey || "");
       tokensResult = { success: true as const, tokens: [] }; // BTC has no tokens
     } else {
       // EVM chains
@@ -125,16 +127,16 @@ async function fetchWalletBalance(
         return {
           success: false,
           error: {
-            walletId: wallet.id,
-            walletAddress: wallet.address,
+            accountId: account.id,
+            accountAddress: account.address,
             network,
             errorType: "api_error",
             errorMessage: "Alchemy API key not configured",
           },
         };
       }
-      nativeResult = await fetchNativeBalance(wallet.address, network, alchemyKey);
-      tokensResult = await fetchTokenBalances(wallet.address, network, alchemyKey);
+      nativeResult = await fetchNativeBalance(account.address, network, alchemyKey);
+      tokensResult = await fetchTokenBalances(account.address, network, alchemyKey);
     }
 
     // Check for errors
@@ -142,8 +144,8 @@ async function fetchWalletBalance(
       return {
         success: false,
         error: {
-          walletId: wallet.id,
-          walletAddress: wallet.address,
+          accountId: account.id,
+          accountAddress: account.address,
           network,
           errorType: nativeResult.error.type,
           errorMessage: nativeResult.error.message,
@@ -156,8 +158,8 @@ async function fetchWalletBalance(
       return {
         success: false,
         error: {
-          walletId: wallet.id,
-          walletAddress: wallet.address,
+          accountId: account.id,
+          accountAddress: account.address,
           network,
           errorType: tokensResult.error.type,
           errorMessage: tokensResult.error.message,
@@ -172,8 +174,8 @@ async function fetchWalletBalance(
       return {
         success: false,
         error: {
-          walletId: wallet.id,
-          walletAddress: wallet.address,
+          accountId: account.id,
+          accountAddress: account.address,
           network,
           errorType: "price_error",
           errorMessage: `Failed to get native token price: ${nativePriceResult.error.message}`,
@@ -184,7 +186,7 @@ async function fetchWalletBalance(
     // Get token prices
     const tokenAddresses = tokensResult.tokens.map((t) => t.contractAddress);
     const tokenPricesResult = await getTokenPrices(network, tokenAddresses);
-    
+
     // Token prices failing is not fatal - we just skip those tokens
     const tokenPrices = tokenPricesResult.success ? tokenPricesResult.prices : new Map<string, number>();
 
@@ -222,9 +224,9 @@ async function fetchWalletBalance(
     return {
       success: true,
       data: {
-        walletId: wallet.id,
+        accountId: account.id,
         network,
-        address: wallet.address,
+        address: account.address,
         nativeBalance: nativeResult.balance,
         nativeBalanceFormatted,
         nativeBalanceUsd,
@@ -238,8 +240,8 @@ async function fetchWalletBalance(
     return {
       success: false,
       error: {
-        walletId: wallet.id,
-        walletAddress: wallet.address,
+        accountId: account.id,
+        accountAddress: account.address,
         network,
         errorType: "unknown",
         errorMessage: error instanceof Error ? error.message : "Unknown error",
@@ -249,8 +251,224 @@ async function fetchWalletBalance(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Plaid bank account refresh
+// ---------------------------------------------------------------------------
+
 /**
- * Refresh all wallets for a specific user
+ * Refresh all Plaid bank accounts for a specific user.
+ * Fetches live balances from Plaid and creates AccountSnapshot entries.
+ */
+export async function refreshUserBankAccounts(userId: string): Promise<{
+  attempted: number;
+  succeeded: number;
+  failed: number;
+  errors: string[];
+}> {
+  const bankAccounts = await prisma.account.findMany({
+    where: { userId, type: "bank", provider: "plaid" },
+    select: {
+      id: true,
+      plaidAccountId: true,
+      plaidConnectionId: true,
+      plaidConnection: {
+        select: { accessToken: true },
+      },
+    },
+  });
+
+  if (bankAccounts.length === 0) {
+    return { attempted: 0, succeeded: 0, failed: 0, errors: [] };
+  }
+
+  // Group accounts by PlaidConnection to minimize API calls
+  const byConnection = new Map<
+    string,
+    { accessToken: string; accounts: typeof bankAccounts }
+  >();
+
+  for (const account of bankAccounts) {
+    if (!account.plaidConnectionId || !account.plaidConnection) continue;
+    const existing = byConnection.get(account.plaidConnectionId);
+    if (existing) {
+      existing.accounts.push(account);
+    } else {
+      byConnection.set(account.plaidConnectionId, {
+        accessToken: account.plaidConnection.accessToken,
+        accounts: [account],
+      });
+    }
+  }
+
+  let succeeded = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  for (const { accessToken, accounts } of byConnection.values()) {
+    try {
+      const result = await getPlaidBalances(accessToken);
+      if (!result.success) {
+        failed += accounts.length;
+        errors.push(`Plaid balance fetch failed: ${result.error}`);
+        continue;
+      }
+
+      const balanceMap = new Map(result.balances.map((b) => [b.accountId, b]));
+
+      for (const account of accounts) {
+        if (!account.plaidAccountId) {
+          failed++;
+          errors.push(`Account ${account.id} has no plaidAccountId`);
+          continue;
+        }
+
+        const balance = balanceMap.get(account.plaidAccountId);
+        if (!balance) {
+          failed++;
+          errors.push(
+            `No balance found for Plaid account ${account.plaidAccountId}`
+          );
+          continue;
+        }
+
+        try {
+          const currentBalance = balance.currentBalance ?? 0;
+          const availableBalance = balance.availableBalance ?? currentBalance;
+
+          await prisma.accountSnapshot.create({
+            data: {
+              accountId: account.id,
+              totalUsdValue: currentBalance,
+              currentBalance,
+              availableBalance,
+              currency: balance.currency,
+            },
+          });
+          succeeded++;
+        } catch (err) {
+          failed++;
+          errors.push(
+            `Snapshot creation failed for account ${account.id}: ${err instanceof Error ? err.message : String(err)}`
+          );
+        }
+      }
+    } catch (err) {
+      failed += accounts.length;
+      errors.push(
+        `Connection error: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  }
+
+  return { attempted: bankAccounts.length, succeeded, failed, errors };
+}
+
+// ---------------------------------------------------------------------------
+// Plaid brokerage account refresh
+// ---------------------------------------------------------------------------
+
+/**
+ * Refresh all Plaid brokerage/investment accounts for a specific user.
+ * Fetches live holdings from Plaid and creates AccountSnapshot + HoldingSnapshot entries.
+ */
+export async function refreshUserBrokerageAccounts(userId: string): Promise<{
+  attempted: number;
+  succeeded: number;
+  failed: number;
+  errors: string[];
+}> {
+  const brokerageAccounts = await prisma.account.findMany({
+    where: { userId, type: "brokerage", provider: "plaid" },
+    select: {
+      id: true,
+      plaidAccountId: true,
+      plaidConnectionId: true,
+      plaidConnection: {
+        select: { accessToken: true },
+      },
+    },
+  });
+
+  if (brokerageAccounts.length === 0) {
+    return { attempted: 0, succeeded: 0, failed: 0, errors: [] };
+  }
+
+  // Group accounts by PlaidConnection to minimize API calls
+  const byConnection = new Map<
+    string,
+    { accessToken: string; accounts: typeof brokerageAccounts }
+  >();
+
+  for (const account of brokerageAccounts) {
+    if (!account.plaidConnectionId || !account.plaidConnection) continue;
+    const existing = byConnection.get(account.plaidConnectionId);
+    if (existing) {
+      existing.accounts.push(account);
+    } else {
+      byConnection.set(account.plaidConnectionId, {
+        accessToken: account.plaidConnection.accessToken,
+        accounts: [account],
+      });
+    }
+  }
+
+  let succeeded = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  for (const { accessToken, accounts } of byConnection.values()) {
+    try {
+      const result = await getInvestmentHoldings(accessToken);
+      if (!result.success) {
+        failed += accounts.length;
+        errors.push(`Plaid investment holdings fetch failed: ${result.error}`);
+        continue;
+      }
+
+      const { holdings, cashBalance, totalValue } = result;
+      const holdingsValue = totalValue - cashBalance;
+
+      // All brokerage accounts on the same connection share the same holdings data
+      // (Plaid returns holdings for all accounts on the item)
+      for (const account of accounts) {
+        try {
+          await createAccountSnapshot({
+            accountId: account.id,
+            totalUsdValue: totalValue,
+            holdingsValue,
+            cashBalance,
+            holdings: holdings
+              .filter((h) => h.ticker)
+              .map((h) => ({
+                ticker: h.ticker!,
+                name: h.name,
+                quantity: h.quantity,
+                priceUsd: h.priceUsd,
+                valueUsd: h.valueUsd,
+                costBasis: h.costBasis,
+              })),
+          });
+          succeeded++;
+        } catch (err) {
+          failed++;
+          errors.push(
+            `Snapshot creation failed for account ${account.id}: ${err instanceof Error ? err.message : String(err)}`
+          );
+        }
+      }
+    } catch (err) {
+      failed += accounts.length;
+      errors.push(
+        `Connection error: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  }
+
+  return { attempted: brokerageAccounts.length, succeeded, failed, errors };
+}
+
+/**
+ * Refresh all on-chain accounts for a specific user
  */
 export async function refreshUserWallets(
   userId: string,
@@ -265,13 +483,13 @@ export async function refreshUserWallets(
     getTokenThresholdUsd(userId),
   ]);
 
-  // Get user's wallets
-  const wallets = await prisma.wallet.findMany({
-    where: { userId },
+  // Get user's on-chain accounts
+  const accounts = await prisma.account.findMany({
+    where: { userId, type: "onchain" },
     select: { id: true, network: true, address: true },
   });
 
-  if (wallets.length === 0) {
+  if (accounts.length === 0) {
     return {
       trigger,
       status: "success",
@@ -284,55 +502,29 @@ export async function refreshUserWallets(
     };
   }
 
-  // Fetch all wallet balances
-  const results = new Map<string, WalletFetchResult>();
+  // Fetch all account balances
+  const results = new Map<string, AccountFetchResult>();
   const errors: FetchError[] = [];
 
-  for (const wallet of wallets) {
-    const result = await fetchWalletBalance(
-      wallet,
+  for (const account of accounts) {
+    if (!account.network || !account.address) continue;
+    const result = await fetchAccountBalance(
+      { id: account.id, network: account.network, address: account.address },
       alchemyKey,
       heliusKey,
       tokenThreshold
     );
-    results.set(wallet.id, result);
+    results.set(account.id, result);
 
     if (!result.success) {
       errors.push(result.error);
     }
   }
 
-  // Create refresh log
-  const refreshLog = await prisma.refreshLog.create({
-    data: {
-      trigger,
-      status:
-        errors.length === 0
-          ? "success"
-          : errors.length === wallets.length
-          ? "complete_failure"
-          : "partial_failure",
-      walletsAttempted: wallets.length,
-      walletsSucceeded: wallets.length - errors.length,
-      walletsFailed: errors.length,
-      durationMs: Date.now() - startTime,
-      errors: {
-        create: errors.map((e) => ({
-          walletId: e.walletId,
-          walletAddress: e.walletAddress,
-          network: e.network,
-          errorType: e.errorType,
-          errorMessage: e.errorMessage,
-          errorDetails: e.errorDetails,
-        })),
-      },
-    },
-  });
+  // Create snapshots for successful accounts (atomic per account)
+  const successfulWallets: AccountBalanceData[] = [];
 
-  // Create snapshots for successful wallets (atomic per wallet)
-  const successfulWallets: WalletBalanceData[] = [];
-
-  for (const [walletId, result] of results) {
+  for (const [accountId, result] of results) {
     if (!result.success) continue;
 
     const data = result.data;
@@ -340,9 +532,9 @@ export async function refreshUserWallets(
 
     // Create snapshot with all tokens in a transaction
     await prisma.$transaction(async (tx) => {
-      await tx.balanceSnapshot.create({
+      await tx.accountSnapshot.create({
         data: {
-          walletId,
+          accountId,
           nativeBalance: data.nativeBalance,
           nativeBalanceUsd: data.nativeBalanceUsd,
           nativePriceUsd: data.nativePriceUsd,
@@ -370,10 +562,10 @@ export async function refreshUserWallets(
     status:
       errors.length === 0
         ? "success"
-        : errors.length === wallets.length
+        : errors.length === accounts.length
         ? "complete_failure"
         : "partial_failure",
-    walletsAttempted: wallets.length,
+    walletsAttempted: accounts.length,
     walletsSucceeded: successfulWallets.length,
     walletsFailed: errors.length,
     durationMs: Date.now() - startTime,
@@ -383,7 +575,7 @@ export async function refreshUserWallets(
 }
 
 /**
- * Refresh all wallets for all wallets (used by scheduler)
+ * Refresh all on-chain accounts for all users (used by scheduler)
  */
 export async function refreshAllWallets(
   trigger: "scheduled" | "manual"
@@ -399,9 +591,9 @@ export async function refreshAllWallets(
   let totalSucceeded = 0;
   let totalFailed = 0;
   const allErrors: FetchError[] = [];
-  const allSuccessful: WalletBalanceData[] = [];
+  const allSuccessful: AccountBalanceData[] = [];
 
-  // Process each wallet owner
+  // Process each user
   for (const user of users) {
     const result = await refreshUserWallets(user.id, trigger);
     totalAttempted += result.walletsAttempted;
@@ -409,6 +601,20 @@ export async function refreshAllWallets(
     totalFailed += result.walletsFailed;
     allErrors.push(...result.errors);
     allSuccessful.push(...result.successfulWallets);
+
+    // Also refresh Plaid bank accounts
+    try {
+      await refreshUserBankAccounts(user.id);
+    } catch (err) {
+      console.error("[refresh] refreshUserBankAccounts failed:", err);
+    }
+
+    // Also refresh Plaid brokerage accounts
+    try {
+      await refreshUserBrokerageAccounts(user.id);
+    } catch (err) {
+      console.error("[refresh] refreshUserBrokerageAccounts failed:", err);
+    }
   }
 
   return {
@@ -429,40 +635,40 @@ export async function refreshAllWallets(
 }
 
 /**
- * Refresh a single wallet
+ * Refresh a single on-chain account
  */
 export async function refreshSingleWallet(
   userId: string,
-  walletId: string
-): Promise<WalletFetchResult> {
-  const wallet = await prisma.wallet.findUnique({
-    where: { id: walletId },
-    select: { id: true, network: true, address: true, userId: true },
+  accountId: string
+): Promise<AccountFetchResult> {
+  const account = await prisma.account.findUnique({
+    where: { id: accountId },
+    select: { id: true, network: true, address: true, userId: true, type: true },
   });
 
-  if (!wallet) {
+  if (!account) {
     return {
       success: false,
       error: {
-        walletId,
-        walletAddress: "",
+        accountId,
+        accountAddress: "",
         network: "unknown",
         errorType: "api_error",
-        errorMessage: "Wallet not found",
+        errorMessage: "Account not found",
       },
     };
   }
 
-  // Verify wallet belongs to user
-  if (wallet.userId !== userId) {
+  // Verify account belongs to user and is on-chain
+  if (account.userId !== userId || account.type !== "onchain") {
     return {
       success: false,
       error: {
-        walletId,
-        walletAddress: "",
+        accountId,
+        accountAddress: "",
         network: "unknown",
         errorType: "api_error",
-        errorMessage: "Wallet not found",
+        errorMessage: "Account not found",
       },
     };
   }
@@ -473,8 +679,8 @@ export async function refreshSingleWallet(
     getTokenThresholdUsd(userId),
   ]);
 
-  const result = await fetchWalletBalance(
-    wallet,
+  const result = await fetchAccountBalance(
+    { id: account.id, network: account.network!, address: account.address! },
     alchemyKey,
     heliusKey,
     tokenThreshold
@@ -482,9 +688,9 @@ export async function refreshSingleWallet(
 
   if (result.success) {
     // Create snapshot
-    await prisma.balanceSnapshot.create({
+    await prisma.accountSnapshot.create({
       data: {
-        walletId,
+        accountId,
         nativeBalance: result.data.nativeBalance,
         nativeBalanceUsd: result.data.nativeBalanceUsd,
         nativePriceUsd: result.data.nativePriceUsd,
@@ -510,25 +716,22 @@ export async function refreshSingleWallet(
 }
 
 /**
- * Get the latest snapshot for a wallet
+ * Get the latest snapshot for an account
  */
-export async function getLatestSnapshot(walletId: string) {
-  return prisma.balanceSnapshot.findFirst({
-    where: { walletId },
+export async function getLatestSnapshot(accountId: string) {
+  return prisma.accountSnapshot.findFirst({
+    where: { accountId },
     orderBy: { timestamp: "desc" },
     include: { tokenSnapshots: true },
   });
 }
 
 /**
- * Get all snapshots for a wallet (for charts)
+ * Get all snapshots for an account (for charts)
  */
-export async function getWalletSnapshots(
-  walletId: string,
-  limit = 30
-) {
-  return prisma.balanceSnapshot.findMany({
-    where: { walletId },
+export async function getAccountSnapshots(accountId: string, limit = 30) {
+  return prisma.accountSnapshot.findMany({
+    where: { accountId },
     orderBy: { timestamp: "desc" },
     take: limit,
     include: { tokenSnapshots: true },
@@ -536,13 +739,13 @@ export async function getWalletSnapshots(
 }
 
 /**
- * Get aggregate portfolio data across all wallets for a user
+ * Get aggregate portfolio data across all on-chain accounts for a user
  */
 export async function getPortfolioSummary(userId: string) {
-  // Get all wallets for user with their latest snapshot
-  const wallets = await prisma.wallet.findMany({
-    where: { userId },
-    select: { 
+  // Get all on-chain accounts for user with their latest snapshot
+  const accounts = await prisma.account.findMany({
+    where: { userId, type: "onchain" },
+    select: {
       id: true,
       snapshots: {
         orderBy: { timestamp: "desc" },
@@ -555,7 +758,7 @@ export async function getPortfolioSummary(userId: string) {
     },
   });
 
-  if (wallets.length === 0) {
+  if (accounts.length === 0) {
     return {
       totalUsdValue: 0,
       walletCount: 0,
@@ -567,8 +770,8 @@ export async function getPortfolioSummary(userId: string) {
   let totalUsdValue = 0;
   let lastUpdated: Date | null = null;
 
-  for (const wallet of wallets) {
-    const latestSnapshot = wallet.snapshots[0];
+  for (const account of accounts) {
+    const latestSnapshot = account.snapshots[0];
     if (latestSnapshot) {
       totalUsdValue += Number(latestSnapshot.totalUsdValue);
       const snapshotTime = new Date(latestSnapshot.timestamp);
@@ -580,7 +783,7 @@ export async function getPortfolioSummary(userId: string) {
 
   return {
     totalUsdValue,
-    walletCount: wallets.length,
+    walletCount: accounts.length,
     lastUpdated,
   };
 }

@@ -1,10 +1,15 @@
 # Pulsar
 
-**Your Wealth, One Dashboard** — Personal finance dashboard for tracking crypto and other assets.
+**Your Wealth, One Dashboard** — Unified personal finance dashboard for crypto, banking, and brokerage accounts.
 
 ## Overview
 
 Single-user personal portfolio tracker. Not a SaaS — built for one person's use. Auth exists for basic access control on the deployed instance, not for multi-tenancy.
+
+Tracks:
+- **On-chain crypto** — Ethereum, Bitcoin, Solana, Arbitrum, Base, Polygon, Hyperliquid
+- **Bank accounts** — Checking/savings via Plaid
+- **Brokerage accounts** — Investment holdings via Plaid
 
 ## Tech Stack
 
@@ -106,12 +111,14 @@ app/
 ├── routes/                  # Remix routes
 │   ├── _index.tsx           # Landing / Dashboard
 │   ├── _app.tsx             # Authenticated layout (sidebar, navbar)
-│   ├── _app.accounts.tsx    # Accounts/wallets management
+│   ├── _app.accounts.tsx    # Account management (all types)
+│   ├── _app.positions.tsx   # Positions view
 │   ├── _app.settings.tsx    # Settings (API keys, preferences)
 │   ├── auth.login.tsx       # Login action
-│   ├── auth.register.tsx    # Registration action
 │   ├── auth.logout.tsx      # Logout handler
-│   └── api.refresh.ts       # Manual balance refresh API
+│   ├── api.refresh.ts       # Manual balance refresh API
+│   ├── api.plaid.create-link-token.ts  # Plaid Link token generation
+│   └── api.plaid.exchange-token.ts     # Plaid public token exchange
 ├── components/
 │   ├── ui/                  # UI components
 │   ├── auth/                # Auth components (modal)
@@ -119,8 +126,11 @@ app/
 │   └── layout/              # Layout components (sidebar, navbar)
 ├── lib/
 │   ├── auth/                # Authentication
-│   ├── balance/             # Balance refresh system
-│   ├── providers/           # External API providers (Alchemy, Helius)
+│   ├── balance/             # Balance refresh system (on-chain + Plaid)
+│   ├── providers/           # External API providers (Alchemy, Helius, Plaid, etc.)
+│   ├── accounts.server.ts   # Account CRUD and snapshot creation
+│   ├── wallet.ts            # Network types and address utilities (client-safe)
+│   ├── wallet.server.ts     # Address detection/validation (server-only)
 │   ├── settings.server.ts   # Settings store
 │   └── db.server.ts         # Prisma client
 └── root.tsx                 # Root layout
@@ -135,12 +145,14 @@ prisma/
 | Route | Purpose |
 |-------|---------|
 | `/` | Landing page or Dashboard |
-| `/accounts` | Wallet/account management |
+| `/accounts` | Account management (on-chain, bank, brokerage) |
+| `/positions` | Positions view |
 | `/settings` | Settings (timezone, token threshold) |
 | `/auth/login` | Login (POST) |
-| `/auth/register` | Disabled (returns 403) |
 | `/auth/logout` | Logout (POST) |
 | `/api/refresh` | Manual balance refresh |
+| `/api/plaid/create-link-token` | Generate Plaid Link token |
+| `/api/plaid/exchange-token` | Exchange Plaid public token for access token |
 
 ## Authentication
 
@@ -164,15 +176,26 @@ import { getAlchemyApiKey, getHeliusApiKey, getCoinGeckoApiKey } from "~/lib/set
 
 - Scheduler runs every 4 hours
 - Manual refresh: POST `/api/refresh` (rate limited to 1/min)
+- Refreshes on-chain accounts via Alchemy/Helius, bank accounts via Plaid, brokerage accounts via Plaid
 
 ## Database Models
 
 - **User** — Account (username, passwordHash)
 - **Session** — Auth sessions
 - **UserSetting** — Key-value settings (encrypted API keys)
-- **Wallet** — Tracked wallet addresses
-- **BalanceSnapshot** — Historical balance data
-- **TokenSnapshot** — Token balances within a snapshot
+- **Account** — Unified account (type: "onchain" | "bank" | "brokerage"; provider: "alchemy" | "helius" | "hyperliquid" | "plaid")
+- **AccountSnapshot** — Historical balance data (universal + type-specific fields)
+- **TokenSnapshot** — Token balances within an on-chain snapshot
+- **HoldingSnapshot** — Brokerage holdings within a brokerage snapshot
+- **PlaidConnection** — Plaid Item (access token, institution info)
+
+## Account Types
+
+| type | provider | Fields used |
+|------|----------|-------------|
+| `onchain` | `alchemy` / `helius` / `hyperliquid` | `network`, `address` |
+| `bank` | `plaid` | `plaidConnectionId`, `plaidAccountId`, `plaidSubtype` |
+| `brokerage` | `plaid` | `plaidConnectionId`, `plaidAccountId`, `plaidSubtype` |
 
 ## External Services
 
@@ -181,6 +204,7 @@ import { getAlchemyApiKey, getHeliusApiKey, getCoinGeckoApiKey } from "~/lib/set
 | Alchemy | EVM chains + Bitcoin | `ALCHEMY_API_KEY` |
 | Helius | Solana | `HELIUS_API_KEY` |
 | CoinGecko | Price data (optional) | `COINGECKO_API_KEY` |
+| Plaid | Bank & brokerage accounts | `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_ENV` |
 
 ## Environment Variables
 
@@ -189,12 +213,17 @@ import { getAlchemyApiKey, getHeliusApiKey, getCoinGeckoApiKey } from "~/lib/set
 DATABASE_URL=postgresql://...
 APP_KEY=random-string
 SESSION_SECRET=random-string
-ENCRYPTION_SECRET=random-string
+ENCRYPTION_SECRET=random-string  # Used for encrypting Plaid access tokens
 
-# API Keys
+# Blockchain API Keys
 ALCHEMY_API_KEY=...        # EVM chains + Bitcoin
 HELIUS_API_KEY=...         # Solana
 COINGECKO_API_KEY=...      # Price data (optional)
+
+# Plaid (bank & brokerage)
+PLAID_CLIENT_ID=...
+PLAID_SECRET=...
+PLAID_ENV=sandbox           # sandbox | development | production
 ```
 
 ## Deployment
@@ -203,9 +232,7 @@ Railway with PostgreSQL. Deployed at: https://pulsar-production-a05b.up.railway.
 
 ## Roadmap
 
-- [ ] Stock portfolio tracking
 - [ ] Staking & yield tracking
 - [ ] DeFi position monitoring
-- [ ] Vault/savings tracking
 - [ ] Multi-currency support
 - [ ] Tax reporting

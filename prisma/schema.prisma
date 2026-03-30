@@ -19,10 +19,11 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  sessions  Session[]
-  wallets   Wallet[]
-  settings  UserSetting[]
-  positions Position[]
+  sessions         Session[]
+  accounts         Account[]
+  plaidConnections PlaidConnection[]
+  settings         UserSetting[]
+  positions        Position[]
 }
 
 // Database-backed sessions for long-lived auth
@@ -54,45 +55,65 @@ model UserSetting {
   @@index([userId])
 }
 
-// Blockchain wallet addresses for tracking crypto assets
-model Wallet {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name      String?
-  network   String   // "bitcoin", "ethereum", "arbitrum", "base", "polygon", "solana"
-  address   String
+// Unified account model — on-chain wallets, bank accounts, brokerage accounts
+model Account {
+  id       String @id @default(cuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name     String // "Main Wallet", "Wells Fargo Checking", "IBKR Portfolio"
+  type     String // "onchain" | "bank" | "brokerage"
+  provider String // "alchemy" | "helius" | "hyperliquid" | "plaid"
+
+  // On-chain fields (nullable)
+  network String? // "ethereum", "bitcoin", "solana", "hyperliquid", etc.
+  address String? // wallet address
+
+  // Plaid fields (nullable)
+  plaidConnectionId String?
+  plaidConnection   PlaidConnection? @relation(fields: [plaidConnectionId], references: [id])
+  plaidAccountId    String? // Plaid's account_id
+  plaidSubtype      String? // "checking", "savings", "brokerage"
+
+  snapshots AccountSnapshot[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  snapshots BalanceSnapshot[]
-
-  @@unique([userId, network, address])
+  @@unique([userId, network, address]) // for on-chain dedup
   @@index([userId])
-  @@index([network])
+  @@index([userId, type])
 }
 
-// Snapshot of wallet balance at a point in time
-// Only created if ALL fetches for this wallet succeed
-model BalanceSnapshot {
+// Snapshot of account balance at a point in time
+model AccountSnapshot {
   id        String   @id @default(cuid())
-  walletId  String
-  wallet    Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   timestamp DateTime @default(now())
 
-  // Native balance (ETH, BTC, SOL, etc.)
-  nativeBalance    String  // Raw amount in smallest unit (wei, sats, lamports)
-  nativeBalanceUsd Decimal // USD value at snapshot time
-  nativePriceUsd   Decimal // Price used for calculation
+  // Universal fields
+  totalUsdValue Decimal
 
-  // Aggregates
-  tokensUsdValue Decimal // Sum of all token values
-  totalUsdValue  Decimal // native + tokens
+  // On-chain specific (nullable)
+  nativeBalance    String?
+  nativeBalanceUsd Decimal?
+  nativePriceUsd   Decimal?
+  tokensUsdValue   Decimal?
+
+  // Bank specific (nullable)
+  availableBalance Decimal?
+  currentBalance   Decimal?
+  currency         String? // "USD" always for now
+
+  // Brokerage specific (nullable)
+  holdingsValue Decimal?
+  cashBalance   Decimal?
 
   tokenSnapshots TokenSnapshot[]
+  holdings       HoldingSnapshot[]
 
-  @@index([walletId])
-  @@index([walletId, timestamp])
+  @@index([accountId])
+  @@index([accountId, timestamp])
   @@index([timestamp])
 }
 
@@ -100,7 +121,7 @@ model BalanceSnapshot {
 model TokenSnapshot {
   id         String          @id @default(cuid())
   snapshotId String
-  snapshot   BalanceSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  snapshot   AccountSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
 
   contractAddress String
   symbol          String
@@ -114,46 +135,46 @@ model TokenSnapshot {
   @@index([snapshotId])
 }
 
+// Brokerage holding within a snapshot
+model HoldingSnapshot {
+  id         String          @id @default(cuid())
+  snapshotId String
+  snapshot   AccountSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  ticker    String  // "AAPL", "VTI", etc.
+  name      String?
+  quantity  Decimal
+  priceUsd  Decimal
+  valueUsd  Decimal
+  costBasis Decimal? // if provided by Plaid
+
+  @@index([snapshotId])
+}
+
+// Plaid OAuth connection (one per institution link)
+model PlaidConnection {
+  id              String @id @default(cuid())
+  userId          String
+  user            User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institutionId   String // Plaid institution ID
+  institutionName String // "Wells Fargo"
+  accessToken     String // encrypted
+  itemId          String @unique
+  cursor          String? // for transaction sync
+  lastSynced      DateTime?
+  accounts        Account[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+}
+
 // Cached asset prices for positions
 model AssetPrice {
   id        String   @id @default(cuid())
   asset     String   @unique // "BTC", "ETH", etc.
   priceUsd  Decimal
   updatedAt DateTime @updatedAt
-}
-
-// Log of refresh attempts (scheduled or manual)
-model RefreshLog {
-  id        String   @id @default(cuid())
-  timestamp DateTime @default(now())
-  trigger   String   // "scheduled", "manual"
-  status    String   // "success", "partial_failure", "complete_failure"
-
-  walletsAttempted Int
-  walletsSucceeded Int
-  walletsFailed    Int
-
-  durationMs Int?
-
-  errors RefreshError[]
-
-  @@index([timestamp])
-}
-
-// Individual errors during a refresh
-model RefreshError {
-  id           String     @id @default(cuid())
-  refreshLogId String
-  refreshLog   RefreshLog @relation(fields: [refreshLogId], references: [id], onDelete: Cascade)
-
-  walletId      String?
-  walletAddress String?
-  network       String
-  errorType     String  // "api_error", "timeout", "rate_limit", "parse_error", "price_error"
-  errorMessage  String
-  errorDetails  String? // JSON with full error context
-
-  @@index([refreshLogId])
 }
 
 // Cost basis position tracking
@@ -179,6 +200,6 @@ model RateLimit {
   id         String   @id @default(cuid())
   key        String   @unique // e.g., "refresh:manual"
   lastAction DateTime
-  
+
   @@index([key])
 }

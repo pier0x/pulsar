@@ -73,14 +73,14 @@ export async function action({ request }: ActionFunctionArgs) {
   await updateRateLimit(user.id);
 
   try {
-    // Get wallet names for display
-    const userWallets = await prisma.wallet.findMany({
-      where: { userId: user.id },
+    // Get account names for display
+    const userAccounts = await prisma.account.findMany({
+      where: { userId: user.id, type: "onchain" },
       select: { id: true, name: true, network: true, address: true },
     });
-    const walletMap = new Map(userWallets.map((w) => [`${w.network}:${w.address}`, w.name]));
+    const accountMap = new Map(userAccounts.map((a) => [`${a.network}:${a.address}`, a.name]));
 
-    // Run the refresh for this user's wallets
+    // Run the refresh for this user's accounts
     const result = await refreshUserWallets(user.id, "manual");
 
     return json({
@@ -92,16 +92,16 @@ export async function action({ request }: ActionFunctionArgs) {
       durationMs: result.durationMs,
       wallets: [
         ...result.successfulWallets.map((w) => ({
-          name: walletMap.get(`${w.network}:${w.address}`) || null,
+          name: accountMap.get(`${w.network}:${w.address}`) || null,
           network: w.network,
           address: w.address,
           status: "success" as const,
           totalUsd: w.totalUsdValue,
         })),
         ...result.errors.map((e) => ({
-          name: walletMap.get(`${e.network}:${e.walletAddress}`) || null,
+          name: accountMap.get(`${e.network}:${e.accountAddress}`) || null,
           network: e.network,
-          address: e.walletAddress,
+          address: e.accountAddress,
           status: "error" as const,
           error: e.errorMessage,
         })),
