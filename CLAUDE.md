@@ -145,7 +145,7 @@ prisma/
 | Route | Purpose |
 |-------|---------|
 | `/` | Landing page or Dashboard |
-| `/accounts` | Account management (on-chain, bank, brokerage) |
+| `/accounts` | Account management (on-chain, bank, brokerage, physical assets) |
 | `/positions` | Positions view |
 | `/settings` | Settings (timezone, token threshold) |
 | `/auth/login` | Login (POST) |
@@ -153,6 +153,7 @@ prisma/
 | `/api/refresh` | Manual balance refresh |
 | `/api/plaid/create-link-token` | Generate Plaid Link token |
 | `/api/plaid/exchange-token` | Exchange Plaid public token for access token |
+| `/api/asset-image/:id` | Serve physical asset images from disk |
 
 ## Authentication
 
@@ -196,6 +197,17 @@ import { getAlchemyApiKey, getHeliusApiKey, getCoinGeckoApiKey } from "~/lib/set
 | `onchain` | `alchemy` / `helius` / `hyperliquid` | `network`, `address` |
 | `bank` | `plaid` | `plaidConnectionId`, `plaidAccountId`, `plaidSubtype` |
 | `brokerage` | `plaid` | `plaidConnectionId`, `plaidAccountId`, `plaidSubtype` |
+| `manual` | `manual` | `category`, `costBasis`, `notes`, `imagePath` |
+
+### Manual (Physical) Assets
+
+Physical assets (watches, cars, art, etc.) use `type: "manual"` with `provider: "manual"`. They:
+- Store value via `AccountSnapshot.totalUsdValue` (created on each value update)
+- Have optional `category` (free-text: "watches", "cars", etc.)
+- Have optional `costBasis` (purchase price for gain/loss calculation)
+- Have optional `imagePath` (relative path: `data/assets/<id>.<ext>`, served via `/api/asset-image/:id`)
+- Are **never refreshed automatically** — value updates are manual only
+- Images are stored in `data/assets/` (gitignored, created on demand)
 
 ## External Services
 

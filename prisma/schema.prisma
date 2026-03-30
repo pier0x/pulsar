@@ -74,6 +74,12 @@ model Account {
   plaidAccountId    String? // Plaid's account_id
   plaidSubtype      String? // "checking", "savings", "brokerage"
 
+  // Manual asset fields (nullable, only used for type="manual")
+  category  String?  // "watches", "cars", "art", etc.
+  costBasis Decimal? // purchase price in USD
+  notes     String?  // serial number, purchase date, etc.
+  imagePath String?  // relative path: "data/assets/<id>.webp"
+
   snapshots AccountSnapshot[]
 
   createdAt DateTime @default(now())

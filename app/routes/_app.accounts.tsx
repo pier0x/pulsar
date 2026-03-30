@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { json } from "@remix-run/node";
+import { unstable_parseMultipartFormData, unstable_createMemoryUploadHandler, json } from "@remix-run/node";
 import { Form, useActionData, useLoaderData, useNavigation, useRevalidator } from "@remix-run/react";
-import { Plus, Trash2, Wallet, Bitcoin, Building2, LineChart, Landmark } from "lucide-react";
+import { Plus, Trash2, Wallet, Bitcoin, LineChart, Landmark, Package, TrendingUp, TrendingDown, Clock, ImageIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePlaidLink } from "react-plaid-link";
+import { writeFile } from "fs/promises";
+import { join } from "path";
 import { Button, Input, FormField, Alert, Card } from "~/components/ui";
 import { requireAuth } from "~/lib/auth";
 import { detectAddressType, validateWalletForNetwork } from "~/lib/wallet.server";
@@ -23,6 +25,9 @@ import {
   createOnchainAccount,
   deleteAccount,
   deleteOnchainAccountsByAddress,
+  createManualAsset,
+  updateManualAssetValue,
+  deleteManualAsset,
 } from "~/lib/accounts.server";
 
 export const meta: MetaFunction = () => {
@@ -35,7 +40,20 @@ export const meta: MetaFunction = () => {
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireAuth(request);
   const accounts = await getUserAccountsWithLatestSnapshot(user.id);
-  return json({ accounts });
+
+  // Fetch manual assets separately to get the 2 latest snapshots (for gain/loss display)
+  const manualAssets = await prisma.account.findMany({
+    where: { userId: user.id, type: "manual" },
+    orderBy: { createdAt: "desc" },
+    include: {
+      snapshots: {
+        orderBy: { timestamp: "desc" },
+        take: 1,
+      },
+    },
+  });
+
+  return json({ accounts, manualAssets });
 }
 
 // Badge component for network display
@@ -59,7 +77,28 @@ function NetworkBadge({ network }: { network: string }) {
 
 export async function action({ request }: ActionFunctionArgs) {
   const user = await requireAuth(request);
-  const formData = await request.formData();
+
+  const contentType = request.headers.get("content-type") || "";
+  let formData: FormData;
+  let uploadedFile: { data: Uint8Array; filename: string } | null = null;
+
+  if (contentType.includes("multipart/form-data")) {
+    const handler = unstable_createMemoryUploadHandler({ maxPartSize: 5 * 1024 * 1024 });
+    formData = await unstable_parseMultipartFormData(request, handler);
+
+    const file = formData.get("image");
+    if (file && typeof file === "object" && "stream" in file) {
+      const blob = file as File;
+      const buffer = await blob.arrayBuffer();
+      uploadedFile = {
+        data: new Uint8Array(buffer),
+        filename: blob.name,
+      };
+    }
+  } else {
+    formData = await request.formData();
+  }
+
   const intent = formData.get("intent");
 
   if (intent === "add") {
@@ -163,6 +202,85 @@ export async function action({ request }: ActionFunctionArgs) {
       }
     }
 
+    return json({ success: true });
+  }
+
+  if (intent === "add-asset") {
+    const name = formData.get("assetName");
+    const category = formData.get("category");
+    const currentValueRaw = formData.get("currentValue");
+    const costBasisRaw = formData.get("costBasis");
+    const notes = formData.get("notes");
+
+    if (typeof name !== "string" || !name.trim()) {
+      return json({ error: "Asset name is required" }, { status: 400 });
+    }
+    if (typeof category !== "string" || !category.trim()) {
+      return json({ error: "Category is required" }, { status: 400 });
+    }
+    const currentValue = parseFloat(typeof currentValueRaw === "string" ? currentValueRaw : "0");
+    if (isNaN(currentValue) || currentValue < 0) {
+      return json({ error: "Current value must be a non-negative number" }, { status: 400 });
+    }
+    const costBasis = costBasisRaw && typeof costBasisRaw === "string" && costBasisRaw.trim()
+      ? parseFloat(costBasisRaw)
+      : undefined;
+
+    // Create the asset first
+    const account = await createManualAsset({
+      userId: user.id,
+      name: name.trim(),
+      category: category.trim().toLowerCase(),
+      currentValue,
+      costBasis: costBasis && !isNaN(costBasis) ? costBasis : undefined,
+      notes: typeof notes === "string" && notes.trim() ? notes.trim() : undefined,
+    });
+
+    // Save image if uploaded
+    if (uploadedFile) {
+      const ext = uploadedFile.filename.split(".").pop()?.toLowerCase() || "jpg";
+      const imagePath = `data/assets/${account.id}.${ext}`;
+      await writeFile(join(process.cwd(), imagePath), uploadedFile.data);
+      await prisma.account.update({
+        where: { id: account.id },
+        data: { imagePath },
+      });
+    }
+
+    return json({ success: true });
+  }
+
+  if (intent === "update-asset-value") {
+    const accountId = formData.get("accountId");
+    const newValueRaw = formData.get("newValue");
+
+    if (typeof accountId !== "string") {
+      return json({ error: "Invalid account" }, { status: 400 });
+    }
+
+    // Verify ownership
+    const account = await prisma.account.findFirst({
+      where: { id: accountId, userId: user.id, type: "manual" },
+    });
+    if (!account) {
+      return json({ error: "Asset not found" }, { status: 404 });
+    }
+
+    const newValue = parseFloat(typeof newValueRaw === "string" ? newValueRaw : "0");
+    if (isNaN(newValue) || newValue < 0) {
+      return json({ error: "Value must be a non-negative number" }, { status: 400 });
+    }
+
+    await updateManualAssetValue(accountId, newValue);
+    return json({ success: true });
+  }
+
+  if (intent === "delete-asset") {
+    const accountId = formData.get("accountId");
+    if (typeof accountId !== "string") {
+      return json({ error: "Invalid account" }, { status: 400 });
+    }
+    await deleteManualAsset(user.id, accountId);
     return json({ success: true });
   }
 
@@ -440,11 +558,390 @@ function AddAccountForm({ onBankConnected }: { onBankConnected: () => void }) {
 }
 
 // ---------------------------------------------------------------------------
+// Physical Assets Section
+// ---------------------------------------------------------------------------
+
+type ManualAsset = {
+  id: string;
+  name: string;
+  category: string | null;
+  costBasis: string | null;
+  notes: string | null;
+  imagePath: string | null;
+  snapshots: Array<{ totalUsdValue: string; timestamp: string }>;
+};
+
+function CategoryBadge({ category }: { category: string }) {
+  return (
+    <span className="text-xs px-2 py-0.5 rounded-full border border-amber-700/50 text-amber-400 bg-amber-500/10">
+      {category}
+    </span>
+  );
+}
+
+function AssetCard({ asset }: { asset: ManualAsset }) {
+  const [showUpdateForm, setShowUpdateForm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const navigation = useNavigation();
+  const isSubmitting = navigation.state === "submitting";
+
+  const latestSnap = asset.snapshots[0];
+  const currentValue = latestSnap ? Number(latestSnap.totalUsdValue) : 0;
+  const costBasis = asset.costBasis ? Number(asset.costBasis) : null;
+  const gain = costBasis !== null ? currentValue - costBasis : null;
+  const gainPct = costBasis && costBasis > 0 ? ((currentValue - costBasis) / costBasis) * 100 : null;
+
+  const lastValued = latestSnap
+    ? new Date(latestSnap.timestamp).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null;
+
+  return (
+    <div className="flex gap-4 p-4 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 transition-colors">
+      {/* Thumbnail */}
+      <div className="w-16 h-16 rounded-xl bg-zinc-900 border border-zinc-700 flex items-center justify-center shrink-0 overflow-hidden">
+        {asset.imagePath ? (
+          <img
+            src={`/api/asset-image/${asset.id}`}
+            alt={asset.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <Package className="h-7 w-7 text-zinc-600" />
+        )}
+      </div>
+
+      {/* Main content */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="font-medium text-white text-sm">{asset.name}</span>
+              {asset.category && <CategoryBadge category={asset.category} />}
+            </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-lg font-bold text-white">
+                ${currentValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              {gain !== null && gainPct !== null && (
+                <span className={`flex items-center gap-1 text-xs font-medium ${gain >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  {gain >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {gain >= 0 ? "+" : ""}{gain.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0, style: "currency", currency: "USD" })} ({gain >= 0 ? "+" : ""}{gainPct.toFixed(1)}%)
+                </span>
+              )}
+            </div>
+            {lastValued && (
+              <div className="flex items-center gap-1 mt-1 text-xs text-zinc-500">
+                <Clock className="h-3 w-3" />
+                <span>Last valued {lastValued}</span>
+              </div>
+            )}
+            {asset.notes && (
+              <p className="text-xs text-zinc-500 mt-1 truncate">{asset.notes}</p>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => { setShowUpdateForm(!showUpdateForm); setShowDeleteConfirm(false); }}
+              className="text-xs px-2 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-300 hover:text-white transition-colors cursor-pointer"
+            >
+              Update
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowDeleteConfirm(!showDeleteConfirm); setShowUpdateForm(false); }}
+              className="text-xs px-2 py-1 rounded-lg bg-zinc-700 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition-colors cursor-pointer"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Update value form */}
+        <AnimatePresence>
+          {showUpdateForm && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mt-3 overflow-hidden"
+            >
+              <Form method="post" className="flex gap-2" onSubmit={() => setShowUpdateForm(false)}>
+                <input type="hidden" name="intent" value="update-asset-value" />
+                <input type="hidden" name="accountId" value={asset.id} />
+                <input
+                  type="number"
+                  name="newValue"
+                  step="0.01"
+                  min="0"
+                  placeholder="New value (USD)"
+                  required
+                  className="flex-1 h-9 px-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-500 text-sm focus:outline-none focus:border-zinc-600"
+                />
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="h-9 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Save
+                </button>
+              </Form>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Delete confirm */}
+        <AnimatePresence>
+          {showDeleteConfirm && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mt-3 overflow-hidden"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-zinc-400">Delete this asset?</span>
+                <Form method="post" className="inline" onSubmit={() => setShowDeleteConfirm(false)}>
+                  <input type="hidden" name="intent" value="delete-asset" />
+                  <input type="hidden" name="accountId" value={asset.id} />
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="text-xs px-2 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/40 text-red-400 transition-colors cursor-pointer"
+                  >
+                    Confirm Delete
+                  </button>
+                </Form>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="text-xs text-zinc-500 hover:text-zinc-300 cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+function AddAssetForm() {
+  const actionData = useActionData<typeof action>();
+  const navigation = useNavigation();
+  const isSubmitting = navigation.state === "submitting";
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isAddAssetSubmitting = isSubmitting && navigation.formData?.get("intent") === "add-asset";
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setImagePreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      setImagePreview(null);
+    }
+  };
+
+  return (
+    <Form method="post" encType="multipart/form-data" className="space-y-4">
+      <input type="hidden" name="intent" value="add-asset" />
+
+      {actionData && "error" in actionData && (
+        <Alert variant="error">{actionData.error}</Alert>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <FormField label="Asset Name" htmlFor="assetName">
+          <Input
+            id="assetName"
+            name="assetName"
+            type="text"
+            required
+            placeholder="Rolex Submariner, Tesla Model 3..."
+          />
+        </FormField>
+
+        <FormField label="Category" htmlFor="category">
+          <Input
+            id="category"
+            name="category"
+            type="text"
+            required
+            placeholder="watches, cars, art..."
+          />
+        </FormField>
+
+        <FormField label="Current Value (USD)" htmlFor="currentValue">
+          <Input
+            id="currentValue"
+            name="currentValue"
+            type="number"
+            step="0.01"
+            min="0"
+            required
+            placeholder="15000"
+          />
+        </FormField>
+
+        <FormField label="Cost Basis (USD, optional)" htmlFor="costBasis">
+          <Input
+            id="costBasis"
+            name="costBasis"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="12000"
+          />
+        </FormField>
+      </div>
+
+      <FormField label="Notes (optional)" htmlFor="notes">
+        <textarea
+          id="notes"
+          name="notes"
+          rows={2}
+          placeholder="Serial number, purchase date, condition..."
+          className="w-full px-4 py-3 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 resize-none text-sm"
+        />
+      </FormField>
+
+      {/* Image upload */}
+      <div>
+        <label className="block text-sm font-medium text-zinc-400 mb-1.5">Photo (optional)</label>
+        <div
+          className="relative flex items-center justify-center gap-3 p-4 rounded-xl border-2 border-dashed border-zinc-700 hover:border-zinc-600 cursor-pointer transition-colors"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          {imagePreview ? (
+            <>
+              <img src={imagePreview} alt="Preview" className="h-16 w-16 rounded-lg object-cover" />
+              <span className="text-sm text-zinc-400">Click to change</span>
+            </>
+          ) : (
+            <>
+              <ImageIcon className="h-5 w-5 text-zinc-500" />
+              <span className="text-sm text-zinc-500">Click to upload a photo</span>
+            </>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            name="image"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageChange}
+          />
+        </div>
+      </div>
+
+      <Button type="submit" className="w-full cursor-pointer" disabled={isAddAssetSubmitting}>
+        <Plus className="h-4 w-4 mr-2" />
+        {isAddAssetSubmitting ? "Adding..." : "Add Asset"}
+      </Button>
+    </Form>
+  );
+}
+
+function PhysicalAssetsSection({ assets }: { assets: ManualAsset[] }) {
+  const [showAddForm, setShowAddForm] = useState(false);
+  const actionData = useActionData<typeof action>();
+  const navigation = useNavigation();
+
+  // Close form on successful add
+  useEffect(() => {
+    if (actionData && "success" in actionData && actionData.success) {
+      if (navigation.state === "idle") {
+        setShowAddForm(false);
+      }
+    }
+  }, [actionData, navigation.state]);
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-lg font-semibold text-white mb-1">Physical Assets</h2>
+          <p className="text-zinc-500 text-sm">
+            {assets.length === 0
+              ? "Track watches, cars, art, and other valuables"
+              : `${assets.length} asset${assets.length === 1 ? "" : "s"} tracked`}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-sm font-medium transition-colors cursor-pointer"
+        >
+          <Plus className="h-4 w-4" />
+          Add Asset
+        </button>
+      </div>
+
+      {/* Add form */}
+      <AnimatePresence>
+        {showAddForm && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-6 overflow-hidden"
+          >
+            <div className="p-4 rounded-xl bg-zinc-800/50 border border-zinc-700">
+              <h3 className="text-sm font-medium text-white mb-4">New Asset</h3>
+              <AddAssetForm />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Asset list */}
+      {assets.length === 0 && !showAddForm ? (
+        <div className="text-center py-10">
+          <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-4">
+            <Package className="h-8 w-8 text-zinc-600" />
+          </div>
+          <p className="text-zinc-500 text-sm">No physical assets yet. Add your first one above.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <AnimatePresence mode="popLayout">
+            {assets.map((asset, index) => (
+              <motion.div
+                key={asset.id}
+                layout
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+              >
+                <AssetCard asset={asset} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
 
 export default function AccountsPage() {
-  const { accounts } = useLoaderData<typeof loader>();
+  const { accounts, manualAssets } = useLoaderData<typeof loader>();
   const { revalidate } = useRevalidator();
 
   const handleBankConnected = useCallback(() => {
@@ -578,6 +1075,15 @@ export default function AccountsPage() {
         transition={{ duration: 0.4 }}
       >
         <AddAccountForm onBankConnected={handleBankConnected} />
+      </motion.div>
+
+      {/* Physical Assets */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.15 }}
+      >
+        <PhysicalAssetsSection assets={manualAssets as ManualAsset[]} />
       </motion.div>
 
       {/* Accounts List */}

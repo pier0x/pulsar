@@ -40,3 +40,6 @@ yarn-error.log*
 
 # Database
 prisma/data/
+
+# Asset image uploads (user-uploaded photos for physical assets)
+data/assets/

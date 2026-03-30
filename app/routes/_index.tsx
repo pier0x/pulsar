@@ -32,7 +32,7 @@ export const meta: MetaFunction = () => {
   ];
 };
 
-type FilterType = "all" | "onchain" | "bank" | "brokerage";
+type FilterType = "all" | "onchain" | "bank" | "brokerage" | "manual";
 
 function formatUsd(value: number): string {
   return `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -49,13 +49,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const filterParam = url.searchParams.get("filter");
   const activeFilter: FilterType =
-    filterParam === "onchain" || filterParam === "bank" || filterParam === "brokerage"
+    filterParam === "onchain" || filterParam === "bank" || filterParam === "brokerage" || filterParam === "manual"
       ? filterParam
       : "all";
 
   const showOnchain = activeFilter === "all" || activeFilter === "onchain";
   const showBank = activeFilter === "all" || activeFilter === "bank";
   const showBrokerage = activeFilter === "all" || activeFilter === "brokerage";
+  const showManual = activeFilter === "all" || activeFilter === "manual";
 
   // Fetch on-chain accounts
   const onchainAccounts = showOnchain
@@ -99,6 +100,19 @@ export async function loader({ request }: LoaderFunctionArgs) {
           },
           plaidConnection: {
             select: { institutionName: true },
+          },
+        },
+      })
+    : [];
+
+  // Fetch manual (physical) assets
+  const manualAccounts = showManual
+    ? await prisma.account.findMany({
+        where: { userId: user.id, type: "manual" },
+        include: {
+          snapshots: {
+            orderBy: { timestamp: "desc" },
+            take: 2,
           },
         },
       })
@@ -214,6 +228,24 @@ export async function loader({ request }: LoaderFunctionArgs) {
     });
   }
 
+  // Manual asset cards
+  for (const a of manualAccounts) {
+    const snap = a.snapshots[0];
+    const totalUsd = snap ? Number(snap.totalUsdValue) : 0;
+    const category = a.category
+      ? a.category.charAt(0).toUpperCase() + a.category.slice(1)
+      : "Physical Asset";
+
+    walletCards.push({
+      id: a.id,
+      name: a.name,
+      chain: category,
+      address: a.imagePath ? `/api/asset-image/${a.id}` : "",
+      balance: category,
+      balanceUsd: formatUsd(totalUsd),
+    });
+  }
+
   // --- Build PortfolioDataPoint[] (aggregate snapshots by day, last 30 days) ---
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -222,6 +254,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     ...onchainAccounts.map((a) => a.id),
     ...bankAccounts.map((a) => a.id),
     ...brokerageAccounts.map((a) => a.id),
+    ...manualAccounts.map((a) => a.id),
   ];
 
   const snapshotsByDateAccount = new Map<string, Map<string, number>>();
@@ -332,6 +365,30 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
   }
 
+  // Manual assets: breakdown by category
+  if (showManual) {
+    const manualCategoryTotals = new Map<string, number>();
+    for (const a of manualAccounts) {
+      const snap = a.snapshots[0];
+      if (!snap) continue;
+      const cat = a.category
+        ? a.category.charAt(0).toUpperCase() + a.category.slice(1)
+        : "Physical Assets";
+      manualCategoryTotals.set(cat, (manualCategoryTotals.get(cat) || 0) + Number(snap.totalUsdValue));
+    }
+    const manualColors = ["#fb923c", "#f97316", "#ea580c", "#c2410c"];
+    let manualIdx = 0;
+    for (const [cat, value] of manualCategoryTotals) {
+      if (value <= 0) continue;
+      breakdownData.push({
+        name: cat,
+        value: Math.round(value * 100) / 100,
+        color: manualColors[manualIdx % manualColors.length],
+      });
+      manualIdx++;
+    }
+  }
+
   breakdownData.sort((a, b) => b.value - a.value);
 
   // --- Build TopMovers ---
@@ -413,6 +470,28 @@ export async function loader({ request }: LoaderFunctionArgs) {
           value: formatUsd(latestUsd),
         });
       }
+    }
+  }
+
+  // Manual asset movers
+  if (showManual) {
+    for (const a of manualAccounts) {
+      const [latest, previous] = a.snapshots;
+      if (!latest) continue;
+      const latestUsd = Number(latest.totalUsdValue);
+      if (latestUsd <= 0) continue;
+      if (!previous) continue;
+
+      const prevUsd = Number(previous.totalUsdValue);
+      if (prevUsd <= 0) continue;
+
+      const change = ((latestUsd - prevUsd) / prevUsd) * 100;
+      tokenChanges.push({
+        name: a.name,
+        symbol: a.category ? a.category.toUpperCase().slice(0, 6) : a.id.slice(0, 6),
+        changePercent: Math.round(change * 100) / 100,
+        value: formatUsd(latestUsd),
+      });
     }
   }
 
@@ -545,6 +624,7 @@ const FILTERS: { id: FilterType; label: string }[] = [
   { id: "onchain", label: "On-chain" },
   { id: "bank", label: "Banking" },
   { id: "brokerage", label: "Investments" },
+  { id: "manual", label: "Assets" },
 ];
 
 function FilterBar({ activeFilter }: { activeFilter: FilterType }) {

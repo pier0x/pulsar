@@ -2,14 +2,17 @@
  * CRUD helpers for the Account model (server-only)
  */
 
+import { unlink, existsSync } from "fs";
+import { join } from "path";
+import { readdir } from "fs/promises";
 import { prisma } from "~/lib/db.server";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type AccountType = "onchain" | "bank" | "brokerage";
-export type AccountProvider = "alchemy" | "helius" | "hyperliquid" | "plaid";
+export type AccountType = "onchain" | "bank" | "brokerage" | "manual";
+export type AccountProvider = "alchemy" | "helius" | "hyperliquid" | "plaid" | "manual";
 
 export interface CreateOnchainAccountInput {
   userId: string;
@@ -26,6 +29,24 @@ export interface CreatePlaidAccountInput {
   plaidConnectionId: string;
   plaidAccountId: string;
   plaidSubtype?: string;
+}
+
+export interface CreateManualAssetInput {
+  userId: string;
+  name: string;
+  category: string;
+  currentValue: number;
+  costBasis?: number;
+  notes?: string;
+  imagePath?: string;
+}
+
+export interface UpdateManualAssetDetailsInput {
+  name?: string;
+  category?: string;
+  costBasis?: number | null;
+  notes?: string | null;
+  imagePath?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -181,6 +202,107 @@ export async function deleteAccount(userId: string, accountId: string) {
   await prisma.account.delete({
     where: { id: accountId },
   });
+}
+
+// ---------------------------------------------------------------------------
+// Manual asset helpers
+// ---------------------------------------------------------------------------
+
+const ASSETS_DIR = join(process.cwd(), "data", "assets");
+
+/**
+ * Create a manual physical asset account with an initial snapshot
+ */
+export async function createManualAsset(input: CreateManualAssetInput) {
+  return prisma.$transaction(async (tx) => {
+    const account = await tx.account.create({
+      data: {
+        userId: input.userId,
+        name: input.name,
+        type: "manual",
+        provider: "manual",
+        category: input.category,
+        costBasis: input.costBasis ?? null,
+        notes: input.notes ?? null,
+        imagePath: input.imagePath ?? null,
+      },
+    });
+
+    await tx.accountSnapshot.create({
+      data: {
+        accountId: account.id,
+        totalUsdValue: input.currentValue,
+      },
+    });
+
+    return account;
+  });
+}
+
+/**
+ * Update the current value of a manual asset (creates a new snapshot)
+ */
+export async function updateManualAssetValue(accountId: string, newValue: number) {
+  return prisma.accountSnapshot.create({
+    data: {
+      accountId,
+      totalUsdValue: newValue,
+    },
+  });
+}
+
+/**
+ * Update metadata of a manual asset (no snapshot created)
+ */
+export async function updateManualAssetDetails(
+  accountId: string,
+  updates: UpdateManualAssetDetailsInput
+) {
+  return prisma.account.update({
+    where: { id: accountId },
+    data: {
+      ...(updates.name !== undefined && { name: updates.name }),
+      ...(updates.category !== undefined && { category: updates.category }),
+      ...(updates.costBasis !== undefined && { costBasis: updates.costBasis }),
+      ...(updates.notes !== undefined && { notes: updates.notes }),
+      ...(updates.imagePath !== undefined && { imagePath: updates.imagePath }),
+    },
+  });
+}
+
+/**
+ * Delete a manual asset account, its snapshots, and its image file from disk
+ */
+export async function deleteManualAsset(userId: string, accountId: string) {
+  const account = await prisma.account.findFirst({
+    where: { id: accountId, userId, type: "manual" },
+  });
+
+  if (!account) {
+    throw new Error("Manual asset not found");
+  }
+
+  // Delete account (cascades snapshots)
+  await prisma.account.delete({ where: { id: accountId } });
+
+  // Delete image file if it exists
+  if (account.imagePath) {
+    const fullPath = join(process.cwd(), account.imagePath);
+    if (existsSync(fullPath)) {
+      unlink(fullPath, () => {});
+    }
+  } else {
+    // Try to find by account id prefix
+    try {
+      const files = await readdir(ASSETS_DIR);
+      const match = files.find((f) => f.startsWith(`${accountId}.`));
+      if (match) {
+        unlink(join(ASSETS_DIR, match), () => {});
+      }
+    } catch {
+      // Ignore errors — directory may not exist
+    }
+  }
 }
 
 /**
