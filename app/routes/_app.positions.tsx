@@ -1,8 +1,8 @@
 import { useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { Form, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
-import { Plus, Trash2, TrendingUp, TrendingDown } from "lucide-react";
+import { Form, useActionData, useLoaderData, useNavigation, useFetcher } from "@remix-run/react";
+import { Plus, Trash2, TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Button,
@@ -51,13 +51,15 @@ function getCoingeckoId(asset: string): string {
   return ASSET_TO_COINGECKO[asset.toUpperCase()] || asset.toLowerCase();
 }
 
-async function fetchCurrentPrices(
-  assets: string[]
-): Promise<Record<string, number | null>> {
+/**
+ * Fetch fresh prices from CoinGecko and cache them in DB.
+ */
+async function refreshPrices(assets: string[]): Promise<Record<string, number | null>> {
   if (assets.length === 0) return {};
 
   const ids = [...new Set(assets.map(getCoingeckoId))];
   const idsParam = ids.join(",");
+  const result: Record<string, number | null> = {};
 
   try {
     const response = await fetch(
@@ -68,17 +70,47 @@ async function fetchCurrentPrices(
     if (!response.ok) return Object.fromEntries(assets.map((a) => [a, null]));
 
     const data = (await response.json()) as Record<string, { usd?: number }>;
-    const result: Record<string, number | null> = {};
 
     for (const asset of assets) {
       const cgId = getCoingeckoId(asset);
-      result[asset] = data[cgId]?.usd ?? null;
-    }
+      const price = data[cgId]?.usd ?? null;
+      result[asset] = price;
 
-    return result;
+      if (price !== null) {
+        await prisma.assetPrice.upsert({
+          where: { asset },
+          update: { priceUsd: price },
+          create: { asset, priceUsd: price },
+        });
+      }
+    }
   } catch {
+    // On failure, return nulls — cached prices will be used by loader
     return Object.fromEntries(assets.map((a) => [a, null]));
   }
+
+  return result;
+}
+
+/**
+ * Read cached prices from DB.
+ */
+async function getCachedPrices(assets: string[]): Promise<Record<string, { price: number; updatedAt: Date } | null>> {
+  if (assets.length === 0) return {};
+
+  const cached = await prisma.assetPrice.findMany({
+    where: { asset: { in: assets } },
+  });
+
+  const result: Record<string, { price: number; updatedAt: Date } | null> = {};
+  const cachedMap = new Map(cached.map((c) => [c.asset, c]));
+
+  for (const asset of assets) {
+    const entry = cachedMap.get(asset);
+    result[asset] = entry ? { price: Number(entry.priceUsd), updatedAt: entry.updatedAt } : null;
+  }
+
+  return result;
 }
 
 interface AssetSummary {
@@ -118,13 +150,22 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   const uniqueAssets = [...assetGroups.keys()];
-  const currentPrices = await fetchCurrentPrices(uniqueAssets);
+  const cachedPrices = await getCachedPrices(uniqueAssets);
+
+  // Find the most recent price update time
+  let lastPriceUpdate: string | null = null;
+  for (const entry of Object.values(cachedPrices)) {
+    if (entry && (!lastPriceUpdate || entry.updatedAt.toISOString() > lastPriceUpdate)) {
+      lastPriceUpdate = entry.updatedAt.toISOString();
+    }
+  }
 
   const summaries: AssetSummary[] = uniqueAssets.map((asset) => {
     const group = assetGroups.get(asset)!;
     const avgEntry =
       group.totalAmount > 0 ? group.totalCost / group.totalAmount : 0;
-    const currentPrice = currentPrices[asset] ?? null;
+    const cached = cachedPrices[asset];
+    const currentPrice = cached?.price ?? null;
     const pnl =
       currentPrice !== null
         ? (currentPrice - avgEntry) * group.totalAmount
@@ -163,7 +204,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     createdAt: p.createdAt.toISOString(),
   }));
 
-  return json({ positions: serializedPositions, summaries });
+  return json({ positions: serializedPositions, summaries, lastPriceUpdate });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -203,6 +244,18 @@ export async function action({ request }: ActionFunctionArgs) {
     });
 
     return json({ success: true });
+  }
+
+  if (intent === "refreshPrices") {
+    // Get all unique assets for this user
+    const positions = await prisma.position.findMany({
+      where: { userId: user.id },
+      select: { asset: true },
+      distinct: ["asset"],
+    });
+    const assets = positions.map((p) => p.asset);
+    await refreshPrices(assets);
+    return json({ success: true, intent: "refreshPrices" });
   }
 
   if (intent === "delete") {
@@ -279,14 +332,28 @@ function AssetBadge({ asset }: { asset: string }) {
   );
 }
 
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
 export default function Positions() {
-  const { positions, summaries } = useLoaderData<typeof loader>();
+  const { positions, summaries, lastPriceUpdate } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
   const [showForm, setShowForm] = useState(false);
+  const priceFetcher = useFetcher();
+  const isRefreshingPrices = priceFetcher.state !== "idle";
 
   const today = new Date().toISOString().split("T")[0];
+
+  const hasPrices = summaries.some((s) => s.currentPrice !== null);
 
   return (
     <div className="space-y-6">
@@ -294,17 +361,40 @@ export default function Positions() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Positions</h1>
-          <p className="text-zinc-400 text-sm mt-1">
-            Track your cost basis and P&L
-          </p>
+          <div className="flex items-center gap-3 mt-1">
+            <p className="text-zinc-400 text-sm">
+              Track your cost basis and P&L
+            </p>
+            {lastPriceUpdate && (
+              <span className="text-zinc-500 text-xs">
+                Prices: {timeAgo(lastPriceUpdate)}
+              </span>
+            )}
+          </div>
         </div>
-        <Button
-          onClick={() => setShowForm(!showForm)}
-          className="cursor-pointer"
-        >
-          <Plus className="size-4" />
-          Add Buy
-        </Button>
+        <div className="flex items-center gap-2">
+          {summaries.length > 0 && (
+            <priceFetcher.Form method="post">
+              <input type="hidden" name="intent" value="refreshPrices" />
+              <Button
+                type="submit"
+                variant="secondary"
+                disabled={isRefreshingPrices}
+                className="cursor-pointer"
+              >
+                <RefreshCw className={`size-4 ${isRefreshingPrices ? "animate-spin" : ""}`} />
+                {isRefreshingPrices ? "Refreshing…" : "Refresh Prices"}
+              </Button>
+            </priceFetcher.Form>
+          )}
+          <Button
+            onClick={() => setShowForm(!showForm)}
+            className="cursor-pointer"
+          >
+            <Plus className="size-4" />
+            Add Buy
+          </Button>
+        </div>
       </div>
 
       {/* Error alert */}
@@ -449,7 +539,9 @@ export default function Positions() {
                       <p className="text-white text-sm font-medium">
                         {summary.currentPrice !== null
                           ? formatUsd(summary.currentPrice)
-                          : "N/A"}
+                          : isRefreshingPrices
+                          ? <span className="text-zinc-500 animate-pulse">Loading…</span>
+                          : <span className="text-zinc-500">—</span>}
                       </p>
                     </div>
                   </div>
@@ -466,7 +558,9 @@ export default function Positions() {
                       <p className="text-white text-sm font-medium">
                         {summary.currentValue !== null
                           ? formatUsd(summary.currentValue)
-                          : "N/A"}
+                          : isRefreshingPrices
+                          ? <span className="text-zinc-500 animate-pulse">Loading…</span>
+                          : <span className="text-zinc-500">—</span>}
                       </p>
                     </div>
                   </div>

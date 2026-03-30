@@ -114,6 +114,14 @@ model TokenSnapshot {
   @@index([snapshotId])
 }
 
+// Cached asset prices for positions
+model AssetPrice {
+  id        String   @id @default(cuid())
+  asset     String   @unique // "BTC", "ETH", etc.
+  priceUsd  Decimal
+  updatedAt DateTime @updatedAt
+}
+
 // Log of refresh attempts (scheduled or manual)
 model RefreshLog {
   id        String   @id @default(cuid())
