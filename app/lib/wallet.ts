@@ -9,7 +9,8 @@ export type WalletNetwork =
   | "arbitrum" 
   | "base" 
   | "polygon" 
-  | "solana";
+  | "solana"
+  | "hyperliquid";
 
 // Address type categories (for detection)
 export type AddressType = "bitcoin" | "evm" | "solana";
@@ -64,6 +65,12 @@ export const NETWORK_INFO: Record<WalletNetwork, {
     symbol: "SOL", 
     addressType: "solana",
     color: "#14F195" 
+  },
+  hyperliquid: {
+    displayName: "Hyperliquid",
+    symbol: "USDC",
+    addressType: "evm",
+    color: "#50E3C2",
   },
 };
 

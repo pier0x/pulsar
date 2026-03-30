@@ -286,6 +286,17 @@ export async function loader({ request }: LoaderFunctionArgs) {
  */
 function formatNativeBalance(rawBalance: string, network: WalletNetwork): string {
   const info = NETWORK_INFO[network];
+
+  // Hyperliquid stores raw balance as USDC micro-units
+  if (network === "hyperliquid") {
+    try {
+      const usd = parseInt(rawBalance, 10) / 1e6;
+      return `${usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${info.symbol}`;
+    } catch {
+      return `0 ${info.symbol}`;
+    }
+  }
+
   let decimals: number;
   switch (network) {
     case "bitcoin":

@@ -15,6 +15,7 @@ import {
   EVM_NETWORKS,
   NETWORK_INFO,
 } from "~/lib/wallet";
+import { hasHyperliquidAccount } from "~/lib/providers/hyperliquid.server";
 
 export const meta: MetaFunction = () => {
   return [
@@ -100,8 +101,16 @@ export async function action({ request }: ActionFunctionArgs) {
       }
 
       // Create wallet entries for all EVM networks
+      const networks: string[] = [...EVM_NETWORKS];
+
+      // Check if address has a Hyperliquid account
+      const hasHL = await hasHyperliquidAccount(address.trim());
+      if (hasHL) {
+        networks.push("hyperliquid");
+      }
+
       await prisma.wallet.createMany({
-        data: EVM_NETWORKS.map((network) => ({
+        data: networks.map((network) => ({
           userId: user.id,
           network,
           address: address.trim(),
@@ -109,7 +118,7 @@ export async function action({ request }: ActionFunctionArgs) {
         })),
       });
 
-      return json({ success: true });
+      return json({ success: true, hyperliquid: hasHL });
     }
 
     // For non-EVM (Bitcoin, Solana), create single entry

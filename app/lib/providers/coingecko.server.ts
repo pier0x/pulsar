@@ -26,6 +26,7 @@ const NATIVE_TOKEN_IDS: Record<WalletNetwork, string> = {
   base: "ethereum", // Base uses ETH
   polygon: "polygon-ecosystem-token",
   solana: "solana",
+  hyperliquid: "usd-coin", // Not used — HL refresh returns USD directly
 };
 
 export interface PriceResult {

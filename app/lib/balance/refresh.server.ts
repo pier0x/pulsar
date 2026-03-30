@@ -18,6 +18,7 @@ import {
   fetchSolanaNativeBalance,
   fetchSolanaTokenBalances,
 } from "~/lib/providers/helius.server";
+import { fetchHyperliquidBalance } from "~/lib/providers/hyperliquid.server";
 import {
   getNativeTokenPrice,
   getTokenPrices,
@@ -59,6 +60,44 @@ async function fetchWalletBalance(
   const network = wallet.network as WalletNetwork;
 
   try {
+    // Hyperliquid: special case — returns USD values directly
+    if (network === "hyperliquid") {
+      const hlResult = await fetchHyperliquidBalance(wallet.address);
+      if (!hlResult.success) {
+        return {
+          success: false,
+          error: {
+            walletId: wallet.id,
+            walletAddress: wallet.address,
+            network,
+            errorType: "api_error",
+            errorMessage: hlResult.error,
+          },
+        };
+      }
+
+      // Store total USD as "native balance" (USDC-denominated)
+      const totalUsd = hlResult.data.totalUsd;
+      // Use raw balance as string representation of USD cents for storage
+      const rawBalance = Math.round(totalUsd * 1e6).toString();
+
+      return {
+        success: true,
+        data: {
+          walletId: wallet.id,
+          network,
+          address: wallet.address,
+          nativeBalance: rawBalance,
+          nativeBalanceFormatted: totalUsd,
+          nativeBalanceUsd: totalUsd,
+          nativePriceUsd: 1, // USDC pegged
+          tokens: [],
+          tokensUsdValue: 0,
+          totalUsdValue: totalUsd,
+        },
+      };
+    }
+
     // 1. Fetch native balance
     let nativeResult;
     let tokensResult;
