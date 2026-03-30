@@ -1,11 +1,12 @@
 import { NavLink } from "@remix-run/react";
-import { HomeIcon, WalletIcon, Cog6ToothIcon } from "@heroicons/react/24/outline";
+import { HomeIcon, WalletIcon, ChartBarIcon, Cog6ToothIcon } from "@heroicons/react/24/outline";
 import { cn } from "~/lib/utils";
 import { Logo } from "../ui";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: HomeIcon },
   { name: "Accounts", href: "/accounts", icon: WalletIcon },
+  { name: "Positions", href: "/positions", icon: ChartBarIcon },
 ];
 
 export default function Sidebar() {

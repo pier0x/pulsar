@@ -19,9 +19,10 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  sessions Session[]
-  wallets  Wallet[]
-  settings UserSetting[]
+  sessions  Session[]
+  wallets   Wallet[]
+  settings  UserSetting[]
+  positions Position[]
 }
 
 // Database-backed sessions for long-lived auth
@@ -145,6 +146,24 @@ model RefreshError {
   errorDetails  String? // JSON with full error context
 
   @@index([refreshLogId])
+}
+
+// Cost basis position tracking
+model Position {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset     String   // "BTC", "ETH", "SOL", etc.
+  type      String   @default("buy") // "buy" only for now
+  amount    Decimal  // amount of asset bought
+  priceUsd  Decimal  // price per unit at time of purchase
+  date      DateTime // date of purchase
+  note      String?  // optional note
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, asset])
 }
 
 // Rate limiting for manual refresh
