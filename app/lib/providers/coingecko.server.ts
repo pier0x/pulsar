@@ -6,8 +6,8 @@
 
 import type { WalletNetwork } from "~/lib/wallet";
 
-const COINGECKO_API_URL = "https://api.coingecko.com/api/v3";
-const COINGECKO_PRO_API_URL = "https://pro-api.coingecko.com/api/v3";
+const COINGECKO_BASE_URL = "https://api.coingecko.com/api/v3";
+const COINGECKO_PRO_URL = "https://pro-api.coingecko.com/api/v3";
 
 // CoinGecko platform IDs for token contract lookups
 const PLATFORM_IDS: Record<string, string> = {
@@ -54,20 +54,37 @@ type MultiPriceResult = TokenPriceResult | FetchError;
 /**
  * Make a CoinGecko API request
  */
-async function coingeckoFetch(
+/**
+ * Determine if the API key is Pro or Demo tier.
+ * Pro keys use pro-api.coingecko.com + x-cg-pro-api-key header.
+ * Demo keys use api.coingecko.com + x-cg-demo-api-key header.
+ * Env var COINGECKO_API_TIER can override: "pro" | "demo". Default: "pro".
+ */
+function getApiConfig(apiKey?: string | null): { baseUrl: string; headers: Record<string, string> } {
+  const headers: Record<string, string> = { Accept: "application/json" };
+
+  if (!apiKey) {
+    return { baseUrl: COINGECKO_BASE_URL, headers };
+  }
+
+  const tier = (process.env.COINGECKO_API_TIER || "pro").toLowerCase();
+
+  if (tier === "demo") {
+    headers["x-cg-demo-api-key"] = apiKey;
+    return { baseUrl: COINGECKO_BASE_URL, headers };
+  }
+
+  // Default to pro
+  headers["x-cg-pro-api-key"] = apiKey;
+  return { baseUrl: COINGECKO_PRO_URL, headers };
+}
+
+export async function coingeckoFetch(
   endpoint: string,
   apiKey?: string | null
 ): Promise<unknown> {
-  const baseUrl = apiKey ? COINGECKO_PRO_API_URL : COINGECKO_API_URL;
+  const { baseUrl, headers } = getApiConfig(apiKey);
   const url = `${baseUrl}${endpoint}`;
-  
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-  };
-  
-  if (apiKey) {
-    headers["x-cg-pro-api-key"] = apiKey;
-  }
 
   const response = await fetch(url, { headers });
 

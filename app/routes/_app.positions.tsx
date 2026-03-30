@@ -18,6 +18,7 @@ import {
 } from "~/components/ui";
 import { requireAuth } from "~/lib/auth";
 import { prisma } from "~/lib/db.server";
+import { getCoinGeckoApiKey } from "~/lib/settings.server";
 
 export const meta: MetaFunction = () => {
   return [
@@ -54,22 +55,19 @@ function getCoingeckoId(asset: string): string {
 /**
  * Fetch fresh prices from CoinGecko and cache them in DB.
  */
-async function refreshPrices(assets: string[]): Promise<Record<string, number | null>> {
+async function refreshPrices(assets: string[], apiKey: string | null): Promise<Record<string, number | null>> {
   if (assets.length === 0) return {};
 
+  const { coingeckoFetch } = await import("~/lib/providers/coingecko.server");
   const ids = [...new Set(assets.map(getCoingeckoId))];
   const idsParam = ids.join(",");
   const result: Record<string, number | null> = {};
 
   try {
-    const response = await fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${idsParam}&vs_currencies=usd`,
-      { headers: { Accept: "application/json" } }
-    );
-
-    if (!response.ok) return Object.fromEntries(assets.map((a) => [a, null]));
-
-    const data = (await response.json()) as Record<string, { usd?: number }>;
+    const data = (await coingeckoFetch(
+      `/simple/price?ids=${idsParam}&vs_currencies=usd`,
+      apiKey
+    )) as Record<string, { usd?: number }>;
 
     for (const asset of assets) {
       const cgId = getCoingeckoId(asset);
@@ -85,7 +83,6 @@ async function refreshPrices(assets: string[]): Promise<Record<string, number | 
       }
     }
   } catch {
-    // On failure, return nulls — cached prices will be used by loader
     return Object.fromEntries(assets.map((a) => [a, null]));
   }
 
@@ -247,14 +244,14 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   if (intent === "refreshPrices") {
-    // Get all unique assets for this user
     const positions = await prisma.position.findMany({
       where: { userId: user.id },
       select: { asset: true },
       distinct: ["asset"],
     });
     const assets = positions.map((p) => p.asset);
-    await refreshPrices(assets);
+    const apiKey = await getCoinGeckoApiKey(user.id);
+    await refreshPrices(assets, apiKey);
     return json({ success: true, intent: "refreshPrices" });
   }
 
