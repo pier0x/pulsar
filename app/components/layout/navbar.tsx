@@ -17,12 +17,10 @@ function getPageTitle(pathname: string): string {
     "/analytics": "Analytics",
   };
   
-  // Check for exact match first
   if (titles[pathname]) {
     return titles[pathname];
   }
   
-  // Check for partial matches (e.g., /accounts/123)
   for (const [path, title] of Object.entries(titles)) {
     if (pathname.startsWith(path) && path !== "/") {
       return title;
@@ -38,8 +36,26 @@ interface User {
   avatarUrl: string | null;
 }
 
+export interface WalletResult {
+  name: string | null;
+  network: string;
+  address: string;
+  status: "success" | "error";
+  totalUsd?: number;
+  error?: string;
+}
+
+export interface LastRefreshData {
+  timestamp: string;
+  walletsSucceeded: number;
+  walletsAttempted: number;
+  durationMs: number | null;
+  wallets: WalletResult[];
+}
+
 interface NavbarProps {
   user: User;
+  lastRefresh?: LastRefreshData | null;
 }
 
 // Generate initials from username (fallback if no avatar)
@@ -63,15 +79,6 @@ function getAvatarColor(username: string): string {
   return colors[index];
 }
 
-interface WalletResult {
-  name: string | null;
-  network: string;
-  address: string;
-  status: "success" | "error";
-  totalUsd?: number;
-  error?: string;
-}
-
 interface RefreshResponse {
   success?: boolean;
   error?: string;
@@ -88,10 +95,133 @@ function formatAddress(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-function RefreshButton() {
+function formatRelativeTime(timestamp: string): string {
+  const now = Date.now();
+  const then = new Date(timestamp).getTime();
+  const diffMs = now - then;
+  const diffMin = Math.floor(diffMs / 60000);
+
+  if (diffMin < 1) return "Just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+
+  // Over 1 hour: show date/time
+  const d = new Date(timestamp);
+  return d.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function WalletResultsPanel({
+  isRefreshing,
+  headerLabel,
+  result,
+  onClose,
+}: {
+  isRefreshing?: boolean;
+  headerLabel: string;
+  result: RefreshResponse | null;
+  onClose: () => void;
+}) {
+  return (
+    <div className="absolute right-0 top-full mt-2 w-80 rounded-xl bg-zinc-900 border border-zinc-800 shadow-2xl z-50 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+        <span className="text-sm font-medium text-white">{headerLabel}</span>
+        <button
+          onClick={onClose}
+          className="p-1 text-zinc-500 hover:text-white transition-colors cursor-pointer rounded-md hover:bg-zinc-800"
+        >
+          <XMarkIcon className="size-4" />
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="max-h-64 overflow-y-auto">
+        {isRefreshing && !result && (
+          <div className="flex items-center gap-3 px-4 py-6">
+            <ArrowPathIcon className="size-5 text-blue-400 animate-spin shrink-0" />
+            <span className="text-sm text-zinc-400">Fetching balances for all wallets…</span>
+          </div>
+        )}
+
+        {result?.error && (
+          <div className="flex items-center gap-3 px-4 py-4">
+            <ExclamationCircleIcon className="size-5 text-red-400 shrink-0" />
+            <span className="text-sm text-red-400">{result.error}</span>
+          </div>
+        )}
+
+        {result?.wallets && result.wallets.length > 0 && (
+          <div className="divide-y divide-zinc-800/50">
+            {result.wallets.map((w, i) => {
+              const info = NETWORK_INFO[w.network as WalletNetwork];
+              const networkName = info?.displayName || w.network;
+              const isSuccess = w.status === "success";
+
+              return (
+                <div key={`${w.network}-${w.address}-${i}`} className="flex items-center gap-3 px-4 py-2.5">
+                  {isSuccess ? (
+                    <CheckCircleIcon className="size-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <ExclamationCircleIcon className="size-4 text-red-400 shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-white">
+                        {w.name || networkName}
+                      </span>
+                      <span className="text-[10px] text-zinc-500">
+                        {networkName}
+                      </span>
+                    </div>
+                    {isSuccess && w.totalUsd !== undefined && (
+                      <span className="text-[11px] text-zinc-400">
+                        ${w.totalUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    )}
+                    {!isSuccess && w.error && (
+                      <span className="text-[11px] text-red-400/70 truncate block">{w.error}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {result?.wallets && result.wallets.length === 0 && (
+          <div className="px-4 py-6 text-center">
+            <span className="text-sm text-zinc-500">No wallets to refresh</span>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      {result && !result.error && (
+        <div className="px-4 py-2.5 border-t border-zinc-800 flex items-center justify-between">
+          <span className="text-[11px] text-zinc-500">
+            {result.walletsSucceeded}/{result.walletsAttempted} wallets
+          </span>
+          {result.durationMs && (
+            <span className="text-[11px] text-zinc-500">
+              {(result.durationMs / 1000).toFixed(1)}s
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RefreshButton({ lastRefresh }: { lastRefresh?: LastRefreshData | null }) {
   const fetcher = useFetcher<RefreshResponse>();
   const isRefreshing = fetcher.state !== "idle";
   const [panelOpen, setPanelOpen] = useState(false);
+  const [panelMode, setPanelMode] = useState<"live" | "last">("live");
   const [lastResult, setLastResult] = useState<RefreshResponse | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -105,6 +235,7 @@ function RefreshButton() {
   // Open panel when refresh starts
   useEffect(() => {
     if (isRefreshing) {
+      setPanelMode("live");
       setPanelOpen(true);
     }
   }, [isRefreshing]);
@@ -124,11 +255,51 @@ function RefreshButton() {
 
   const handleRefresh = () => {
     setLastResult(null);
+    setPanelMode("live");
     fetcher.submit(null, { method: "post", action: "/api/refresh" });
   };
 
+  const handleLastClick = () => {
+    if (!lastRefresh) return;
+    setPanelMode("last");
+    setPanelOpen(true);
+  };
+
+  // Build the result to show based on panel mode
+  const isLiveMode = panelMode === "live";
+  const displayResult: RefreshResponse | null = isLiveMode
+    ? lastResult
+    : lastRefresh
+      ? {
+          walletsAttempted: lastRefresh.walletsAttempted,
+          walletsSucceeded: lastRefresh.walletsSucceeded,
+          durationMs: lastRefresh.durationMs ?? undefined,
+          wallets: lastRefresh.wallets,
+        }
+      : null;
+
+  const headerLabel = isLiveMode
+    ? isRefreshing
+      ? "Refreshing…"
+      : lastResult?.error
+        ? "Refresh failed"
+        : "Refresh complete"
+    : "Last Refresh";
+
   return (
-    <div className="relative" ref={panelRef}>
+    <div className="relative flex items-center gap-2" ref={panelRef}>
+      {/* Last refresh timestamp */}
+      {lastRefresh && (
+        <button
+          type="button"
+          onClick={handleLastClick}
+          className="hidden sm:block text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer whitespace-nowrap"
+        >
+          Last: {formatRelativeTime(lastRefresh.timestamp)}
+        </button>
+      )}
+
+      {/* Refresh button */}
       <button
         type="button"
         onClick={handleRefresh}
@@ -143,103 +314,20 @@ function RefreshButton() {
         />
       </button>
 
-      {/* Progress overlay */}
+      {/* Panel */}
       {panelOpen && (
-        <div className="absolute right-0 top-full mt-2 w-80 rounded-xl bg-zinc-900 border border-zinc-800 shadow-2xl z-50 overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-            <span className="text-sm font-medium text-white">
-              {isRefreshing ? "Refreshing…" : lastResult?.error ? "Refresh failed" : "Refresh complete"}
-            </span>
-            <button
-              onClick={() => setPanelOpen(false)}
-              className="p-1 text-zinc-500 hover:text-white transition-colors cursor-pointer rounded-md hover:bg-zinc-800"
-            >
-              <XMarkIcon className="size-4" />
-            </button>
-          </div>
-
-          {/* Content */}
-          <div className="max-h-64 overflow-y-auto">
-            {isRefreshing && !lastResult && (
-              <div className="flex items-center gap-3 px-4 py-6">
-                <ArrowPathIcon className="size-5 text-blue-400 animate-spin shrink-0" />
-                <span className="text-sm text-zinc-400">Fetching balances for all wallets…</span>
-              </div>
-            )}
-
-            {lastResult?.error && (
-              <div className="flex items-center gap-3 px-4 py-4">
-                <ExclamationCircleIcon className="size-5 text-red-400 shrink-0" />
-                <span className="text-sm text-red-400">{lastResult.error}</span>
-              </div>
-            )}
-
-            {lastResult?.wallets && lastResult.wallets.length > 0 && (
-              <div className="divide-y divide-zinc-800/50">
-                {lastResult.wallets.map((w, i) => {
-                  const info = NETWORK_INFO[w.network as WalletNetwork];
-                  const networkName = info?.displayName || w.network;
-                  const isSuccess = w.status === "success";
-
-                  return (
-                    <div key={`${w.network}-${w.address}-${i}`} className="flex items-center gap-3 px-4 py-2.5">
-                      {isSuccess ? (
-                        <CheckCircleIcon className="size-4 text-emerald-400 shrink-0" />
-                      ) : (
-                        <ExclamationCircleIcon className="size-4 text-red-400 shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium text-white">
-                            {w.name || networkName}
-                          </span>
-                          <span className="text-[10px] text-zinc-500">
-                            {networkName}
-                          </span>
-                        </div>
-                        {isSuccess && w.totalUsd !== undefined && (
-                          <span className="text-[11px] text-zinc-400">
-                            ${w.totalUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
-                        )}
-                        {!isSuccess && w.error && (
-                          <span className="text-[11px] text-red-400/70 truncate block">{w.error}</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {lastResult?.wallets && lastResult.wallets.length === 0 && (
-              <div className="px-4 py-6 text-center">
-                <span className="text-sm text-zinc-500">No wallets to refresh</span>
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          {lastResult && !lastResult.error && (
-            <div className="px-4 py-2.5 border-t border-zinc-800 flex items-center justify-between">
-              <span className="text-[11px] text-zinc-500">
-                {lastResult.walletsSucceeded}/{lastResult.walletsAttempted} wallets
-              </span>
-              {lastResult.durationMs && (
-                <span className="text-[11px] text-zinc-500">
-                  {(lastResult.durationMs / 1000).toFixed(1)}s
-                </span>
-              )}
-            </div>
-          )}
-        </div>
+        <WalletResultsPanel
+          isRefreshing={isLiveMode ? isRefreshing : false}
+          headerLabel={headerLabel}
+          result={displayResult}
+          onClose={() => setPanelOpen(false)}
+        />
       )}
     </div>
   );
 }
 
-export default function Navbar({ user }: NavbarProps) {
+export default function Navbar({ user, lastRefresh }: NavbarProps) {
   const location = useLocation();
   const pageTitle = getPageTitle(location.pathname);
 
@@ -256,7 +344,7 @@ export default function Navbar({ user }: NavbarProps) {
 
         {/* Action items */}
         <div className="flex items-center gap-x-2 sm:gap-x-4 lg:gap-x-6">
-          <RefreshButton />
+          <RefreshButton lastRefresh={lastRefresh} />
 
           {/* Separator */}
           <div

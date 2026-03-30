@@ -3,6 +3,7 @@ import { json } from "@remix-run/node";
 import { useLoaderData, useFetcher } from "@remix-run/react";
 import { getCurrentUser } from "~/lib/auth";
 import { requireOwnerOrOnboard } from "~/lib/onboard.server";
+import { getLastRefreshData } from "~/lib/lastRefresh.server";
 import { Logo, Button, Input, FormField, Alert, Card } from "~/components/ui";
 import { prisma } from "~/lib/db.server";
 import { NETWORK_INFO, EVM_NETWORKS, type WalletNetwork } from "~/lib/wallet";
@@ -20,6 +21,7 @@ import {
 import { TopMovers, type MoverItem } from "~/components/ui/top-movers";
 import Sidebar from "~/components/layout/sidebar";
 import Navbar from "~/components/layout/navbar";
+import type { LastRefreshData } from "~/components/layout/navbar";
 import MobileNav from "~/components/layout/mobile-nav";
 
 export const meta: MetaFunction = () => {
@@ -38,7 +40,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getCurrentUser(request);
 
   if (!user) {
-    return json({ user: null, wallets: [], chartData: [], breakdownData: [], gainers: [], losers: [], currentValue: "$0.00", changePercent: 0 });
+    return json({ user: null, wallets: [], chartData: [], breakdownData: [], gainers: [], losers: [], currentValue: "$0.00", changePercent: 0, lastRefresh: null });
   }
 
   // Fetch wallets with latest 2 snapshots each (for movers comparison)
@@ -264,6 +266,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .sort((a, b) => a.changePercent - b.changePercent)
     .slice(0, 5);
 
+  const lastRefresh = await getLastRefreshData(user.id);
+
   return json({
     user,
     wallets: walletCards,
@@ -273,6 +277,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     losers,
     currentValue,
     changePercent: Math.round(changePercent * 100) / 100,
+    lastRefresh,
   });
 }
 
@@ -357,7 +362,7 @@ function LoginPage() {
 
 // --- Dashboard ---
 
-function Dashboard({ user, wallets, chartData, breakdownData, gainers, losers, currentValue, changePercent }: {
+function Dashboard({ user, wallets, chartData, breakdownData, gainers, losers, currentValue, changePercent, lastRefresh }: {
   user: { id: string; username: string; avatarUrl: string | null };
   wallets: WalletData[];
   chartData: PortfolioDataPoint[];
@@ -366,13 +371,14 @@ function Dashboard({ user, wallets, chartData, breakdownData, gainers, losers, c
   losers: MoverItem[];
   currentValue: string;
   changePercent: number;
+  lastRefresh: LastRefreshData | null;
 }) {
   return (
     <div className="relative h-screen p-2 sm:p-4 flex w-full flex-row overflow-hidden">
       <Sidebar />
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
         <div className="shrink-0 pt-4 lg:pt-10">
-          <Navbar user={user} />
+          <Navbar user={user} lastRefresh={lastRefresh} />
         </div>
         <main className="flex-1 overflow-y-auto py-4 lg:py-10 pb-24 lg:pb-10">
           <div className="px-2 sm:px-4 lg:px-8">
@@ -408,7 +414,7 @@ function Dashboard({ user, wallets, chartData, breakdownData, gainers, losers, c
 // --- Root ---
 
 export default function IndexPage() {
-  const { user, wallets, chartData, breakdownData, gainers, losers, currentValue, changePercent } = useLoaderData<typeof loader>();
+  const { user, wallets, chartData, breakdownData, gainers, losers, currentValue, changePercent, lastRefresh } = useLoaderData<typeof loader>();
 
   if (!user) {
     return <LoginPage />;
@@ -424,6 +430,7 @@ export default function IndexPage() {
       losers={losers}
       currentValue={currentValue}
       changePercent={changePercent}
+      lastRefresh={lastRefresh}
     />
   );
 }

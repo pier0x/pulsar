@@ -6,15 +6,17 @@ import Navbar from "~/components/layout/navbar";
 import MobileNav from "~/components/layout/mobile-nav";
 import { requireAuth } from "~/lib/auth";
 import { requireOwnerOrOnboard } from "~/lib/onboard.server";
+import { getLastRefreshData } from "~/lib/lastRefresh.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   await requireOwnerOrOnboard();
   const user = await requireAuth(request);
-  return json({ user });
+  const lastRefresh = await getLastRefreshData(user.id);
+  return json({ user, lastRefresh });
 }
 
 export default function AppLayout() {
-  const { user } = useLoaderData<typeof loader>();
+  const { user, lastRefresh } = useLoaderData<typeof loader>();
 
   return (
     <div className="relative h-screen p-2 sm:p-4 flex w-full flex-row overflow-hidden">
@@ -25,7 +27,7 @@ export default function AppLayout() {
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
         {/* Navbar - fixed at top */}
         <div className="shrink-0 pt-4 lg:pt-10">
-          <Navbar user={user} />
+          <Navbar user={user} lastRefresh={lastRefresh} />
         </div>
 
         {/* Scrollable content - extra padding at bottom for mobile nav */}
