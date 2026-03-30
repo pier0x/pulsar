@@ -189,7 +189,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   // Sort summaries by total cost desc
   summaries.sort((a, b) => b.totalCost - a.totalCost);
 
-  // Serialize positions for the client
+  // Serialize positions for the client (pre-format dates to avoid hydration mismatch)
   const serializedPositions = positions.map((p) => ({
     id: p.id,
     asset: p.asset,
@@ -197,11 +197,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     amount: Number(p.amount),
     priceUsd: Number(p.priceUsd),
     date: p.date.toISOString(),
+    dateFormatted: p.date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }),
     note: p.note,
     createdAt: p.createdAt.toISOString(),
   }));
 
-  return json({ positions: serializedPositions, summaries, lastPriceUpdate });
+  const today = new Date().toISOString().split("T")[0];
+  return json({ positions: serializedPositions, summaries, lastPriceUpdate, today });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -328,18 +330,25 @@ function AssetBadge({ asset }: { asset: string }) {
   );
 }
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+function TimeAgo({ dateStr }: { dateStr: string }) {
+  const [text, setText] = useState("");
+
+  // Only compute on client to avoid hydration mismatch
+  useState(() => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) { setText("just now"); return; }
+    if (mins < 60) { setText(`${mins}m ago`); return; }
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) { setText(`${hours}h ago`); return; }
+    setText(new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }));
+  });
+
+  return <>{text}</>;
 }
 
 export default function Positions() {
-  const { positions, summaries, lastPriceUpdate } = useLoaderData<typeof loader>();
+  const { positions, summaries, lastPriceUpdate, today } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
@@ -347,7 +356,7 @@ export default function Positions() {
   const priceFetcher = useFetcher();
   const isRefreshingPrices = priceFetcher.state !== "idle";
 
-  const today = new Date().toISOString().split("T")[0];
+
 
   const hasPrices = summaries.some((s) => s.currentPrice !== null);
 
@@ -363,7 +372,7 @@ export default function Positions() {
             </p>
             {lastPriceUpdate && (
               <span className="text-zinc-500 text-xs">
-                Prices: {timeAgo(lastPriceUpdate)}
+                Prices: <TimeAgo dateStr={lastPriceUpdate} />
               </span>
             )}
           </div>
@@ -630,13 +639,9 @@ export default function Positions() {
                 <tbody className="divide-y divide-zinc-800/50">
                   {positions.map((pos) => {
                     const totalCost = pos.amount * pos.priceUsd;
-                    const dateStr = new Date(pos.date).toLocaleDateString(
-                      "en-US",
-                      { month: "short", day: "numeric", year: "numeric" }
-                    );
                     return (
                       <tr key={pos.id} className="text-sm">
-                        <td className="py-3 pr-4 text-zinc-400">{dateStr}</td>
+                        <td className="py-3 pr-4 text-zinc-400">{pos.dateFormatted}</td>
                         <td className="py-3 pr-4">
                           <AssetBadge asset={pos.asset} />
                         </td>
