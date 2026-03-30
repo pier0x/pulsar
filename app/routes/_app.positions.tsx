@@ -65,8 +65,7 @@ async function refreshPrices(assets: string[]): Promise<Record<string, number | 
 
   try {
     const data = (await coingeckoFetch(
-      `/simple/price?ids=${idsParam}&vs_currencies=usd`,
-      apiKey
+      `/simple/price?ids=${idsParam}&vs_currencies=usd`
     )) as Record<string, { usd?: number }>;
 
     for (const asset of assets) {
