@@ -7,7 +7,6 @@ import { prisma } from "~/lib/db.server";
 import {
   getAlchemyApiKey,
   getHeliusApiKey,
-  getCoinGeckoApiKey,
   getTokenThresholdUsd,
 } from "~/lib/settings.server";
 import {
@@ -54,7 +53,6 @@ async function fetchWalletBalance(
   wallet: { id: string; network: string; address: string },
   alchemyKey: string | null,
   heliusKey: string | null,
-  coingeckoKey: string | null,
   tokenThreshold: number
 ): Promise<WalletFetchResult> {
   const network = wallet.network as WalletNetwork;
@@ -169,7 +167,7 @@ async function fetchWalletBalance(
     }
 
     // 2. Fetch prices
-    const nativePriceResult = await getNativeTokenPrice(network, coingeckoKey);
+    const nativePriceResult = await getNativeTokenPrice(network);
     if (!nativePriceResult.success) {
       return {
         success: false,
@@ -185,7 +183,7 @@ async function fetchWalletBalance(
 
     // Get token prices
     const tokenAddresses = tokensResult.tokens.map((t) => t.contractAddress);
-    const tokenPricesResult = await getTokenPrices(network, tokenAddresses, coingeckoKey);
+    const tokenPricesResult = await getTokenPrices(network, tokenAddresses);
     
     // Token prices failing is not fatal - we just skip those tokens
     const tokenPrices = tokenPricesResult.success ? tokenPricesResult.prices : new Map<string, number>();
@@ -261,10 +259,9 @@ export async function refreshUserWallets(
   const startTime = Date.now();
 
   // Get user's API keys and settings
-  const [alchemyKey, heliusKey, coingeckoKey, tokenThreshold] = await Promise.all([
+  const [alchemyKey, heliusKey, tokenThreshold] = await Promise.all([
     getAlchemyApiKey(userId),
     getHeliusApiKey(userId),
-    getCoinGeckoApiKey(userId),
     getTokenThresholdUsd(userId),
   ]);
 
@@ -296,7 +293,6 @@ export async function refreshUserWallets(
       wallet,
       alchemyKey,
       heliusKey,
-      coingeckoKey,
       tokenThreshold
     );
     results.set(wallet.id, result);
@@ -471,10 +467,9 @@ export async function refreshSingleWallet(
     };
   }
 
-  const [alchemyKey, heliusKey, coingeckoKey, tokenThreshold] = await Promise.all([
+  const [alchemyKey, heliusKey, tokenThreshold] = await Promise.all([
     getAlchemyApiKey(userId),
     getHeliusApiKey(userId),
-    getCoinGeckoApiKey(userId),
     getTokenThresholdUsd(userId),
   ]);
 
@@ -482,7 +477,6 @@ export async function refreshSingleWallet(
     wallet,
     alchemyKey,
     heliusKey,
-    coingeckoKey,
     tokenThreshold
   );
 

@@ -65,9 +65,7 @@ export async function getHeliusApiKey(_userId: string): Promise<string | null> {
   return process.env.HELIUS_API_KEY || null;
 }
 
-export async function getCoinGeckoApiKey(_userId: string): Promise<string | null> {
-  return process.env.COINGECKO_API_KEY || null;
-}
+
 
 // =============================================================================
 // User Preferences

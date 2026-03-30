@@ -18,7 +18,7 @@ import {
 } from "~/components/ui";
 import { requireAuth } from "~/lib/auth";
 import { prisma } from "~/lib/db.server";
-import { getCoinGeckoApiKey } from "~/lib/settings.server";
+
 
 export const meta: MetaFunction = () => {
   return [
@@ -55,7 +55,7 @@ function getCoingeckoId(asset: string): string {
 /**
  * Fetch fresh prices from CoinGecko and cache them in DB.
  */
-async function refreshPrices(assets: string[], apiKey: string | null): Promise<Record<string, number | null>> {
+async function refreshPrices(assets: string[]): Promise<Record<string, number | null>> {
   if (assets.length === 0) return {};
 
   const { coingeckoFetch } = await import("~/lib/providers/coingecko.server");
@@ -250,8 +250,7 @@ export async function action({ request }: ActionFunctionArgs) {
       distinct: ["asset"],
     });
     const assets = positions.map((p) => p.asset);
-    const apiKey = await getCoinGeckoApiKey(user.id);
-    await refreshPrices(assets, apiKey);
+    await refreshPrices(assets);
     return json({ success: true, intent: "refreshPrices" });
   }
 
