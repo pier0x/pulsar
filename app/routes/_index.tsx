@@ -501,11 +501,7 @@ function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="flex justify-center">
-          <Logo size="lg" />
-        </div>
-
+      <div className="w-full max-w-sm">
         <Card className="p-6">
           {error && <Alert variant="error" className="mb-5">{error}</Alert>}
 
