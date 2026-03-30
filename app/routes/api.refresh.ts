@@ -3,6 +3,7 @@ import { json } from "@remix-run/node";
 import { requireAuth } from "~/lib/auth";
 import { prisma } from "~/lib/db.server";
 import { refreshUserWallets } from "~/lib/balance/refresh.server";
+import { NETWORK_INFO, type WalletNetwork } from "~/lib/wallet";
 
 const RATE_LIMIT_MS = 60 * 1000; // 1 minute
 
@@ -72,6 +73,13 @@ export async function action({ request }: ActionFunctionArgs) {
   await updateRateLimit(user.id);
 
   try {
+    // Get wallet names for display
+    const userWallets = await prisma.wallet.findMany({
+      where: { userId: user.id },
+      select: { id: true, name: true, network: true, address: true },
+    });
+    const walletMap = new Map(userWallets.map((w) => [`${w.network}:${w.address}`, w.name]));
+
     // Run the refresh for this user's wallets
     const result = await refreshUserWallets(user.id, "manual");
 
@@ -84,12 +92,14 @@ export async function action({ request }: ActionFunctionArgs) {
       durationMs: result.durationMs,
       wallets: [
         ...result.successfulWallets.map((w) => ({
+          name: walletMap.get(`${w.network}:${w.address}`) || null,
           network: w.network,
           address: w.address,
           status: "success" as const,
           totalUsd: w.totalUsdValue,
         })),
         ...result.errors.map((e) => ({
+          name: walletMap.get(`${e.network}:${e.walletAddress}`) || null,
           network: e.network,
           address: e.walletAddress,
           status: "error" as const,

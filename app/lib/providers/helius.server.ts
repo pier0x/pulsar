@@ -39,11 +39,12 @@ const HELIUS_RPC_URL = "https://mainnet.helius-rpc.com";
 
 /**
  * Make a Helius JSON-RPC request
+ * Standard RPC methods use params as array, DAS methods use params as object
  */
 async function heliusRpc(
   apiKey: string,
   method: string,
-  params: unknown[]
+  params: unknown[] | Record<string, unknown>
 ): Promise<unknown> {
   const url = `${HELIUS_RPC_URL}/?api-key=${apiKey}`;
   
@@ -112,17 +113,15 @@ export async function fetchSolanaTokenBalances(
 ): Promise<TokensResult> {
   try {
     // Use getAssetsByOwner (DAS API) for comprehensive token data
-    const result = await heliusRpc(apiKey, "getAssetsByOwner", [
-      {
-        ownerAddress: address,
-        page: 1,
-        limit: 1000,
-        displayOptions: {
-          showFungible: true,
-          showNativeBalance: false,
-        },
+    const result = await heliusRpc(apiKey, "getAssetsByOwner", {
+      ownerAddress: address,
+      page: 1,
+      limit: 1000,
+      displayOptions: {
+        showFungible: true,
+        showNativeBalance: false,
       },
-    ]);
+    });
 
     const assetsData = result as {
       items: Array<{

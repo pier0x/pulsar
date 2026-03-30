@@ -64,6 +64,7 @@ function getAvatarColor(username: string): string {
 }
 
 interface WalletResult {
+  name: string | null;
   network: string;
   address: string;
   status: "success" | "error";
@@ -190,9 +191,11 @@ function RefreshButton() {
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium text-white">{networkName}</span>
-                          <span className="text-[10px] text-zinc-500 font-mono truncate">
-                            {formatAddress(w.address)}
+                          <span className="text-xs font-medium text-white">
+                            {w.name || networkName}
+                          </span>
+                          <span className="text-[10px] text-zinc-500">
+                            {networkName}
                           </span>
                         </div>
                         {isSuccess && w.totalUsd !== undefined && (

@@ -24,7 +24,7 @@ const NATIVE_TOKEN_IDS: Record<WalletNetwork, string> = {
   ethereum: "ethereum",
   arbitrum: "ethereum", // Arbitrum uses ETH
   base: "ethereum", // Base uses ETH
-  polygon: "matic-network",
+  polygon: "polygon-ecosystem-token",
   solana: "solana",
 };
 
