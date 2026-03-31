@@ -437,7 +437,14 @@ function ConnectBankButton({ onSuccess }: ConnectBankButtonProps) {
   const { open, ready } = usePlaidLink({
     token: linkToken ?? "",
     onSuccess: handlePlaidSuccess,
-    onExit: () => {
+    onExit: (err, metadata) => {
+      if (err) {
+        console.error("[plaid link] exit error:", err);
+        setError(`Plaid error: ${err.error_code} — ${err.display_message || err.error_message}`);
+      }
+      if (metadata) {
+        console.log("[plaid link] exit metadata:", JSON.stringify(metadata));
+      }
       setLinkToken(null);
     },
   });

@@ -16,14 +16,20 @@ export async function action({ request }: ActionFunctionArgs) {
   const user = await requireAuth(request);
 
   // Build redirect URI from the request origin (needed for OAuth banks in Production)
+  // On Railway, request.url may use internal hostname — prefer X-Forwarded-Host
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto") || "https";
   const url = new URL(request.url);
-  const redirectUri = `${url.origin}/accounts`;
+  const origin = forwardedHost ? `${forwardedProto}://${forwardedHost}` : url.origin;
+  const redirectUri = `${origin}/accounts`;
 
   const result = await createLinkToken(user.id, redirectUri);
 
   if (!result.success) {
+    console.error("[plaid] createLinkToken failed:", result.error);
     return json({ error: result.error }, { status: 500 });
   }
+  console.log("[plaid] link token created, redirectUri:", redirectUri);
 
   return json({
     linkToken: result.linkToken,
