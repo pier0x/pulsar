@@ -1002,7 +1002,7 @@ export default function AccountsPage() {
       isEvm: true,
       isBank: false,
       balance: hasAnyBalance
-        ? `$${totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        ? `$${totalUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : null,
       networks: group.map((a) => a.network || "").filter(Boolean),
     });
@@ -1020,7 +1020,7 @@ export default function AccountsPage() {
       isEvm: false,
       isBank: false,
       balance: snap
-        ? `$${Number(snap.totalUsdValue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        ? `$${Number(snap.totalUsdValue).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : null,
     });
   }
@@ -1038,7 +1038,7 @@ export default function AccountsPage() {
       isEvm: false,
       isBank: true,
       balance: balance !== null
-        ? `$${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        ? `$${balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : null,
       subtitle: a.plaidSubtype
         ? a.plaidSubtype.charAt(0).toUpperCase() + a.plaidSubtype.slice(1)
@@ -1060,7 +1060,7 @@ export default function AccountsPage() {
       isBank: false,
       isBrokerage: true,
       balance: balance !== null
-        ? `$${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        ? `$${balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : null,
       subtitle: a.plaidSubtype
         ? a.plaidSubtype.charAt(0).toUpperCase() + a.plaidSubtype.slice(1)

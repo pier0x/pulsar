@@ -101,7 +101,7 @@ export function PortfolioBreakdown({
           transition={{ delay: 0.2, duration: 0.4 }}
           className="text-xl sm:text-2xl font-bold text-white mt-1"
         >
-          ${total.toLocaleString()}
+          ${total.toLocaleString("en-US")}
         </motion.p>
       </div>
 

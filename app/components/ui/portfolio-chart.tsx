@@ -48,7 +48,7 @@ export function PortfolioChart() {
                   <div className="bg-card border border-border rounded-xl p-4 shadow-lg">
                     <p className="text-xs text-muted-foreground mb-2">{data.time}</p>
                     <div className="flex items-baseline gap-2 mb-3">
-                      <span className="text-2xl font-bold">{data.value.toLocaleString()}</span>
+                      <span className="text-2xl font-bold">{data.value.toLocaleString("en-US")}</span>
                       <span className="text-sm text-muted-foreground">USD</span>
                       <span className="text-sm text-success-foreground">+ 0.32 %</span>
                     </div>
@@ -58,14 +58,14 @@ export function PortfolioChart() {
                           <div className="w-1 h-1 rounded-full bg-chart-1" />
                           <span className="text-muted-foreground">Crypto</span>
                         </div>
-                        <span className="font-medium">{cryptoValue.toLocaleString()}.19 USD</span>
+                        <span className="font-medium">{cryptoValue.toLocaleString("en-US")}.19 USD</span>
                       </div>
                       <div className="flex items-center justify-between gap-4 text-sm">
                         <div className="flex items-center gap-2">
                           <div className="w-1 h-1 rounded-full bg-chart-3" />
                           <span className="text-muted-foreground">Cash</span>
                         </div>
-                        <span className="font-medium">{cashValue.toLocaleString()}.28 USD</span>
+                        <span className="font-medium">{cashValue.toLocaleString("en-US")}.28 USD</span>
                       </div>
                     </div>
                   </div>
