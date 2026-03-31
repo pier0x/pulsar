@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { unstable_parseMultipartFormData, unstable_createMemoryUploadHandler, json } from "@remix-run/node";
 import { Form, useActionData, useLoaderData, useNavigation, useRevalidator } from "@remix-run/react";
-import { Plus, Trash2, Wallet, Bitcoin, LineChart, Landmark, Package, TrendingUp, TrendingDown, Clock, ImageIcon } from "lucide-react";
+import { Plus, Trash2, Wallet, Bitcoin, LineChart, Landmark, Package, TrendingUp, TrendingDown, Clock, ImageIcon, X, Pencil } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePlaidLink } from "react-plaid-link";
 import { writeFile, mkdir, unlink } from "fs/promises";
@@ -27,6 +27,7 @@ import {
   deleteOnchainAccountsByAddress,
   createManualAsset,
   updateManualAssetValue,
+  updateManualAssetDetails,
   deleteManualAsset,
 } from "~/lib/accounts.server";
 
@@ -276,7 +277,7 @@ export async function action({ request }: ActionFunctionArgs) {
     const updates: Parameters<typeof updateManualAssetDetails>[1] = {};
     if (typeof name === "string" && name.trim()) updates.name = name.trim();
     if (typeof category === "string" && category.trim()) updates.category = category.trim().toLowerCase();
-    if (typeof notes === "string") updates.notes = notes.trim() || undefined;
+    if (typeof notes === "string") updates.notes = notes.trim() || null;
 
     const costBasis = costBasisRaw && typeof costBasisRaw === "string" && costBasisRaw.trim()
       ? parseFloat(costBasisRaw)
@@ -623,8 +624,174 @@ function CategoryBadge({ category }: { category: string }) {
   );
 }
 
+function EditAssetModal({ asset, currentValue, costBasis, onClose }: {
+  asset: ManualAsset;
+  currentValue: number;
+  costBasis: number | null;
+  onClose: () => void;
+}) {
+  const navigation = useNavigation();
+  const isSubmitting = navigation.state === "submitting";
+  const [imagePreview, setImagePreview] = useState<string | null>(
+    asset.imagePath ? `/api/asset-image/${asset.id}` : null
+  );
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setImagePreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Close modal after successful submission
+  useEffect(() => {
+    if (navigation.state === "idle" && isSubmitting) {
+      onClose();
+    }
+  }, [navigation.state]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="relative w-full max-w-md rounded-2xl bg-zinc-900 border border-zinc-800 p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-bold text-white">Edit Asset</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <Form method="post" encType="multipart/form-data" className="space-y-4" onSubmit={onClose}>
+          <input type="hidden" name="intent" value="update-asset" />
+          <input type="hidden" name="accountId" value={asset.id} />
+
+          {/* Image */}
+          <div className="flex justify-center">
+            <label className="relative group cursor-pointer">
+              <div className="w-24 h-24 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center overflow-hidden group-hover:border-zinc-500 transition-colors">
+                {imagePreview ? (
+                  <img src={imagePreview} alt="Asset" className="w-full h-full object-cover" />
+                ) : (
+                  <ImageIcon className="h-8 w-8 text-zinc-600" />
+                )}
+              </div>
+              <div className="absolute inset-0 rounded-xl flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Pencil className="h-4 w-4 text-white" />
+              </div>
+              <input
+                type="file"
+                name="image"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageChange}
+              />
+            </label>
+          </div>
+
+          {/* Name */}
+          <div>
+            <label className="block text-zinc-500 text-sm mb-1.5">Name</label>
+            <input
+              type="text"
+              name="assetName"
+              defaultValue={asset.name}
+              required
+              className="w-full h-11 px-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600"
+            />
+          </div>
+
+          {/* Category */}
+          <div>
+            <label className="block text-zinc-500 text-sm mb-1.5">Category</label>
+            <select
+              name="category"
+              defaultValue={asset.category || "watches"}
+              required
+              className="w-full h-11 px-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 cursor-pointer"
+            >
+              <option value="watches">Watches</option>
+              <option value="cars">Cars</option>
+            </select>
+          </div>
+
+          {/* Value + Cost Basis */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-zinc-500 text-sm mb-1.5">Current Value (USD)</label>
+              <input
+                type="number"
+                name="currentValue"
+                step="0.01"
+                min="0"
+                defaultValue={currentValue}
+                required
+                className="w-full h-11 px-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600"
+              />
+            </div>
+            <div>
+              <label className="block text-zinc-500 text-sm mb-1.5">Cost Basis (USD)</label>
+              <input
+                type="number"
+                name="costBasis"
+                step="0.01"
+                min="0"
+                defaultValue={costBasis ?? ""}
+                placeholder="Optional"
+                className="w-full h-11 px-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600"
+              />
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-zinc-500 text-sm mb-1.5">Notes</label>
+            <input
+              type="text"
+              name="notes"
+              defaultValue={asset.notes || ""}
+              placeholder="Serial number, purchase date..."
+              className="w-full h-11 px-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600"
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 h-11 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-medium transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 h-11 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {isSubmitting ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </Form>
+      </motion.div>
+    </div>
+  );
+}
+
 function AssetCard({ asset }: { asset: ManualAsset }) {
-  const [showUpdateForm, setShowUpdateForm] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
@@ -644,193 +811,118 @@ function AssetCard({ asset }: { asset: ManualAsset }) {
     : null;
 
   return (
-    <div className="flex gap-4 p-4 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 transition-colors">
-      {/* Thumbnail */}
-      <div className="w-16 h-16 rounded-xl bg-zinc-900 border border-zinc-700 flex items-center justify-center shrink-0 overflow-hidden">
-        {asset.imagePath ? (
-          <img
-            src={`/api/asset-image/${asset.id}`}
-            alt={asset.name}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <Package className="h-7 w-7 text-zinc-600" />
-        )}
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className="font-medium text-white text-sm">{asset.name}</span>
-              {asset.category && <CategoryBadge category={asset.category} />}
-            </div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-lg font-bold text-white">
-                ${currentValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-              {gain !== null && gainPct !== null && (
-                <span className={`flex items-center gap-1 text-xs font-medium ${gain >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                  {gain >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                  {gain >= 0 ? "+" : ""}{gain.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0, style: "currency", currency: "USD" })} ({gain >= 0 ? "+" : ""}{gainPct.toFixed(1)}%)
-                </span>
-              )}
-            </div>
-            {lastValued && (
-              <div className="flex items-center gap-1 mt-1 text-xs text-zinc-500">
-                <Clock className="h-3 w-3" />
-                <span>Last valued {lastValued}</span>
-              </div>
-            )}
-            {asset.notes && (
-              <p className="text-xs text-zinc-500 mt-1 truncate">{asset.notes}</p>
-            )}
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-1 shrink-0">
-            <button
-              type="button"
-              onClick={() => { setShowUpdateForm(!showUpdateForm); setShowDeleteConfirm(false); }}
-              className="text-xs px-2 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-300 hover:text-white transition-colors cursor-pointer"
-            >
-              Update
-            </button>
-            <button
-              type="button"
-              onClick={() => { setShowDeleteConfirm(!showDeleteConfirm); setShowUpdateForm(false); }}
-              className="text-xs px-2 py-1 rounded-lg bg-zinc-700 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition-colors cursor-pointer"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          </div>
+    <>
+      <div className="flex gap-4 p-4 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 transition-colors">
+        {/* Thumbnail */}
+        <div className="w-16 h-16 rounded-xl bg-zinc-900 border border-zinc-700 flex items-center justify-center shrink-0 overflow-hidden">
+          {asset.imagePath ? (
+            <img
+              src={`/api/asset-image/${asset.id}`}
+              alt={asset.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <Package className="h-7 w-7 text-zinc-600" />
+          )}
         </div>
 
-        {/* Edit asset form */}
-        <AnimatePresence>
-          {showUpdateForm && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mt-3 overflow-hidden"
-            >
-              <Form method="post" encType="multipart/form-data" className="space-y-3" onSubmit={() => setShowUpdateForm(false)}>
-                <input type="hidden" name="intent" value="update-asset" />
-                <input type="hidden" name="accountId" value={asset.id} />
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    name="assetName"
-                    defaultValue={asset.name}
-                    placeholder="Name"
-                    required
-                    className="h-9 px-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-500 text-sm focus:outline-none focus:border-zinc-600"
-                  />
-                  <select
-                    name="category"
-                    defaultValue={asset.category || "watches"}
-                    required
-                    className="h-9 px-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white text-sm focus:outline-none focus:border-zinc-600 cursor-pointer"
-                  >
-                    <option value="watches">Watches</option>
-                    <option value="cars">Cars</option>
-                  </select>
+        {/* Main content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <span className="font-medium text-white text-sm">{asset.name}</span>
+                {asset.category && <CategoryBadge category={asset.category} />}
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-lg font-bold text-white">
+                  ${currentValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                {gain !== null && gainPct !== null && (
+                  <span className={`flex items-center gap-1 text-xs font-medium ${gain >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {gain >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                    {gain >= 0 ? "+" : ""}{gain.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0, style: "currency", currency: "USD" })} ({gain >= 0 ? "+" : ""}{gainPct.toFixed(1)}%)
+                  </span>
+                )}
+              </div>
+              {lastValued && (
+                <div className="flex items-center gap-1 mt-1 text-xs text-zinc-500">
+                  <Clock className="h-3 w-3" />
+                  <span>Last valued {lastValued}</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="number"
-                    name="currentValue"
-                    step="0.01"
-                    min="0"
-                    defaultValue={currentValue}
-                    placeholder="Current value (USD)"
-                    required
-                    className="h-9 px-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-500 text-sm focus:outline-none focus:border-zinc-600"
-                  />
-                  <input
-                    type="number"
-                    name="costBasis"
-                    step="0.01"
-                    min="0"
-                    defaultValue={costBasis ?? ""}
-                    placeholder="Cost basis (USD)"
-                    className="h-9 px-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-500 text-sm focus:outline-none focus:border-zinc-600"
-                  />
-                </div>
-                <input
-                  type="text"
-                  name="notes"
-                  defaultValue={asset.notes || ""}
-                  placeholder="Notes (optional)"
-                  className="w-full h-9 px-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-500 text-sm focus:outline-none focus:border-zinc-600"
-                />
+              )}
+              {asset.notes && (
+                <p className="text-xs text-zinc-500 mt-1 truncate">{asset.notes}</p>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowEditModal(true)}
+                className="text-xs px-2 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-300 hover:text-white transition-colors cursor-pointer"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(!showDeleteConfirm)}
+                className="text-xs px-2 py-1 rounded-lg bg-zinc-700 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition-colors cursor-pointer"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Delete confirm */}
+          <AnimatePresence>
+            {showDeleteConfirm && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-3 overflow-hidden"
+              >
                 <div className="flex items-center gap-2">
-                  <label className="flex-1 h-9 flex items-center px-3 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-500 text-sm cursor-pointer hover:border-zinc-600 transition-colors">
-                    <span>{asset.imagePath ? "Replace image..." : "Upload image..."}</span>
-                    <input
-                      type="file"
-                      name="image"
-                      accept="image/*"
-                      className="hidden"
-                    />
-                  </label>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="h-9 px-4 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    Save
-                  </button>
+                  <span className="text-xs text-zinc-400">Delete this asset?</span>
+                  <Form method="post" className="inline" onSubmit={() => setShowDeleteConfirm(false)}>
+                    <input type="hidden" name="intent" value="delete-asset" />
+                    <input type="hidden" name="accountId" value={asset.id} />
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="text-xs px-2 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/40 text-red-400 transition-colors cursor-pointer"
+                    >
+                      Confirm Delete
+                    </button>
+                  </Form>
                   <button
                     type="button"
-                    onClick={() => setShowUpdateForm(false)}
-                    className="h-9 px-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-sm transition-colors cursor-pointer"
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="text-xs text-zinc-500 hover:text-zinc-300 cursor-pointer"
                   >
                     Cancel
                   </button>
                 </div>
-              </Form>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Delete confirm */}
-        <AnimatePresence>
-          {showDeleteConfirm && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mt-3 overflow-hidden"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-400">Delete this asset?</span>
-                <Form method="post" className="inline" onSubmit={() => setShowDeleteConfirm(false)}>
-                  <input type="hidden" name="intent" value="delete-asset" />
-                  <input type="hidden" name="accountId" value={asset.id} />
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="text-xs px-2 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/40 text-red-400 transition-colors cursor-pointer"
-                  >
-                    Confirm Delete
-                  </button>
-                </Form>
-                <button
-                  type="button"
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="text-xs text-zinc-500 hover:text-zinc-300 cursor-pointer"
-                >
-                  Cancel
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
-    </div>
+
+      {/* Edit Modal */}
+      <AnimatePresence>
+        {showEditModal && (
+          <EditAssetModal
+            asset={asset}
+            currentValue={currentValue}
+            costBasis={costBasis}
+            onClose={() => setShowEditModal(false)}
+          />
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
