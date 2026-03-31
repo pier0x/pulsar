@@ -15,7 +15,11 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const user = await requireAuth(request);
 
-  const result = await createLinkToken(user.id);
+  // Build redirect URI from the request origin (needed for OAuth banks in Production)
+  const url = new URL(request.url);
+  const redirectUri = `${url.origin}/accounts`;
+
+  const result = await createLinkToken(user.id, redirectUri);
 
   if (!result.success) {
     return json({ error: result.error }, { status: 500 });

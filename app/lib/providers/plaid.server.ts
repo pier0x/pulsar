@@ -115,7 +115,8 @@ export interface PlaidError {
 }
 
 export async function createLinkToken(
-  userId: string
+  userId: string,
+  redirectUri?: string
 ): Promise<CreateLinkTokenResult | PlaidError> {
   const client = getPlaidClient();
   if (!client) {
@@ -130,6 +131,7 @@ export async function createLinkToken(
       optional_products: [Products.Investments],
       country_codes: [CountryCode.Us],
       language: "en",
+      ...(redirectUri && { redirect_uri: redirectUri }),
     });
 
     return {
