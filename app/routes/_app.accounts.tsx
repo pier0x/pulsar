@@ -618,7 +618,7 @@ type ManualAsset = {
 function CategoryBadge({ category }: { category: string }) {
   return (
     <span className="text-xs px-2 py-0.5 rounded-full border border-amber-700/50 text-amber-400 bg-amber-500/10">
-      {category}
+      {category.charAt(0).toUpperCase() + category.slice(1)}
     </span>
   );
 }
