@@ -38,6 +38,23 @@ export const meta: MetaFunction = () => {
   ];
 };
 
+// Recursively convert Prisma Decimal instances to plain numbers to avoid SSR/client hydration mismatch
+function serializeDecimals<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === "object" && "toFixed" in (obj as any) && "toNumber" in (obj as any)) {
+    return Number((obj as any).toNumber()) as unknown as T;
+  }
+  if (Array.isArray(obj)) return obj.map(serializeDecimals) as unknown as T;
+  if (typeof obj === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      result[key] = serializeDecimals(value);
+    }
+    return result as T;
+  }
+  return obj;
+}
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireAuth(request);
   const accounts = await getUserAccountsWithLatestSnapshot(user.id);
@@ -54,7 +71,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     },
   });
 
-  return json({ accounts, manualAssets });
+  return json({ accounts: serializeDecimals(accounts), manualAssets: serializeDecimals(manualAssets) });
 }
 
 // Badge component for network display
