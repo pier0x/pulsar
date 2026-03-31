@@ -5,7 +5,7 @@ import { Form, useActionData, useLoaderData, useNavigation, useRevalidator } fro
 import { Plus, Trash2, Wallet, Bitcoin, LineChart, Landmark, Package, TrendingUp, TrendingDown, Clock, ImageIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePlaidLink } from "react-plaid-link";
-import { writeFile, mkdir } from "fs/promises";
+import { writeFile, mkdir, unlink } from "fs/promises";
 import { join } from "path";
 import { Button, Input, FormField, Alert, Card } from "~/components/ui";
 import { requireAuth } from "~/lib/auth";
@@ -252,10 +252,8 @@ export async function action({ request }: ActionFunctionArgs) {
     return json({ success: true });
   }
 
-  if (intent === "update-asset-value") {
+  if (intent === "update-asset") {
     const accountId = formData.get("accountId");
-    const newValueRaw = formData.get("newValue");
-
     if (typeof accountId !== "string") {
       return json({ error: "Invalid account" }, { status: 400 });
     }
@@ -268,12 +266,56 @@ export async function action({ request }: ActionFunctionArgs) {
       return json({ error: "Asset not found" }, { status: 404 });
     }
 
-    const newValue = parseFloat(typeof newValueRaw === "string" ? newValueRaw : "0");
-    if (isNaN(newValue) || newValue < 0) {
-      return json({ error: "Value must be a non-negative number" }, { status: 400 });
+    const name = formData.get("assetName");
+    const category = formData.get("category");
+    const currentValueRaw = formData.get("currentValue");
+    const costBasisRaw = formData.get("costBasis");
+    const notes = formData.get("notes");
+
+    // Update details
+    const updates: Parameters<typeof updateManualAssetDetails>[1] = {};
+    if (typeof name === "string" && name.trim()) updates.name = name.trim();
+    if (typeof category === "string" && category.trim()) updates.category = category.trim().toLowerCase();
+    if (typeof notes === "string") updates.notes = notes.trim() || undefined;
+
+    const costBasis = costBasisRaw && typeof costBasisRaw === "string" && costBasisRaw.trim()
+      ? parseFloat(costBasisRaw)
+      : undefined;
+    if (costBasis !== undefined && !isNaN(costBasis)) updates.costBasis = costBasis;
+
+    // Handle image upload
+    if (uploadedFile) {
+      // Delete old image if exists
+      if (account.imagePath) {
+        const oldPath = join(process.cwd(), account.imagePath);
+        try { await unlink(oldPath); } catch { /* ignore */ }
+      }
+      const ext = uploadedFile.filename.split(".").pop()?.toLowerCase() || "jpg";
+      const imagePath = `data/assets/${account.id}.${ext}`;
+      const fullPath = join(process.cwd(), imagePath);
+      await mkdir(join(process.cwd(), "data", "assets"), { recursive: true });
+      await writeFile(fullPath, uploadedFile.data);
+      updates.imagePath = imagePath;
     }
 
-    await updateManualAssetValue(accountId, newValue);
+    if (Object.keys(updates).length > 0) {
+      await updateManualAssetDetails(accountId, updates);
+    }
+
+    // Update value (creates new snapshot) if changed
+    const currentValue = parseFloat(typeof currentValueRaw === "string" ? currentValueRaw : "");
+    if (!isNaN(currentValue) && currentValue >= 0) {
+      // Check if value actually changed
+      const latestSnap = await prisma.accountSnapshot.findFirst({
+        where: { accountId },
+        orderBy: { timestamp: "desc" },
+      });
+      const oldValue = latestSnap ? Number(latestSnap.totalUsdValue) : -1;
+      if (Math.abs(currentValue - oldValue) > 0.001) {
+        await updateManualAssetValue(accountId, currentValue);
+      }
+    }
+
     return json({ success: true });
   }
 
@@ -665,7 +707,7 @@ function AssetCard({ asset }: { asset: ManualAsset }) {
           </div>
         </div>
 
-        {/* Update value form */}
+        {/* Edit asset form */}
         <AnimatePresence>
           {showUpdateForm && (
             <motion.div
@@ -674,25 +716,80 @@ function AssetCard({ asset }: { asset: ManualAsset }) {
               exit={{ opacity: 0, height: 0 }}
               className="mt-3 overflow-hidden"
             >
-              <Form method="post" className="flex gap-2" onSubmit={() => setShowUpdateForm(false)}>
-                <input type="hidden" name="intent" value="update-asset-value" />
+              <Form method="post" encType="multipart/form-data" className="space-y-3" onSubmit={() => setShowUpdateForm(false)}>
+                <input type="hidden" name="intent" value="update-asset" />
                 <input type="hidden" name="accountId" value={asset.id} />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    name="assetName"
+                    defaultValue={asset.name}
+                    placeholder="Name"
+                    required
+                    className="h-9 px-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-500 text-sm focus:outline-none focus:border-zinc-600"
+                  />
+                  <input
+                    type="text"
+                    name="category"
+                    defaultValue={asset.category || ""}
+                    placeholder="Category"
+                    required
+                    className="h-9 px-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-500 text-sm focus:outline-none focus:border-zinc-600"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    name="currentValue"
+                    step="0.01"
+                    min="0"
+                    defaultValue={currentValue}
+                    placeholder="Current value (USD)"
+                    required
+                    className="h-9 px-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-500 text-sm focus:outline-none focus:border-zinc-600"
+                  />
+                  <input
+                    type="number"
+                    name="costBasis"
+                    step="0.01"
+                    min="0"
+                    defaultValue={costBasis ?? ""}
+                    placeholder="Cost basis (USD)"
+                    className="h-9 px-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-500 text-sm focus:outline-none focus:border-zinc-600"
+                  />
+                </div>
                 <input
-                  type="number"
-                  name="newValue"
-                  step="0.01"
-                  min="0"
-                  placeholder="New value (USD)"
-                  required
-                  className="flex-1 h-9 px-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-500 text-sm focus:outline-none focus:border-zinc-600"
+                  type="text"
+                  name="notes"
+                  defaultValue={asset.notes || ""}
+                  placeholder="Notes (optional)"
+                  className="w-full h-9 px-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-500 text-sm focus:outline-none focus:border-zinc-600"
                 />
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="h-9 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  Save
-                </button>
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 h-9 flex items-center px-3 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-500 text-sm cursor-pointer hover:border-zinc-600 transition-colors">
+                    <span>{asset.imagePath ? "Replace image..." : "Upload image..."}</span>
+                    <input
+                      type="file"
+                      name="image"
+                      accept="image/*"
+                      className="hidden"
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="h-9 px-4 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowUpdateForm(false)}
+                    className="h-9 px-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-sm transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </Form>
             </motion.div>
           )}
