@@ -5,7 +5,7 @@ import { Form, useActionData, useLoaderData, useNavigation, useRevalidator } fro
 import { Plus, Trash2, Wallet, Bitcoin, LineChart, Landmark, Package, TrendingUp, TrendingDown, Clock, ImageIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePlaidLink } from "react-plaid-link";
-import { writeFile } from "fs/promises";
+import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { Button, Input, FormField, Alert, Card } from "~/components/ui";
 import { requireAuth } from "~/lib/auth";
@@ -240,7 +240,9 @@ export async function action({ request }: ActionFunctionArgs) {
     if (uploadedFile) {
       const ext = uploadedFile.filename.split(".").pop()?.toLowerCase() || "jpg";
       const imagePath = `data/assets/${account.id}.${ext}`;
-      await writeFile(join(process.cwd(), imagePath), uploadedFile.data);
+      const fullPath = join(process.cwd(), imagePath);
+      await mkdir(join(process.cwd(), "data", "assets"), { recursive: true });
+      await writeFile(fullPath, uploadedFile.data);
       await prisma.account.update({
         where: { id: account.id },
         data: { imagePath },
