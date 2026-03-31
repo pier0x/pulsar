@@ -4,7 +4,7 @@
  * Env vars required:
  *   PLAID_CLIENT_ID
  *   PLAID_SECRET
- *   PLAID_ENV  — "sandbox" | "development" | "production" (defaults to "sandbox")
+ *   PLAID_ENV  — "sandbox" | "production" (defaults to "sandbox")
  *
  * Env vars for encryption:
  *   ENCRYPTION_SECRET  — 32-char hex key for AES-256-GCM

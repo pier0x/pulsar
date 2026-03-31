@@ -235,7 +235,7 @@ COINGECKO_API_KEY=...      # Price data (optional)
 # Plaid (bank & brokerage)
 PLAID_CLIENT_ID=...
 PLAID_SECRET=...
-PLAID_ENV=sandbox           # sandbox | development | production
+PLAID_ENV=sandbox           # sandbox | production
 ```
 
 ## Deployment
