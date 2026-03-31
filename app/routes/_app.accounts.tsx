@@ -728,14 +728,15 @@ function AssetCard({ asset }: { asset: ManualAsset }) {
                     required
                     className="h-9 px-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-500 text-sm focus:outline-none focus:border-zinc-600"
                   />
-                  <input
-                    type="text"
+                  <select
                     name="category"
-                    defaultValue={asset.category || ""}
-                    placeholder="Category"
+                    defaultValue={asset.category || "watches"}
                     required
-                    className="h-9 px-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-500 text-sm focus:outline-none focus:border-zinc-600"
-                  />
+                    className="h-9 px-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white text-sm focus:outline-none focus:border-zinc-600 cursor-pointer"
+                  >
+                    <option value="watches">Watches</option>
+                    <option value="cars">Cars</option>
+                  </select>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <input
@@ -873,13 +874,15 @@ function AddAssetForm() {
         </FormField>
 
         <FormField label="Category" htmlFor="category">
-          <Input
+          <select
             id="category"
             name="category"
-            type="text"
             required
-            placeholder="watches, cars, art..."
-          />
+            className="w-full h-11 px-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 cursor-pointer"
+          >
+            <option value="watches">Watches</option>
+            <option value="cars">Cars</option>
+          </select>
         </FormField>
 
         <FormField label="Current Value (USD)" htmlFor="currentValue">
