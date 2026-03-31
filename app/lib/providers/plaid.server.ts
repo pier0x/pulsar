@@ -127,8 +127,7 @@ export async function createLinkToken(
     const response = await client.linkTokenCreate({
       user: { client_user_id: userId },
       client_name: "Pulsar",
-      products: [Products.Auth],
-      optional_products: [Products.Investments],
+      products: [Products.Transactions],
       country_codes: [CountryCode.Us],
       language: "en",
       ...(redirectUri && { redirect_uri: redirectUri }),
