@@ -487,7 +487,7 @@ export default function SettingsPage() {
   const groups = snapshotGroups as unknown as SnapshotGroup[];
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6">
       {/* Settings Card */}
       <Card>
         <div className="flex items-center gap-3 mb-6">
