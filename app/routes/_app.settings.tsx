@@ -2,10 +2,11 @@ import { useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { Form, useActionData, useLoaderData, useNavigation, useSubmit } from "@remix-run/react";
-import { Settings, Clock, Trash2, X, Eye } from "lucide-react";
+import { Settings, Clock, Trash2, X, Eye, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button, Input, FormField, Alert, Card, Select, SelectOption } from "~/components/ui";
 import { requireAuth } from "~/lib/auth";
+import { verifyPassword, hashPassword, validatePassword } from "~/lib/auth/password.server";
 import { prisma } from "~/lib/db.server";
 import {
   getTokenThresholdUsd,
@@ -123,6 +124,51 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     return json({ success: true });
+  }
+
+  if (intent === "changePassword") {
+    const currentPassword = formData.get("currentPassword");
+    const newPassword = formData.get("newPassword");
+    const confirmPassword = formData.get("confirmPassword");
+
+    if (
+      typeof currentPassword !== "string" ||
+      typeof newPassword !== "string" ||
+      typeof confirmPassword !== "string"
+    ) {
+      return json({ passwordError: "All fields are required" }, { status: 400 });
+    }
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return json({ passwordError: "All fields are required" }, { status: 400 });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return json({ passwordError: "New passwords don't match" }, { status: 400 });
+    }
+
+    const validation = validatePassword(newPassword);
+    if (!validation.valid) {
+      return json({ passwordError: validation.error }, { status: 400 });
+    }
+
+    const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+    if (!dbUser) {
+      return json({ passwordError: "User not found" }, { status: 404 });
+    }
+
+    const isValid = await verifyPassword(currentPassword, dbUser.passwordHash);
+    if (!isValid) {
+      return json({ passwordError: "Current password is incorrect" }, { status: 400 });
+    }
+
+    const newHash = await hashPassword(newPassword);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash: newHash },
+    });
+
+    return json({ passwordSuccess: true });
   }
 
   if (intent === "deleteSnapshot") {
@@ -492,6 +538,64 @@ export default function SettingsPage() {
 
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Saving..." : "Save Settings"}
+          </Button>
+        </Form>
+      </Card>
+
+      {/* Change Password */}
+      <Card>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 rounded-lg bg-amber-500/10">
+            <Lock className="h-5 w-5 text-amber-400" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-white">Change Password</h2>
+            <p className="text-zinc-500 text-sm">Update your account password</p>
+          </div>
+        </div>
+
+        <Form method="post" className="space-y-5">
+          <input type="hidden" name="intent" value="changePassword" />
+
+          {actionData && "passwordError" in actionData && (
+            <Alert variant="error">{(actionData as { passwordError: string }).passwordError}</Alert>
+          )}
+          {actionData && "passwordSuccess" in actionData && (
+            <Alert variant="success">Password updated successfully</Alert>
+          )}
+
+          <FormField label="Current Password" htmlFor="currentPassword">
+            <Input
+              id="currentPassword"
+              name="currentPassword"
+              type="password"
+              autoComplete="current-password"
+              required
+            />
+          </FormField>
+
+          <FormField label="New Password" htmlFor="newPassword">
+            <Input
+              id="newPassword"
+              name="newPassword"
+              type="password"
+              autoComplete="new-password"
+              required
+            />
+          </FormField>
+
+          <FormField label="Confirm New Password" htmlFor="confirmPassword">
+            <Input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              required
+            />
+          </FormField>
+
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Updating..." : "Update Password"}
           </Button>
         </Form>
       </Card>
