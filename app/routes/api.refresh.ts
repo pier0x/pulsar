@@ -2,7 +2,7 @@ import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { requireAuth } from "~/lib/auth";
 import { prisma } from "~/lib/db.server";
-import { refreshUserWallets, refreshSimplefinAccounts } from "~/lib/balance/refresh.server";
+import { refreshUserWallets, refreshSimplefinAccounts, refreshIbkrHoldings } from "~/lib/balance/refresh.server";
 import { NETWORK_INFO, type WalletNetwork } from "~/lib/wallet";
 
 const RATE_LIMIT_MS = 5 * 1000; // 5 seconds
@@ -92,12 +92,23 @@ export async function action({ request }: ActionFunctionArgs) {
       console.error("[refresh] SimpleFIN failed:", err);
     }
 
+    // Enrich IBKR accounts with Flex Query holdings data
+    let ibkrResult = { attempted: 0, succeeded: 0, failed: 0, errors: [] as string[] };
+    try {
+      ibkrResult = await refreshIbkrHoldings(user.id);
+      if (ibkrResult.attempted > 0) {
+        console.log("[refresh] IBKR Flex result:", JSON.stringify(ibkrResult));
+      }
+    } catch (err) {
+      console.error("[refresh] IBKR Flex failed:", err);
+    }
+
     return json({
       success: true,
       status: result.status,
-      accountsAttempted: result.accountsAttempted + sfResult.attempted,
-      accountsSucceeded: result.accountsSucceeded + sfResult.succeeded,
-      accountsFailed: result.accountsFailed + sfResult.failed,
+      accountsAttempted: result.accountsAttempted + sfResult.attempted + ibkrResult.attempted,
+      accountsSucceeded: result.accountsSucceeded + sfResult.succeeded + ibkrResult.succeeded,
+      accountsFailed: result.accountsFailed + sfResult.failed + ibkrResult.failed,
       durationMs: result.durationMs,
       accounts: [
         ...result.successfulAccounts.map((w) => ({

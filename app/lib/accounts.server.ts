@@ -12,7 +12,7 @@ import { prisma } from "~/lib/db.server";
 // ---------------------------------------------------------------------------
 
 export type AccountType = "onchain" | "bank" | "brokerage" | "manual";
-export type AccountProvider = "alchemy" | "helius" | "hyperliquid" | "simplefin" | "manual";
+export type AccountProvider = "alchemy" | "helius" | "hyperliquid" | "simplefin" | "ibkr-flex" | "manual";
 
 export interface CreateOnchainAccountInput {
   userId: string;

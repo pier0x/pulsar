@@ -91,7 +91,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   // Fetch brokerage accounts
   const brokerageAccounts = showBrokerage
     ? await prisma.account.findMany({
-        where: { userId: user.id, type: "brokerage", provider: "simplefin" },
+        where: { userId: user.id, type: "brokerage", provider: { in: ["simplefin", "ibkr-flex"] } },
         include: {
           snapshots: {
             orderBy: { timestamp: "desc" },

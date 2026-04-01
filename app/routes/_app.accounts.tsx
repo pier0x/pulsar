@@ -1259,7 +1259,7 @@ export default function AccountsPage() {
   }
 
   // Brokerage accounts (SimpleFIN)
-  const brokerageAccounts = accounts.filter((a) => a.type === "brokerage" && a.provider === "simplefin");
+  const brokerageAccounts = accounts.filter((a) => a.type === "brokerage" && (a.provider === "simplefin" || a.provider === "ibkr-flex"));
   for (const a of brokerageAccounts) {
     const snap = a.snapshots[0];
     const balance = snap ? Number(snap.totalUsdValue) : null;

@@ -23,6 +23,7 @@ import {
   getTokenPrices,
 } from "~/lib/providers/coingecko.server";
 import { getSimplefinAccounts } from "~/lib/providers/simplefin.server";
+import { isIbkrFlexConfigured, getIbkrHoldings } from "~/lib/providers/ibkr-flex.server";
 import { createAccountSnapshot } from "~/lib/accounts.server";
 import type { WalletNetwork } from "~/lib/wallet";
 import type {
@@ -452,6 +453,103 @@ export async function refreshSimplefinAccounts(userId: string): Promise<{
   }
 
   return { attempted: simplefinAccounts.length, succeeded, failed, errors };
+}
+
+// ---------------------------------------------------------------------------
+// IBKR Flex enrichment
+// ---------------------------------------------------------------------------
+
+/**
+ * Enrich IBKR accounts with holdings data from Flex Web Service.
+ * Detects IBKR SimpleFIN accounts by connection name, then fetches
+ * real holdings via Flex Query and creates/updates a brokerage account.
+ */
+export async function refreshIbkrHoldings(userId: string): Promise<{
+  attempted: number;
+  succeeded: number;
+  failed: number;
+  errors: string[];
+}> {
+  if (!isIbkrFlexConfigured()) {
+    return { attempted: 0, succeeded: 0, failed: 0, errors: [] };
+  }
+
+  // Find SimpleFIN connections that look like IBKR
+  const simplefinConnections = await prisma.simplefinConnection.findMany({
+    where: { userId },
+    select: { id: true, label: true },
+  });
+
+  const ibkrConnection = simplefinConnections.find((c) =>
+    c.label?.toLowerCase().includes("interactive brokers") ||
+    c.label?.toLowerCase().includes("ibkr")
+  );
+
+  if (!ibkrConnection) {
+    // No IBKR connection found — check if there's a standalone ibkr-flex account
+    const existingIbkr = await prisma.account.findFirst({
+      where: { userId, provider: "ibkr-flex" },
+    });
+    if (!existingIbkr) {
+      return { attempted: 0, succeeded: 0, failed: 0, errors: [] };
+    }
+  }
+
+  console.log("[ibkr-flex] Detected IBKR connection, fetching holdings...");
+
+  try {
+    const result = await getIbkrHoldings();
+    if (!result.success) {
+      return { attempted: 1, succeeded: 0, failed: 1, errors: [result.error] };
+    }
+
+    const { holdings, totalValue, cashBalance } = result;
+
+    // Find or create the ibkr-flex brokerage account
+    let ibkrAccount = await prisma.account.findFirst({
+      where: { userId, provider: "ibkr-flex", type: "brokerage" },
+    });
+
+    if (!ibkrAccount) {
+      ibkrAccount = await prisma.account.create({
+        data: {
+          userId,
+          name: "Interactive Brokers Portfolio",
+          type: "brokerage",
+          provider: "ibkr-flex",
+          // Link to SimpleFIN connection if found
+          ...(ibkrConnection ? { simplefinConnectionId: ibkrConnection.id } : {}),
+        },
+      });
+      console.log(`[ibkr-flex] Created IBKR brokerage account: ${ibkrAccount.id}`);
+    }
+
+    // Create snapshot with holdings
+    await createAccountSnapshot({
+      accountId: ibkrAccount.id,
+      totalUsdValue: totalValue,
+      holdingsValue: totalValue - cashBalance,
+      cashBalance,
+      holdings: holdings.map((h) => ({
+        ticker: h.symbol,
+        name: h.description,
+        quantity: h.quantity,
+        priceUsd: h.markPrice,
+        valueUsd: h.positionValue,
+        costBasis: h.costBasis || null,
+      })),
+    });
+
+    console.log(
+      `[ibkr-flex] Snapshot created: ${holdings.length} holdings, $${totalValue.toFixed(2)} total`
+    );
+
+    return { attempted: 1, succeeded: 1, failed: 0, errors: [] };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[ibkr-flex] refreshIbkrHoldings error:", err);
+    return { attempted: 1, succeeded: 0, failed: 1, errors: [msg] };
+  }
 }
 
 /**
