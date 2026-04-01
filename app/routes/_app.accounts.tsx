@@ -368,14 +368,7 @@ function AddAccountForm({ onBankConnected }: { onBankConnected: () => void }) {
   }, [actionData]);
 
   return (
-    <Card>
-      <div className="mb-6">
-        <h2 className="text-subheading text-nd-text-display mb-1">Add Account</h2>
-        <p className="text-nd-text-disabled text-sm">
-          Connect an account to track your portfolio.
-        </p>
-      </div>
-
+    <>
       {/* Tab switcher */}
       <div className="flex gap-1 p-1 bg-nd-surface-raised rounded-md mb-6">
         {accountTabs.map((tab) => {
@@ -459,7 +452,7 @@ function AddAccountForm({ onBankConnected }: { onBankConnected: () => void }) {
       {accountTab === "bank" && (
         <ConnectBankSection onSuccess={onBankConnected} />
       )}
-    </Card>
+    </>
   );
 }
 
@@ -470,10 +463,22 @@ function AddAccountForm({ onBankConnected }: { onBankConnected: () => void }) {
 export default function AccountsPage() {
   const { accounts } = useLoaderData<typeof loader>();
   const { revalidate } = useRevalidator();
+  const [showAddForm, setShowAddForm] = useState(false);
+  const actionData = useActionData<typeof action>();
+  const navigation = useNavigation();
 
   const handleBankConnected = useCallback(() => {
     revalidate();
   }, [revalidate]);
+
+  // Auto-close form on successful add
+  useEffect(() => {
+    if (actionData && "success" in actionData && actionData.success) {
+      if (navigation.state === "idle") {
+        setShowAddForm(false);
+      }
+    }
+  }, [actionData, navigation.state]);
 
   // Group EVM accounts by address for display
   const evmByAddress = new Map<string, typeof accounts>();
@@ -590,43 +595,61 @@ export default function AccountsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 sm:gap-6">
-      {/* Add Account Card */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
-      >
-        <AddAccountForm onBankConnected={handleBankConnected} />
-      </motion.div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-heading text-nd-text-display">Accounts</h1>
+          <p className="text-nd-text-disabled text-sm mt-1">
+            {displayItems.length === 0
+              ? "Connect wallets, banks, and brokerages"
+              : `${displayItems.length} account${displayItems.length === 1 ? "" : "s"} tracked`}
+          </p>
+        </div>
+        <Button
+          type="button"
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="cursor-pointer"
+        >
+          <Plus className="h-4 w-4" />
+          Add Account
+        </Button>
+      </div>
+
+      {/* Add form (collapsible) */}
+      <AnimatePresence>
+        {showAddForm && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="overflow-hidden"
+          >
+            <Card>
+              <h3 className="text-label text-nd-text-secondary mb-4">NEW ACCOUNT</h3>
+              <AddAccountForm onBankConnected={handleBankConnected} />
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Accounts List */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.2, ease: "easeOut", delay: 0.05 }}
-      >
+      {displayItems.length === 0 && !showAddForm ? (
         <Card>
-          <div className="mb-6">
-            <h2 className="text-subheading text-nd-text-display mb-1">Your Accounts</h2>
-            <p className="text-nd-text-disabled text-sm">
-              {displayItems.length === 0
-                ? "No accounts added yet"
-                : `${displayItems.length} account${displayItems.length === 1 ? "" : "s"} tracked`}
-            </p>
-          </div>
-
-          {displayItems.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 rounded-full bg-nd-surface border border-nd-border flex items-center justify-center mx-auto mb-4">
-                <Wallet className="h-8 w-8 text-nd-text-disabled" />
-              </div>
-              <p className="text-nd-text-disabled">Add your first account to start tracking your portfolio.</p>
+          <div className="text-center py-16">
+            <div className="w-16 h-16 rounded-full bg-nd-surface border border-nd-border flex items-center justify-center mx-auto mb-4">
+              <Wallet className="h-8 w-8 text-nd-text-disabled" />
             </div>
-          ) : (
-            <div className="space-y-3">
-              <AnimatePresence mode="popLayout">
-                {displayItems.map((item) => (
+            <p className="text-nd-text-secondary font-medium mb-1">No accounts yet</p>
+            <p className="text-nd-text-disabled text-sm">Add your first one to start tracking your portfolio.</p>
+          </div>
+        </Card>
+      ) : (
+        <Card>
+          <div className="space-y-3">
+            <AnimatePresence mode="popLayout">
+              {displayItems.map((item) => (
                   <motion.div
                     key={item.id}
                     layout
@@ -707,9 +730,8 @@ export default function AccountsPage() {
                 ))}
               </AnimatePresence>
             </div>
-          )}
-        </Card>
-      </motion.div>
+          </Card>
+        )}
     </div>
   );
 }
