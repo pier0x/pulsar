@@ -32,7 +32,7 @@ export default function AppLayout() {
 
         {/* Scrollable content - extra padding at bottom for mobile nav */}
         <main className="flex-1 overflow-y-auto py-4 lg:py-10 pb-24 lg:pb-10">
-          <div className="px-2 sm:px-4 lg:px-8 max-w-7xl mx-auto w-full">
+          <div className="px-2 sm:px-4 lg:px-8 max-w-7xl w-full">
             <Outlet />
           </div>
         </main>
