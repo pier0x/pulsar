@@ -2,7 +2,7 @@ import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { requireAuth } from "~/lib/auth";
 import { prisma } from "~/lib/db.server";
-import { refreshUserWallets } from "~/lib/balance/refresh.server";
+import { refreshUserWallets, refreshSimplefinAccounts } from "~/lib/balance/refresh.server";
 import { NETWORK_INFO, type WalletNetwork } from "~/lib/wallet";
 
 const RATE_LIMIT_MS = 5 * 1000; // 5 seconds
@@ -83,12 +83,21 @@ export async function action({ request }: ActionFunctionArgs) {
     // Run the refresh for this user's accounts
     const result = await refreshUserWallets(user.id, "manual");
 
+    // Also refresh SimpleFIN accounts
+    let sfResult = { attempted: 0, succeeded: 0, failed: 0, errors: [] as string[] };
+    try {
+      sfResult = await refreshSimplefinAccounts(user.id);
+      console.log("[refresh] SimpleFIN result:", JSON.stringify(sfResult));
+    } catch (err) {
+      console.error("[refresh] SimpleFIN failed:", err);
+    }
+
     return json({
       success: true,
       status: result.status,
-      walletsAttempted: result.walletsAttempted,
-      walletsSucceeded: result.walletsSucceeded,
-      walletsFailed: result.walletsFailed,
+      walletsAttempted: result.walletsAttempted + sfResult.attempted,
+      walletsSucceeded: result.walletsSucceeded + sfResult.succeeded,
+      walletsFailed: result.walletsFailed + sfResult.failed,
       durationMs: result.durationMs,
       wallets: [
         ...result.successfulWallets.map((w) => ({
