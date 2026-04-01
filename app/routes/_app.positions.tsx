@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { Form, useActionData, useLoaderData, useNavigation, useFetcher } from "@remix-run/react";
-import { Plus, Trash2, TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
+import { Plus, Trash2, TrendingUp, TrendingDown, RefreshCw, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Button,
@@ -365,6 +365,7 @@ export default function Positions() {
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
   const [showForm, setShowForm] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const priceFetcher = useFetcher();
   const isRefreshingPrices = priceFetcher.state !== "idle";
 
@@ -375,40 +376,42 @@ export default function Positions() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-heading text-nd-text-display">Positions</h1>
-          <div className="flex items-center gap-3 mt-1">
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
             <p className="text-nd-text-secondary text-sm">
               Track your cost basis and P&L
             </p>
             {lastPriceUpdate && (
               <span className="text-label text-nd-text-disabled">
-                Prices: <TimeAgo dateStr={lastPriceUpdate} />
+                PRICES: <TimeAgo dateStr={lastPriceUpdate} />
               </span>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {summaries.length > 0 && (
             <priceFetcher.Form method="post">
               <input type="hidden" name="intent" value="refreshPrices" />
               <Button
                 type="submit"
                 variant="secondary"
+                size="sm"
                 disabled={isRefreshingPrices}
                 className="cursor-pointer"
               >
-                <RefreshCw className={`size-4 ${isRefreshingPrices ? "animate-spin" : ""}`} />
-                {isRefreshingPrices ? "Refreshing…" : "Refresh Prices"}
+                <RefreshCw className={`size-3.5 ${isRefreshingPrices ? "animate-spin" : ""}`} />
+                <span className="hidden sm:inline">{isRefreshingPrices ? "Refreshing…" : "Refresh"}</span>
               </Button>
             </priceFetcher.Form>
           )}
           <Button
             onClick={() => setShowForm(!showForm)}
-            className="cursor-pointer"
+            size="sm"
+            className="cursor-pointer sm:size-default"
           >
-            <Plus className="size-4" />
+            <Plus className="size-3.5" />
             Add Buy
           </Button>
         </div>
@@ -635,71 +638,93 @@ export default function Positions() {
         </Card>
       )}
 
-      {/* Transaction History */}
+      {/* Transaction History — collapsible */}
       {positions.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-subheading">Transaction History</CardTitle>
-            <CardDescription>
-              All your recorded buys
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="text-left border-b border-nd-border">
-                    <th className="pb-3 pr-4 text-label text-nd-text-disabled">Date</th>
-                    <th className="pb-3 pr-4 text-label text-nd-text-disabled">Asset</th>
-                    <th className="pb-3 pr-4 text-right text-label text-nd-text-disabled">Amount</th>
-                    <th className="pb-3 pr-4 text-right text-label text-nd-text-disabled">Price</th>
-                    <th className="pb-3 pr-4 text-right text-label text-nd-text-disabled">Total Cost</th>
-                    <th className="pb-3 pr-4 text-label text-nd-text-disabled">Note</th>
-                    <th className="pb-3 w-10"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-nd-border">
-                  {positions.map((pos) => {
-                    const totalCost = pos.amount * pos.priceUsd;
-                    return (
-                      <tr key={pos.id} className="text-sm">
-                        <td className="py-3 pr-4 text-nd-text-secondary font-mono">{pos.dateFormatted}</td>
-                        <td className="py-3 pr-4">
-                          <AssetBadge asset={pos.asset} />
-                        </td>
-                        <td className="py-3 pr-4 text-right text-nd-text-primary font-mono font-medium">
-                          {formatNumber(pos.amount)}
-                        </td>
-                        <td className="py-3 pr-4 text-right text-nd-text-secondary font-mono">
-                          {formatUsd(pos.priceUsd)}
-                        </td>
-                        <td className="py-3 pr-4 text-right text-nd-text-primary font-mono font-medium">
-                          {formatUsd(totalCost)}
-                        </td>
-                        <td className="py-3 pr-4 text-nd-text-disabled max-w-[200px] truncate">
-                          {pos.note || "—"}
-                        </td>
-                        <td className="py-3">
-                          <Form method="post">
-                            <input type="hidden" name="intent" value="delete" />
-                            <input type="hidden" name="id" value={pos.id} />
-                            <Button
-                              type="submit"
-                              variant="ghost"
-                              size="icon-sm"
-                              className="cursor-pointer text-nd-text-disabled hover:text-nd-accent"
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
-                          </Form>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          <button
+            type="button"
+            onClick={() => setShowHistory(!showHistory)}
+            className="w-full flex items-center justify-between cursor-pointer group"
+          >
+            <div>
+              <h3 className="text-subheading text-nd-text-display text-left">Transaction History</h3>
+              <p className="text-caption text-nd-text-disabled mt-0.5">
+                {positions.length} recorded buy{positions.length !== 1 ? "s" : ""}
+              </p>
             </div>
-          </CardContent>
+            <ChevronDown
+              size={18}
+              strokeWidth={1.5}
+              className={`text-nd-text-disabled group-hover:text-nd-text-secondary transition-transform duration-200 ${showHistory ? "rotate-180" : ""}`}
+            />
+          </button>
+
+          <AnimatePresence>
+            {showHistory && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                className="overflow-hidden"
+              >
+                <div className="overflow-x-auto mt-4 pt-4 border-t border-nd-border">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="text-left border-b border-nd-border">
+                        <th className="pb-3 pr-4 text-label text-nd-text-disabled">Date</th>
+                        <th className="pb-3 pr-4 text-label text-nd-text-disabled">Asset</th>
+                        <th className="pb-3 pr-4 text-right text-label text-nd-text-disabled">Amount</th>
+                        <th className="pb-3 pr-4 text-right text-label text-nd-text-disabled">Price</th>
+                        <th className="pb-3 pr-4 text-right text-label text-nd-text-disabled">Total</th>
+                        <th className="pb-3 pr-4 text-label text-nd-text-disabled">Note</th>
+                        <th className="pb-3 w-10"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-nd-border">
+                      {positions.map((pos) => {
+                        const totalCost = pos.amount * pos.priceUsd;
+                        return (
+                          <tr key={pos.id} className="text-sm">
+                            <td className="py-3 pr-4 text-nd-text-secondary font-mono">{pos.dateFormatted}</td>
+                            <td className="py-3 pr-4">
+                              <AssetBadge asset={pos.asset} />
+                            </td>
+                            <td className="py-3 pr-4 text-right text-nd-text-primary font-mono font-medium">
+                              {formatNumber(pos.amount)}
+                            </td>
+                            <td className="py-3 pr-4 text-right text-nd-text-secondary font-mono">
+                              {formatUsd(pos.priceUsd)}
+                            </td>
+                            <td className="py-3 pr-4 text-right text-nd-text-primary font-mono font-medium">
+                              {formatUsd(totalCost)}
+                            </td>
+                            <td className="py-3 pr-4 text-nd-text-disabled max-w-[200px] truncate">
+                              {pos.note || "—"}
+                            </td>
+                            <td className="py-3">
+                              <Form method="post">
+                                <input type="hidden" name="intent" value="delete" />
+                                <input type="hidden" name="id" value={pos.id} />
+                                <Button
+                                  type="submit"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  className="cursor-pointer text-nd-text-disabled hover:text-nd-accent"
+                                >
+                                  <Trash2 className="size-4" />
+                                </Button>
+                              </Form>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </Card>
       )}
     </div>
