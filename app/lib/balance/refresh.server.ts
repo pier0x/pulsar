@@ -311,7 +311,7 @@ export async function refreshSimplefinAccounts(userId: string, runId?: string): 
           nameLower.includes("401k") || nameLower.includes("roth") ||
           nameLower.includes("interactive brokers");
 
-        const account = await prisma.account.create({
+        await prisma.account.create({
           data: {
             userId,
             name: sfAccount.name,
@@ -321,17 +321,7 @@ export async function refreshSimplefinAccounts(userId: string, runId?: string): 
             simplefinAccountId: sfAccount.id,
           },
         });
-
-        await prisma.accountSnapshot.create({
-          data: {
-            accountId: account.id,
-            totalUsdValue: sfAccount.balance,
-            currentBalance: sfAccount.balance,
-            availableBalance: sfAccount.availableBalance ?? sfAccount.balance,
-            currency: sfAccount.currency,
-            runId,
-          },
-        });
+        // No snapshot here — the refresh cycle below will handle it
       }
 
       await prisma.simplefinConnection.update({
@@ -663,6 +653,47 @@ export async function refreshUserWallets(
     successfulAccounts,
     errors,
   };
+}
+
+/**
+ * Refresh manual assets — creates snapshots from account.currentValue for all manual accounts.
+ * Called during the refresh flow so that manual asset values are included in historical data.
+ */
+export async function refreshManualAssets(userId: string, runId?: string): Promise<{
+  attempted: number;
+  succeeded: number;
+  failed: number;
+  errors: string[];
+}> {
+  const manualAccounts = await prisma.account.findMany({
+    where: { userId, type: "manual" },
+    select: { id: true, currentValue: true, costBasis: true },
+  });
+
+  let succeeded = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  for (const account of manualAccounts) {
+    try {
+      const value = account.currentValue ? Number(account.currentValue) : 0;
+      if (value <= 0) continue; // Skip assets with no value set
+
+      await prisma.accountSnapshot.create({
+        data: {
+          accountId: account.id,
+          totalUsdValue: value,
+          runId,
+        },
+      });
+      succeeded++;
+    } catch (err) {
+      failed++;
+      errors.push(`Manual asset ${account.id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  return { attempted: manualAccounts.length, succeeded, failed, errors };
 }
 
 /**

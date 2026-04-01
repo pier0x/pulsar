@@ -209,43 +209,31 @@ export async function deleteAccount(userId: string, accountId: string) {
 const ASSETS_DIR = join(process.cwd(), "data", "assets");
 
 /**
- * Create a manual physical asset account with an initial snapshot
+ * Create a manual physical asset account (stores currentValue on Account; snapshot created on next refresh)
  */
 export async function createManualAsset(input: CreateManualAssetInput) {
-  return prisma.$transaction(async (tx) => {
-    const account = await tx.account.create({
-      data: {
-        userId: input.userId,
-        name: input.name,
-        type: "manual",
-        provider: "manual",
-        category: input.category,
-        costBasis: input.costBasis ?? null,
-        notes: input.notes ?? null,
-        imagePath: input.imagePath ?? null,
-      },
-    });
-
-    await tx.accountSnapshot.create({
-      data: {
-        accountId: account.id,
-        totalUsdValue: input.currentValue,
-      },
-    });
-
-    return account;
+  return prisma.account.create({
+    data: {
+      userId: input.userId,
+      name: input.name,
+      type: "manual",
+      provider: "manual",
+      category: input.category,
+      costBasis: input.costBasis ?? null,
+      currentValue: input.currentValue > 0 ? input.currentValue : null,
+      notes: input.notes ?? null,
+      imagePath: input.imagePath ?? null,
+    },
   });
 }
 
 /**
- * Update the current value of a manual asset (creates a new snapshot)
+ * Update the current value of a manual asset (stored on Account; snapshot created on next refresh)
  */
 export async function updateManualAssetValue(accountId: string, newValue: number) {
-  return prisma.accountSnapshot.create({
-    data: {
-      accountId,
-      totalUsdValue: newValue,
-    },
+  return prisma.account.update({
+    where: { id: accountId },
+    data: { currentValue: newValue > 0 ? newValue : null },
   });
 }
 

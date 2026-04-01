@@ -3,7 +3,7 @@ import { json } from "@remix-run/node";
 import { randomUUID } from "crypto";
 import { requireAuth } from "~/lib/auth";
 import { prisma } from "~/lib/db.server";
-import { refreshUserWallets, refreshSimplefinAccounts, refreshIbkrHoldings } from "~/lib/balance/refresh.server";
+import { refreshUserWallets, refreshSimplefinAccounts, refreshIbkrHoldings, refreshManualAssets } from "~/lib/balance/refresh.server";
 import { NETWORK_INFO, type WalletNetwork } from "~/lib/wallet";
 
 const RATE_LIMIT_MS = 5 * 1000; // 5 seconds
@@ -106,12 +106,20 @@ export async function action({ request }: ActionFunctionArgs) {
       console.error("[refresh] IBKR Flex failed:", err);
     }
 
+    // Snapshot manual assets (physical assets with a currentValue set)
+    let manualResult = { attempted: 0, succeeded: 0, failed: 0, errors: [] as string[] };
+    try {
+      manualResult = await refreshManualAssets(user.id, runId);
+    } catch (err) {
+      console.error("[refresh] Manual assets failed:", err);
+    }
+
     return json({
       success: true,
       status: result.status,
-      accountsAttempted: result.accountsAttempted + sfResult.attempted + ibkrResult.attempted,
-      accountsSucceeded: result.accountsSucceeded + sfResult.succeeded + ibkrResult.succeeded,
-      accountsFailed: result.accountsFailed + sfResult.failed + ibkrResult.failed,
+      accountsAttempted: result.accountsAttempted + sfResult.attempted + ibkrResult.attempted + manualResult.attempted,
+      accountsSucceeded: result.accountsSucceeded + sfResult.succeeded + ibkrResult.succeeded + manualResult.succeeded,
+      accountsFailed: result.accountsFailed + sfResult.failed + ibkrResult.failed + manualResult.failed,
       durationMs: result.durationMs,
       accounts: [
         ...result.successfulAccounts.map((w) => ({

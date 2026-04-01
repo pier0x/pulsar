@@ -11,11 +11,9 @@
 
 import { json } from "@remix-run/node";
 import type { ActionFunctionArgs } from "@remix-run/node";
-import { randomUUID } from "crypto";
 import { requireAuth } from "~/lib/auth";
 import { prisma } from "~/lib/db.server";
 import { claimSetupToken } from "~/lib/providers/simplefin.server";
-import { createAccountSnapshot } from "~/lib/accounts.server";
 
 export async function action({ request }: ActionFunctionArgs) {
   if (request.method !== "POST") {
@@ -55,7 +53,7 @@ export async function action({ request }: ActionFunctionArgs) {
   });
 
   // 3. Create Account entries for each SimpleFIN account
-  const runId = randomUUID();
+  // (Snapshots are created during the next refresh cycle, not on claim)
   let accountsCreated = 0;
 
   for (const sfAccount of accounts) {
@@ -66,7 +64,7 @@ export async function action({ request }: ActionFunctionArgs) {
       });
       if (existing) continue;
 
-      const account = await prisma.account.create({
+      await prisma.account.create({
         data: {
           userId: user.id,
           name: sfAccount.name,
@@ -76,29 +74,6 @@ export async function action({ request }: ActionFunctionArgs) {
           simplefinAccountId: sfAccount.id,
         },
       });
-
-      // Create initial snapshot
-      if (sfAccount.accountType === "bank") {
-        await prisma.accountSnapshot.create({
-          data: {
-            accountId: account.id,
-            totalUsdValue: sfAccount.balance,
-            currentBalance: sfAccount.balance,
-            availableBalance: sfAccount.availableBalance ?? sfAccount.balance,
-            currency: sfAccount.currency,
-            runId,
-          },
-        });
-      } else {
-        // Brokerage — no holdings data from SimpleFIN, just total value
-        await createAccountSnapshot({
-          accountId: account.id,
-          totalUsdValue: sfAccount.balance,
-          holdingsValue: sfAccount.balance,
-          cashBalance: 0,
-          runId,
-        });
-      }
 
       accountsCreated++;
     } catch (err) {

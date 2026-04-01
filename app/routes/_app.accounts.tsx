@@ -318,15 +318,10 @@ export async function action({ request }: ActionFunctionArgs) {
       await updateManualAssetDetails(accountId, updates);
     }
 
-    // Update value (creates new snapshot) if changed
+    // Update currentValue on Account if changed
     const currentValue = parseFloat(typeof currentValueRaw === "string" ? currentValueRaw : "");
     if (!isNaN(currentValue) && currentValue >= 0) {
-      // Check if value actually changed
-      const latestSnap = await prisma.accountSnapshot.findFirst({
-        where: { accountId },
-        orderBy: { timestamp: "desc" },
-      });
-      const oldValue = latestSnap ? Number(latestSnap.totalUsdValue) : -1;
+      const oldValue = account.currentValue ? Number(account.currentValue) : -1;
       if (Math.abs(currentValue - oldValue) > 0.001) {
         await updateManualAssetValue(accountId, currentValue);
       }
@@ -633,6 +628,7 @@ type ManualAsset = {
   name: string;
   category: string | null;
   costBasis: string | null;
+  currentValue: string | null;
   notes: string | null;
   imagePath: string | null;
   snapshots: Array<{ totalUsdValue: string; timestamp: string }>;
@@ -819,7 +815,12 @@ function AssetCard({ asset }: { asset: ManualAsset }) {
   const isSubmitting = navigation.state === "submitting";
 
   const latestSnap = asset.snapshots[0];
-  const currentValue = latestSnap ? Number(latestSnap.totalUsdValue) : 0;
+  // Fall back to account.currentValue if no snapshot yet (e.g., just created, before first refresh)
+  const currentValue = latestSnap
+    ? Number(latestSnap.totalUsdValue)
+    : asset.currentValue
+    ? Number(asset.currentValue)
+    : 0;
   const costBasis = asset.costBasis ? Number(asset.costBasis) : null;
   const gain = costBasis !== null ? currentValue - costBasis : null;
   const gainPct = costBasis && costBasis > 0 ? ((currentValue - costBasis) / costBasis) * 100 : null;
