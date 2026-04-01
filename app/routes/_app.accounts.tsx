@@ -40,6 +40,7 @@ export const meta: MetaFunction = () => {
 // Recursively convert Prisma Decimal instances to plain numbers to avoid SSR/client hydration mismatch
 function serializeDecimals<T>(obj: T): T {
   if (obj === null || obj === undefined) return obj;
+  if (obj instanceof Date) return obj.toISOString() as unknown as T;
   if (typeof obj === "object" && "toFixed" in (obj as any) && "toNumber" in (obj as any)) {
     return Number((obj as any).toNumber()) as unknown as T;
   }

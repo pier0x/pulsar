@@ -39,6 +39,7 @@ export const meta: MetaFunction = () => {
 // Recursively convert Prisma Decimal instances to plain numbers
 function serializeDecimals<T>(obj: T): T {
   if (obj === null || obj === undefined) return obj;
+  if (obj instanceof Date) return obj.toISOString() as unknown as T;
   if (typeof obj === "object" && "toFixed" in (obj as Record<string, unknown>) && "toNumber" in (obj as Record<string, unknown>)) {
     return Number((obj as unknown as { toNumber: () => number }).toNumber()) as unknown as T;
   }
@@ -513,36 +514,29 @@ export default function SettingsPage() {
             No snapshots yet. Use the refresh button in the navbar to update your balances.
           </p>
         ) : (
-          <div className="space-y-1">
+          <div className="space-y-2">
             {groups.map((group) => (
               <div key={group.groupKey}>
                 <div
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-zinc-800/60 transition-colors cursor-pointer group"
+                  className="flex items-center gap-4 px-4 py-3.5 rounded-xl bg-zinc-800/40 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/70 transition-all cursor-pointer group"
                   onClick={() => setSelectedGroup(group)}
                 >
                   {/* Left: timestamp + account count */}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-white font-medium">{formatTimestamp(group.timestamp)}</p>
-                    <p className="text-xs text-zinc-500 mt-0.5">
-                      {group.accountCount} account{group.accountCount !== 1 ? "s" : ""}
+                    <p className="text-xs text-zinc-500 mt-1">
+                      {group.accountCount} account{group.accountCount !== 1 ? "s" : ""} refreshed
                     </p>
                   </div>
 
                   {/* Right: total value + actions */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-sm font-medium text-white">
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-sm font-semibold text-white">
                       {formatUsd(group.totalValue)}
                     </span>
                     <button
-                      onClick={(e) => { e.stopPropagation(); setSelectedGroup(group); }}
-                      className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all cursor-pointer"
-                      title="View details"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                    </button>
-                    <button
                       onClick={(e) => handleRowDeleteClick(e, group.groupKey)}
-                      className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition-all cursor-pointer"
+                      className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-500/20 text-zinc-500 hover:text-red-400 transition-all cursor-pointer"
                       title="Delete run"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
