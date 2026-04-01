@@ -179,7 +179,7 @@ async function fetchFlexReport(
     let cashBalance = 0;
 
     for (const el of positionElements) {
-      const assetCategory = extractAttribute(el, "assetCategory") || "";
+      const assetCategory = extractAttribute(el, "assetCategory") || extractAttribute(el, "assetClass") || "";
       const symbol = extractAttribute(el, "symbol") || "";
       const description = extractAttribute(el, "description") || "";
       const quantity = parseFloat(extractAttribute(el, "position") || extractAttribute(el, "quantity") || "0");
@@ -199,7 +199,7 @@ async function fetchFlexReport(
           extractAttribute(el, "unrealizedPnL") ||
           "0"
       );
-      const currency = extractAttribute(el, "currency") || "USD";
+      const currency = extractAttribute(el, "currency") || extractAttribute(el, "currencyPrimary") || "USD";
 
       // Skip cash-like entries from position list
       if (assetCategory === "CASH" || symbol === "USD" || symbol === "") {
