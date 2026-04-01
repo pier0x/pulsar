@@ -284,9 +284,79 @@ export async function refreshSimplefinAccounts(userId: string): Promise<{
     },
   });
 
-  if (simplefinAccounts.length === 0) {
+  // Also check for orphaned connections (claimed but no accounts created due to errors)
+  const orphanedConnections = await prisma.simplefinConnection.findMany({
+    where: {
+      userId,
+      accounts: { none: {} },
+    },
+  });
+
+  for (const conn of orphanedConnections) {
+    try {
+      const result = await getSimplefinAccounts(conn.accessUrl);
+      if (!result.success) continue;
+
+      for (const sfAccount of result.accounts) {
+        const existing = await prisma.account.findFirst({
+          where: { userId, simplefinAccountId: sfAccount.id },
+        });
+        if (existing) continue;
+
+        const nameLower = (sfAccount.name + " " + sfAccount.connName).toLowerCase();
+        const isBrokerage =
+          nameLower.includes("brokerage") || nameLower.includes("investment") ||
+          nameLower.includes("portfolio") || nameLower.includes("ira") ||
+          nameLower.includes("401k") || nameLower.includes("roth") ||
+          nameLower.includes("interactive brokers");
+
+        const account = await prisma.account.create({
+          data: {
+            userId,
+            name: sfAccount.name,
+            type: isBrokerage ? "brokerage" : "bank",
+            provider: "simplefin",
+            simplefinConnectionId: conn.id,
+            simplefinAccountId: sfAccount.id,
+          },
+        });
+
+        await prisma.accountSnapshot.create({
+          data: {
+            accountId: account.id,
+            totalUsdValue: sfAccount.balance,
+            currentBalance: sfAccount.balance,
+            availableBalance: sfAccount.availableBalance ?? sfAccount.balance,
+            currency: sfAccount.currency,
+          },
+        });
+      }
+
+      await prisma.simplefinConnection.update({
+        where: { id: conn.id },
+        data: { label: result.connections[0]?.name || "Bank", lastSynced: new Date() },
+      });
+    } catch (err) {
+      console.error("[refresh] orphaned SimpleFIN connection recovery failed:", err);
+    }
+  }
+
+  // Re-fetch in case we just created accounts from orphaned connections
+  const refreshAccounts = await prisma.account.findMany({
+    where: { userId, provider: "simplefin", type: { in: ["bank", "brokerage"] } },
+    select: {
+      id: true, type: true, simplefinAccountId: true,
+      simplefinConnectionId: true, simplefinConnection: { select: { accessUrl: true } },
+    },
+  });
+
+  if (refreshAccounts.length === 0) {
     return { attempted: 0, succeeded: 0, failed: 0, errors: [] };
   }
+
+  // Replace the original list with the fresh one
+  simplefinAccounts.length = 0;
+  simplefinAccounts.push(...refreshAccounts);
 
   // Group accounts by SimplefinConnection for efficiency (one API call per connection)
   type AccountRow = (typeof simplefinAccounts)[0];
