@@ -591,7 +591,20 @@ export async function refreshAllWallets(
 
     // Also refresh SimpleFIN bank + brokerage accounts
     try {
-      await refreshSimplefinAccounts(user.id);
+      const sfResult = await refreshSimplefinAccounts(user.id);
+      console.log("[refresh] SimpleFIN result:", JSON.stringify(sfResult));
+      totalAttempted += sfResult.attempted;
+      totalSucceeded += sfResult.succeeded;
+      totalFailed += sfResult.failed;
+      if (sfResult.errors.length > 0) {
+        allErrors.push(...sfResult.errors.map(e => ({
+          accountId: "",
+          network: "simplefin",
+          accountAddress: "",
+          errorType: "api_error" as const,
+          errorMessage: e,
+        })));
+      }
     } catch (err) {
       console.error("[refresh] refreshSimplefinAccounts failed:", err);
     }

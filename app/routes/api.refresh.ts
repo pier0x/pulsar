@@ -73,10 +73,10 @@ export async function action({ request }: ActionFunctionArgs) {
   await updateRateLimit(user.id);
 
   try {
-    // Get account names for display
+    // Get account names for display (on-chain + SimpleFIN)
     const userAccounts = await prisma.account.findMany({
-      where: { userId: user.id, type: "onchain" },
-      select: { id: true, name: true, network: true, address: true },
+      where: { userId: user.id },
+      select: { id: true, name: true, network: true, address: true, type: true, provider: true },
     });
     const accountMap = new Map(userAccounts.map((a) => [`${a.network}:${a.address}`, a.name]));
 
