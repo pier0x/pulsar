@@ -186,44 +186,26 @@ export async function action({ request }: ActionFunctionArgs) {
   return json({ error: "Invalid action" }, { status: 400 });
 }
 
-function NetworkIcon({ network }: { network: string }) {
-  const cls = "h-5 w-5 text-nd-text-secondary";
+/** Monospace letter symbol for each network — instrument-panel style */
+const NETWORK_SYMBOLS: Record<string, string> = {
+  bitcoin: "₿",
+  ethereum: "Ξ",
+  arbitrum: "Ξ",
+  base: "Ξ",
+  polygon: "Ξ",
+  solana: "◎",
+  hyperliquid: "H",
+  bank: "🏦",
+  brokerage: "📈",
+};
 
-  switch (network) {
-    case "bitcoin":
-      // Monoline ₿ — vertical strokes + S-curve
-      return (
-        <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M9.5 2v2M14.5 2v2M9.5 20v2M14.5 20v2" />
-          <path d="M7 8h8.5a3 3 0 0 1 0 6H7V8Z" />
-          <path d="M7 14h9a3 3 0 0 1 0 6H7v-6Z" />
-          <line x1="7" y1="4" x2="7" y2="20" />
-        </svg>
-      );
-    case "ethereum":
-    case "arbitrum":
-    case "base":
-    case "polygon":
-      // Monoline diamond / ETH crystal
-      return (
-        <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 2L4 12l8 5 8-5L12 2Z" />
-          <path d="M4 12l8 10 8-10" />
-          <path d="M12 2v15" />
-        </svg>
-      );
-    case "solana":
-      // Monoline three parallelogram bars
-      return (
-        <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M4 18h14l2-3H6l-2 3Z" />
-          <path d="M4 6h14l2 3H6L4 6Z" />
-          <path d="M6 12h14l-2 3H4l2-3Z" />
-        </svg>
-      );
-    default:
-      return <Wallet className={cls} />;
-  }
+function NetworkIcon({ network }: { network: string }) {
+  const symbol = NETWORK_SYMBOLS[network] || network.charAt(0).toUpperCase();
+  return (
+    <span className="font-mono text-[14px] text-nd-text-secondary select-none">
+      {symbol}
+    </span>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -674,13 +656,7 @@ export default function AccountsPage() {
                   >
                     <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                       <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-nd-surface border border-nd-border flex items-center justify-center shrink-0">
-                        {item.isBank ? (
-                          <Landmark className="h-5 w-5 text-nd-success" />
-                        ) : item.isBrokerage ? (
-                          <LineChart className="h-5 w-5 text-nd-text-secondary" />
-                        ) : (
-                          <NetworkIcon network={item.network} />
-                        )}
+                        <NetworkIcon network={item.isBank ? "bank" : item.isBrokerage ? "brokerage" : item.network} />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
