@@ -8,8 +8,8 @@ Single-user personal portfolio tracker. Not a SaaS — built for one person's us
 
 Tracks:
 - **On-chain crypto** — Ethereum, Bitcoin, Solana, Arbitrum, Base, Polygon, Hyperliquid
-- **Bank accounts** — Checking/savings via Plaid
-- **Brokerage accounts** — Investment holdings via Plaid
+- **Bank accounts** — Checking/savings via SimpleFIN Bridge
+- **Brokerage accounts** — Investment holdings via IBKR Flex Web Service
 
 ## Tech Stack
 
@@ -117,8 +117,7 @@ app/
 │   ├── auth.login.tsx       # Login action
 │   ├── auth.logout.tsx      # Logout handler
 │   ├── api.refresh.ts       # Manual balance refresh API
-│   ├── api.plaid.create-link-token.ts  # Plaid Link token generation
-│   └── api.plaid.exchange-token.ts     # Plaid public token exchange
+│   └── api.simplefin.claim.ts  # Claim SimpleFIN Setup Token
 ├── components/
 │   ├── ui/                  # UI components
 │   ├── auth/                # Auth components (modal)
@@ -126,8 +125,11 @@ app/
 │   └── layout/              # Layout components (sidebar, navbar)
 ├── lib/
 │   ├── auth/                # Authentication
-│   ├── balance/             # Balance refresh system (on-chain + Plaid)
-│   ├── providers/           # External API providers (Alchemy, Helius, Plaid, etc.)
+│   ├── balance/             # Balance refresh system (on-chain + SimpleFIN + IBKR Flex)
+│   ├── providers/           # External API providers (Alchemy, Helius, SimpleFIN, IBKR, etc.)
+│   │   ├── simplefin.server.ts   # SimpleFIN Bridge integration
+│   │   ├── ibkr-flex.server.ts   # IBKR Flex Web Service integration
+│   │   └── crypto.server.ts      # On-chain crypto providers
 │   ├── accounts.server.ts   # Account CRUD and snapshot creation
 │   ├── wallet.ts            # Network types and address utilities (client-safe)
 │   ├── wallet.server.ts     # Address detection/validation (server-only)
@@ -151,8 +153,7 @@ prisma/
 | `/auth/login` | Login (POST) |
 | `/auth/logout` | Logout (POST) |
 | `/api/refresh` | Manual balance refresh |
-| `/api/plaid/create-link-token` | Generate Plaid Link token |
-| `/api/plaid/exchange-token` | Exchange Plaid public token for access token |
+| `/api/simplefin/claim` | Claim SimpleFIN Setup Token |
 | `/api/asset-image/:id` | Serve physical asset images from disk |
 
 ## Authentication
@@ -177,26 +178,26 @@ import { getAlchemyApiKey, getHeliusApiKey, getCoinGeckoApiKey } from "~/lib/set
 
 - Scheduler runs every 4 hours
 - Manual refresh: POST `/api/refresh` (rate limited to 1/min)
-- Refreshes on-chain accounts via Alchemy/Helius, bank accounts via Plaid, brokerage accounts via Plaid
+- Refreshes on-chain accounts via Alchemy/Helius, bank accounts via SimpleFIN, brokerage accounts via IBKR Flex Web Service
 
 ## Database Models
 
 - **User** — Account (username, passwordHash)
 - **Session** — Auth sessions
 - **UserSetting** — Key-value settings (encrypted API keys)
-- **Account** — Unified account (type: "onchain" | "bank" | "brokerage"; provider: "alchemy" | "helius" | "hyperliquid" | "plaid")
+- **Account** — Unified account (type: "onchain" | "bank" | "brokerage"; provider: "alchemy" | "helius" | "hyperliquid" | "simplefin" | "ibkr-flex")
 - **AccountSnapshot** — Historical balance data (universal + type-specific fields)
 - **TokenSnapshot** — Token balances within an on-chain snapshot
 - **HoldingSnapshot** — Brokerage holdings within a brokerage snapshot
-- **PlaidConnection** — Plaid Item (access token, institution info)
+- **SimplefinConnection** — SimpleFIN connection (encrypted access URL, institution info)
 
 ## Account Types
 
 | type | provider | Fields used |
 |------|----------|-------------|
 | `onchain` | `alchemy` / `helius` / `hyperliquid` | `network`, `address` |
-| `bank` | `plaid` | `plaidConnectionId`, `plaidAccountId`, `plaidSubtype` |
-| `brokerage` | `plaid` | `plaidConnectionId`, `plaidAccountId`, `plaidSubtype` |
+| `bank` | `simplefin` | `simplefinConnectionId`, `simplefinAccountId`, `simplefinSubtype` |
+| `brokerage` | `ibkr-flex` | `ibkrFlexAccountId`, `ibkrFlexSubtype` |
 | `manual` | `manual` | `category`, `costBasis`, `notes`, `imagePath` |
 
 ### Manual (Physical) Assets
@@ -216,7 +217,8 @@ Physical assets (watches, cars, art, etc.) use `type: "manual"` with `provider: 
 | Alchemy | EVM chains + Bitcoin | `ALCHEMY_API_KEY` |
 | Helius | Solana | `HELIUS_API_KEY` |
 | CoinGecko | Price data (optional) | `COINGECKO_API_KEY` |
-| Plaid | Bank & brokerage accounts | `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_ENV` |
+| SimpleFIN Bridge | Bank accounts (no API key needed — uses access URL) | *(access URL stored encrypted in DB)* |
+| IBKR Flex Web Service | Brokerage accounts | `IBKR_FLEX_TOKEN`, `IBKR_FLEX_QUERY_ID` |
 
 ## Environment Variables
 
@@ -225,17 +227,16 @@ Physical assets (watches, cars, art, etc.) use `type: "manual"` with `provider: 
 DATABASE_URL=postgresql://...
 APP_KEY=random-string
 SESSION_SECRET=random-string
-ENCRYPTION_SECRET=random-string  # Used for encrypting Plaid access tokens
+ENCRYPTION_SECRET=random-string  # Used for encrypting SimpleFIN Access URLs
 
 # Blockchain API Keys
 ALCHEMY_API_KEY=...        # EVM chains + Bitcoin
 HELIUS_API_KEY=...         # Solana
 COINGECKO_API_KEY=...      # Price data (optional)
 
-# Plaid (bank & brokerage)
-PLAID_CLIENT_ID=...
-PLAID_SECRET=...
-PLAID_ENV=sandbox           # sandbox | production
+# IBKR Flex Web Service (brokerage)
+IBKR_FLEX_TOKEN=...        # IBKR Flex API token
+IBKR_FLEX_QUERY_ID=...     # IBKR Flex Query ID
 ```
 
 ## Deployment

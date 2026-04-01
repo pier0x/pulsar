@@ -87,7 +87,7 @@ export async function action({ request }: ActionFunctionArgs) {
     let sfResult = { attempted: 0, succeeded: 0, failed: 0, errors: [] as string[] };
     try {
       sfResult = await refreshSimplefinAccounts(user.id);
-      console.log("[refresh] SimpleFIN result:", JSON.stringify(sfResult));
+
     } catch (err) {
       console.error("[refresh] SimpleFIN failed:", err);
     }

@@ -219,18 +219,6 @@ async function fetchSimplefinAccounts(
 
     const data: SFAccountsResponse = await response.json();
 
-    // Debug: log raw response structure
-    console.log("[simplefin] raw accounts response:", JSON.stringify({
-      numAccounts: data.accounts?.length,
-      numConnections: data.connections?.length,
-      errlist: data.errlist,
-      accounts: (data.accounts || []).map((a: SFAccount) => ({
-        id: a.id, name: a.name, balance: a.balance,
-        availableBalance: a["available-balance"],
-        currency: a.currency, connId: a.conn_id, connName: a.conn_name,
-      })),
-    }, null, 2));
-
     // Surface any errors from SimpleFIN (v2 uses errlist, v1 uses errors)
     const errList = data.errlist || [];
     const legacyErrors = data.errors || [];
