@@ -5,7 +5,7 @@ import { prisma } from "~/lib/db.server";
 import { refreshUserWallets } from "~/lib/balance/refresh.server";
 import { NETWORK_INFO, type WalletNetwork } from "~/lib/wallet";
 
-const RATE_LIMIT_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_MS = 5 * 1000; // 5 seconds
 
 /**
  * Get rate limit key for a user
