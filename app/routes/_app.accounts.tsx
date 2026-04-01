@@ -656,7 +656,12 @@ export default function AccountsPage() {
                           ) : item.isBrokerage ? (
                             <Badge variant="default">{item.subtitle || "Brokerage"}</Badge>
                           ) : item.isEvm ? (
-                            <Badge variant="default">Multi-chain</Badge>
+                            <span title={item.networks?.map(n => {
+                              const info = NETWORK_INFO[n as WalletNetwork];
+                              return info?.displayName || n;
+                            }).join(", ")}>
+                              <Badge variant="default">ETH</Badge>
+                            </span>
                           ) : (
                             <NetworkBadge network={item.network} />
                           )}
@@ -678,13 +683,7 @@ export default function AccountsPage() {
                             </span>
                           )}
                         </div>
-                        {item.isEvm && item.networks && item.networks.length > 0 && (
-                          <div className="flex items-center gap-1 mt-1 flex-wrap">
-                            {item.networks.map((net) => (
-                              <NetworkBadge key={net} network={net} />
-                            ))}
-                          </div>
-                        )}
+
                       </div>
                     </div>
 
