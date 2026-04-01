@@ -164,7 +164,9 @@ export function PortfolioBreakdown({
                     {item.name}
                   </span>
                 </div>
-                <span className="text-zinc-400 text-xs">{percent}%</span>
+                <span className="text-zinc-400 text-xs">
+                  ${item.value.toLocaleString("en-US", { maximumFractionDigits: 0 })} ({percent}%)
+                </span>
               </motion.div>
             );
           })}
