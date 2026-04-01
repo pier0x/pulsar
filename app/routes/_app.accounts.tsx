@@ -187,29 +187,42 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 function NetworkIcon({ network }: { network: string }) {
-  const info = NETWORK_INFO[network as WalletNetwork];
-  const color = info?.color || "#71717a";
+  const cls = "h-5 w-5 text-nd-text-secondary";
 
   switch (network) {
     case "bitcoin":
-      return <Bitcoin className="h-5 w-5" style={{ color }} />;
+      // Monoline ₿ — vertical strokes + S-curve
+      return (
+        <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9.5 2v2M14.5 2v2M9.5 20v2M14.5 20v2" />
+          <path d="M7 8h8.5a3 3 0 0 1 0 6H7V8Z" />
+          <path d="M7 14h9a3 3 0 0 1 0 6H7v-6Z" />
+          <line x1="7" y1="4" x2="7" y2="20" />
+        </svg>
+      );
     case "ethereum":
     case "arbitrum":
     case "base":
     case "polygon":
+      // Monoline diamond / ETH crystal
       return (
-        <svg className="h-5 w-5" viewBox="0 0 24 24" fill={color}>
-          <path d="M12 1.5L5.5 12.25L12 16L18.5 12.25L12 1.5ZM12 17.25L5.5 13.5L12 22.5L18.5 13.5L12 17.25Z" />
+        <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2L4 12l8 5 8-5L12 2Z" />
+          <path d="M4 12l8 10 8-10" />
+          <path d="M12 2v15" />
         </svg>
       );
     case "solana":
+      // Monoline three parallelogram bars
       return (
-        <svg className="h-5 w-5" viewBox="0 0 24 24" fill={color}>
-          <path d="M4 6h16l-2.5 3H6.5L4 6Zm0 12h16l-2.5-3H6.5L4 18Zm2.5-6h11l2.5 3H4l2.5-3Z" />
+        <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 18h14l2-3H6l-2 3Z" />
+          <path d="M4 6h14l2 3H6L4 6Z" />
+          <path d="M6 12h14l-2 3H4l2-3Z" />
         </svg>
       );
     default:
-      return <Wallet className="h-5 w-5" style={{ color }} />;
+      return <Wallet className={cls} />;
   }
 }
 
