@@ -1,11 +1,12 @@
 import { NavLink } from "@remix-run/react";
-import { HomeIcon, WalletIcon, ChartBarIcon, Cog6ToothIcon } from "@heroicons/react/24/outline";
-import { HomeIcon as HomeIconSolid, WalletIcon as WalletIconSolid, ChartBarIcon as ChartBarIconSolid, Cog6ToothIcon as Cog6ToothIconSolid } from "@heroicons/react/24/solid";
+import { HomeIcon, WalletIcon, ChartBarIcon, Cog6ToothIcon, CubeIcon } from "@heroicons/react/24/outline";
+import { HomeIcon as HomeIconSolid, WalletIcon as WalletIconSolid, ChartBarIcon as ChartBarIconSolid, Cog6ToothIcon as Cog6ToothIconSolid, CubeIcon as CubeIconSolid } from "@heroicons/react/24/solid";
 import { cn } from "~/lib/utils";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: HomeIcon, activeIcon: HomeIconSolid },
   { name: "Accounts", href: "/accounts", icon: WalletIcon, activeIcon: WalletIconSolid },
+  { name: "Assets", href: "/assets", icon: CubeIcon, activeIcon: CubeIconSolid },
   { name: "Positions", href: "/positions", icon: ChartBarIcon, activeIcon: ChartBarIconSolid },
   { name: "Settings", href: "/settings", icon: Cog6ToothIcon, activeIcon: Cog6ToothIconSolid },
 ];
