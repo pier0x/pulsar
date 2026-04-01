@@ -298,80 +298,87 @@ export async function loader({ request }: LoaderFunctionArgs) {
   // --- Build BreakdownItem[] (category-aware) ---
   const breakdownData: BreakdownItem[] = [];
 
-  // On-chain: breakdown by network
+  // --- Asset class breakdown ---
+  // Stablecoins list for detection
+  const STABLECOIN_SYMBOLS = new Set([
+    "usdc", "usdt", "dai", "busd", "tusd", "usdp", "frax", "lusd", "gusd",
+    "pyusd", "usdd", "fdusd", "eurs", "eurc", "usde", "susd", "ust",
+  ]);
+
+  const isStablecoin = (symbol: string) =>
+    STABLECOIN_SYMBOLS.has(symbol.toLowerCase());
+
+  // Crypto tiers
+  let btcTotal = 0;
+  let ethTotal = 0;
+  let solTotal = 0;
+  let stablecoinTotal = 0;
+  let altcoinTotal = 0;
+
   if (showOnchain) {
-    const networkTotals = new Map<string, number>();
     for (const a of onchainAccounts) {
       const snap = a.snapshots[0];
-      if (!snap || !a.network) continue;
+      if (!snap) continue;
       const network = a.network as WalletNetwork;
-      networkTotals.set(network, (networkTotals.get(network) || 0) + Number(snap.totalUsdValue));
-    }
-    for (const [network, value] of networkTotals) {
-      if (value <= 0) continue;
-      const info = NETWORK_INFO[network as WalletNetwork];
-      if (!info) continue;
-      breakdownData.push({
-        name: info.displayName,
-        value: Math.round(value * 100) / 100,
-        color: info.color,
-      });
+
+      // Native balance goes to the appropriate tier
+      const nativeUsd = snap.nativeBalanceUsd ? Number(snap.nativeBalanceUsd) : 0;
+      if (nativeUsd > 0) {
+        if (network === "bitcoin") btcTotal += nativeUsd;
+        else if (network === "ethereum" || network === "arbitrum" || network === "base" || network === "polygon") ethTotal += nativeUsd;
+        else if (network === "solana") solTotal += nativeUsd;
+        else altcoinTotal += nativeUsd;
+      }
+
+      // Token balances
+      for (const token of (snap as any).tokenSnapshots || []) {
+        const usd = Number(token.balanceUsd);
+        if (usd <= 0) continue;
+        const sym = (token.symbol || "").toLowerCase();
+
+        if (isStablecoin(sym)) stablecoinTotal += usd;
+        else if (sym === "wbtc" || sym === "btc" || sym === "tbtc" || sym === "cbbtc") btcTotal += usd;
+        else if (sym === "weth" || sym === "steth" || sym === "reth" || sym === "cbeth" || sym === "wsteth") ethTotal += usd;
+        else if (sym === "wsol" || sym === "msol" || sym === "jitosol" || sym === "bsol") solTotal += usd;
+        else altcoinTotal += usd;
+      }
     }
   }
 
-  // Bank: breakdown by institution
+  // Push crypto tiers
+  if (btcTotal > 0) breakdownData.push({ name: "Bitcoin", value: Math.round(btcTotal * 100) / 100, color: "#f7931a" });
+  if (ethTotal > 0) breakdownData.push({ name: "Ethereum", value: Math.round(ethTotal * 100) / 100, color: "#627eea" });
+  if (solTotal > 0) breakdownData.push({ name: "Solana", value: Math.round(solTotal * 100) / 100, color: "#9945ff" });
+  if (stablecoinTotal > 0) breakdownData.push({ name: "Stablecoins", value: Math.round(stablecoinTotal * 100) / 100, color: "#2dd4bf" });
+  if (altcoinTotal > 0) breakdownData.push({ name: "Altcoins", value: Math.round(altcoinTotal * 100) / 100, color: "#94a3b8" });
+
+  // Cash (all bank accounts)
   if (showBank) {
-    const bankTotals = new Map<string, number>();
+    let cashTotal = 0;
     for (const a of bankAccounts) {
       const snap = a.snapshots[0];
       if (!snap) continue;
-      const institution =
-        a.simplefinConnection?.label ||
-        a.name ||
-        "Bank";
-      bankTotals.set(institution, (bankTotals.get(institution) || 0) + Number(snap.totalUsdValue));
+      cashTotal += Number(snap.totalUsdValue);
     }
-    // Cycle through emerald shades for each institution
-    const bankColors = ["#34d399", "#10b981", "#059669", "#047857"];
-    let bankIdx = 0;
-    for (const [institution, value] of bankTotals) {
-      if (value <= 0) continue;
-      breakdownData.push({
-        name: institution,
-        value: Math.round(value * 100) / 100,
-        color: bankColors[bankIdx % bankColors.length],
-      });
-      bankIdx++;
+    if (cashTotal > 0) {
+      breakdownData.push({ name: "Cash", value: Math.round(cashTotal * 100) / 100, color: "#34d399" });
     }
   }
 
-  // Brokerage: breakdown by institution
+  // Stocks (all brokerage accounts)
   if (showBrokerage) {
-    const brokerageTotals = new Map<string, number>();
+    let stocksTotal = 0;
     for (const a of brokerageAccounts) {
       const snap = a.snapshots[0];
       if (!snap) continue;
-      const institution =
-        a.simplefinConnection?.label ||
-        (a.provider === "ibkr-flex" ? "Interactive Brokers" : null) ||
-        a.name ||
-        "Brokerage";
-      brokerageTotals.set(institution, (brokerageTotals.get(institution) || 0) + Number(snap.totalUsdValue));
+      stocksTotal += Number(snap.totalUsdValue);
     }
-    const brokerageColors = ["#a78bfa", "#8b5cf6", "#7c3aed", "#6d28d9"];
-    let brokerageIdx = 0;
-    for (const [institution, value] of brokerageTotals) {
-      if (value <= 0) continue;
-      breakdownData.push({
-        name: institution,
-        value: Math.round(value * 100) / 100,
-        color: brokerageColors[brokerageIdx % brokerageColors.length],
-      });
-      brokerageIdx++;
+    if (stocksTotal > 0) {
+      breakdownData.push({ name: "Stocks", value: Math.round(stocksTotal * 100) / 100, color: "#a78bfa" });
     }
   }
 
-  // Manual assets: breakdown by category
+  // Physical assets: breakdown by category
   if (showManual) {
     const manualCategoryTotals = new Map<string, number>();
     for (const a of manualAccounts) {
