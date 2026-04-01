@@ -51,27 +51,32 @@ export interface SimplefinError {
 // Raw SimpleFIN API response types
 // ---------------------------------------------------------------------------
 
-interface SFOrganization {
-  domain?: string;
-  "sfin-url"?: string;
+interface SFConnection {
+  conn_id: string;
   name: string;
-  id: string;
-  url?: string;
+  org_id: string;
+  org_url?: string;
+  sfin_url?: string;
 }
 
 interface SFAccount {
   id: string;
   name: string;
-  org: SFOrganization;
+  conn_id: string;
+  conn_name?: string;
   currency: string;
   balance: string;
   "available-balance"?: string;
   "balance-date": number; // Unix timestamp
   transactions?: unknown[];
+  // v1 fallback — some servers may still send nested org
+  org?: { id: string; name: string; url?: string };
 }
 
 interface SFAccountsResponse {
+  errlist?: Array<{ code?: string; msg?: string; message?: string; conn_id?: string; account_id?: string }>;
   errors?: Array<{ token?: string; code?: string; message?: string }>;
+  connections?: SFConnection[];
   accounts: SFAccount[];
 }
 
@@ -214,45 +219,60 @@ async function fetchSimplefinAccounts(
 
     const data: SFAccountsResponse = await response.json();
 
-    // Surface any errors from SimpleFIN
-    if (data.errors && data.errors.length > 0) {
-      const errorMsg = data.errors
-        .map((e) => e.message || e.code || JSON.stringify(e))
-        .join("; ");
-      return { success: false, error: `SimpleFIN reported errors: ${errorMsg}` };
+    // Surface any errors from SimpleFIN (v2 uses errlist, v1 uses errors)
+    const errList = data.errlist || [];
+    const legacyErrors = data.errors || [];
+    if (errList.length > 0) {
+      // Log but don't fail — some errors are per-connection while other accounts may work
+      console.warn("[simplefin] errlist:", JSON.stringify(errList));
+    }
+    if (legacyErrors.length > 0) {
+      console.warn("[simplefin] errors:", JSON.stringify(legacyErrors));
+    }
+
+    // Build connections lookup from top-level connections array
+    const connectionsMap = new Map<string, SFConnection>();
+    for (const conn of data.connections || []) {
+      connectionsMap.set(conn.conn_id, conn);
     }
 
     const connections: SimplefinConnectionInfo[] = [];
     const seenConnIds = new Set<string>();
 
     const accounts: SimplefinAccount[] = (data.accounts || []).map((a: SFAccount) => {
+      // Resolve connection info — prefer top-level connections, fall back to account fields or v1 org
+      const connId = a.conn_id || a.org?.id || "unknown";
+      const connFromMap = connectionsMap.get(connId);
+      const connName = a.conn_name || connFromMap?.name || a.org?.name || "Bank";
+
       // Track unique connections
-      if (!seenConnIds.has(a.org.id)) {
-        seenConnIds.add(a.org.id);
+      if (!seenConnIds.has(connId)) {
+        seenConnIds.add(connId);
         connections.push({
-          connId: a.org.id,
-          name: a.org.name,
-          orgId: a.org.id,
-          orgUrl: a.org.url ?? null,
+          connId,
+          name: connName,
+          orgId: connFromMap?.org_id || connId,
+          orgUrl: connFromMap?.org_url ?? a.org?.url ?? null,
         });
       }
 
       // Determine account type — SimpleFIN doesn't distinguish explicitly,
-      // but we can guess from account name / org domain
-      const nameLower = a.name.toLowerCase();
+      // but we can guess from account name / connection name
+      const nameLower = (a.name + " " + connName).toLowerCase();
       const isBrokerage =
         nameLower.includes("brokerage") ||
         nameLower.includes("investment") ||
         nameLower.includes("portfolio") ||
         nameLower.includes("ira") ||
         nameLower.includes("401k") ||
-        nameLower.includes("roth");
+        nameLower.includes("roth") ||
+        nameLower.includes("interactive brokers");
 
       return {
         id: a.id,
         name: a.name,
-        connId: a.org.id,
-        connName: a.org.name,
+        connId,
+        connName,
         currency: a.currency,
         balance: parseFloat(a.balance) || 0,
         availableBalance:
