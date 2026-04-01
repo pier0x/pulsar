@@ -95,6 +95,7 @@ model AccountSnapshot {
   accountId String
   account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   timestamp DateTime @default(now())
+  runId     String?  // Groups snapshots from the same refresh run
 
   // Universal fields
   totalUsdValue Decimal
@@ -120,6 +121,7 @@ model AccountSnapshot {
   @@index([accountId])
   @@index([accountId, timestamp])
   @@index([timestamp])
+  @@index([runId])
 }
 
 // Individual token balance within a snapshot

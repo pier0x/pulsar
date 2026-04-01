@@ -261,7 +261,7 @@ async function fetchAccountBalance(
  * Groups accounts by SimplefinConnection (one API call per connection).
  * Creates AccountSnapshot entries for each account.
  */
-export async function refreshSimplefinAccounts(userId: string): Promise<{
+export async function refreshSimplefinAccounts(userId: string, runId?: string): Promise<{
   attempted: number;
   succeeded: number;
   failed: number;
@@ -329,6 +329,7 @@ export async function refreshSimplefinAccounts(userId: string): Promise<{
             currentBalance: sfAccount.balance,
             availableBalance: sfAccount.availableBalance ?? sfAccount.balance,
             currency: sfAccount.currency,
+            runId,
           },
         });
       }
@@ -416,6 +417,7 @@ export async function refreshSimplefinAccounts(userId: string): Promise<{
                 currentBalance: sfAccount.balance,
                 availableBalance: sfAccount.availableBalance ?? sfAccount.balance,
                 currency: sfAccount.currency,
+                runId,
               },
             });
           } else {
@@ -425,6 +427,7 @@ export async function refreshSimplefinAccounts(userId: string): Promise<{
               totalUsdValue: sfAccount.balance,
               holdingsValue: sfAccount.balance,
               cashBalance: 0,
+              runId,
             });
           }
           succeeded++;
@@ -464,7 +467,7 @@ export async function refreshSimplefinAccounts(userId: string): Promise<{
  * Detects IBKR SimpleFIN accounts by connection name, then fetches
  * real holdings via Flex Query and creates/updates a brokerage account.
  */
-export async function refreshIbkrHoldings(userId: string): Promise<{
+export async function refreshIbkrHoldings(userId: string, runId?: string): Promise<{
   attempted: number;
   succeeded: number;
   failed: number;
@@ -530,6 +533,7 @@ export async function refreshIbkrHoldings(userId: string): Promise<{
       totalUsdValue: totalValue,
       holdingsValue: totalValue - cashBalance,
       cashBalance,
+      runId,
       holdings: holdings.map((h) => ({
         ticker: h.symbol,
         name: h.description,
@@ -557,7 +561,8 @@ export async function refreshIbkrHoldings(userId: string): Promise<{
  */
 export async function refreshUserWallets(
   userId: string,
-  trigger: "scheduled" | "manual"
+  trigger: "scheduled" | "manual",
+  runId?: string
 ): Promise<RefreshResult> {
   const startTime = Date.now();
 
@@ -620,6 +625,7 @@ export async function refreshUserWallets(
       await tx.accountSnapshot.create({
         data: {
           accountId,
+          runId,
           nativeBalance: data.nativeBalance,
           nativeBalanceUsd: data.nativeBalanceUsd,
           nativePriceUsd: data.nativePriceUsd,

@@ -11,6 +11,7 @@
 
 import { json } from "@remix-run/node";
 import type { ActionFunctionArgs } from "@remix-run/node";
+import { randomUUID } from "crypto";
 import { requireAuth } from "~/lib/auth";
 import { prisma } from "~/lib/db.server";
 import { claimSetupToken } from "~/lib/providers/simplefin.server";
@@ -54,6 +55,7 @@ export async function action({ request }: ActionFunctionArgs) {
   });
 
   // 3. Create Account entries for each SimpleFIN account
+  const runId = randomUUID();
   let accountsCreated = 0;
 
   for (const sfAccount of accounts) {
@@ -84,6 +86,7 @@ export async function action({ request }: ActionFunctionArgs) {
             currentBalance: sfAccount.balance,
             availableBalance: sfAccount.availableBalance ?? sfAccount.balance,
             currency: sfAccount.currency,
+            runId,
           },
         });
       } else {
@@ -93,6 +96,7 @@ export async function action({ request }: ActionFunctionArgs) {
           totalUsdValue: sfAccount.balance,
           holdingsValue: sfAccount.balance,
           cashBalance: 0,
+          runId,
         });
       }
 

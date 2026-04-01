@@ -366,6 +366,7 @@ export async function getPortfolioSummary(userId: string) {
 export interface CreateAccountSnapshotInput {
   accountId: string;
   totalUsdValue: number;
+  runId?: string;
   // On-chain
   nativeBalance?: string;
   nativeBalanceUsd?: number;
@@ -407,6 +408,7 @@ export async function createAccountSnapshot(input: CreateAccountSnapshotInput) {
       data: {
         accountId: input.accountId,
         totalUsdValue: input.totalUsdValue,
+        runId: input.runId,
         nativeBalance: input.nativeBalance,
         nativeBalanceUsd: input.nativeBalanceUsd,
         nativePriceUsd: input.nativePriceUsd,

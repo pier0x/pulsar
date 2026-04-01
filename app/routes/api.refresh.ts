@@ -1,5 +1,6 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
+import { randomUUID } from "crypto";
 import { requireAuth } from "~/lib/auth";
 import { prisma } from "~/lib/db.server";
 import { refreshUserWallets, refreshSimplefinAccounts, refreshIbkrHoldings } from "~/lib/balance/refresh.server";
@@ -80,14 +81,16 @@ export async function action({ request }: ActionFunctionArgs) {
     });
     const accountMap = new Map(userAccounts.map((a) => [`${a.network}:${a.address}`, a.name]));
 
+    // Generate a unique run ID to group all snapshots from this refresh
+    const runId = randomUUID();
+
     // Run the refresh for this user's accounts
-    const result = await refreshUserWallets(user.id, "manual");
+    const result = await refreshUserWallets(user.id, "manual", runId);
 
     // Also refresh SimpleFIN accounts
     let sfResult = { attempted: 0, succeeded: 0, failed: 0, errors: [] as string[] };
     try {
-      sfResult = await refreshSimplefinAccounts(user.id);
-
+      sfResult = await refreshSimplefinAccounts(user.id, runId);
     } catch (err) {
       console.error("[refresh] SimpleFIN failed:", err);
     }
@@ -95,7 +98,7 @@ export async function action({ request }: ActionFunctionArgs) {
     // Enrich IBKR accounts with Flex Query holdings data
     let ibkrResult = { attempted: 0, succeeded: 0, failed: 0, errors: [] as string[] };
     try {
-      ibkrResult = await refreshIbkrHoldings(user.id);
+      ibkrResult = await refreshIbkrHoldings(user.id, runId);
       if (ibkrResult.attempted > 0) {
         console.log("[refresh] IBKR Flex result:", JSON.stringify(ibkrResult));
       }
