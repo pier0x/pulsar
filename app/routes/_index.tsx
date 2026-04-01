@@ -347,7 +347,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
         const info = NETWORK_INFO[network];
         const nativeSymbol = info?.symbol || network.toUpperCase();
         const child: BreakdownChild = { label: nativeSymbol, value: Math.round(nativeUsd * 100) / 100, source };
-        if (network === "bitcoin") { btcTotal += nativeUsd; btcChildren.push(child); }
+        // Hyperliquid native balance is USDC — treat as stablecoin
+        if (network === "hyperliquid" || isStablecoin(nativeSymbol)) { stablecoinTotal += nativeUsd; stablecoinChildren.push(child); }
+        else if (network === "bitcoin") { btcTotal += nativeUsd; btcChildren.push(child); }
         else if (network === "ethereum" || network === "arbitrum" || network === "base" || network === "polygon") { ethTotal += nativeUsd; ethChildren.push(child); }
         else if (network === "solana") { solTotal += nativeUsd; solChildren.push(child); }
         else { altcoinTotal += nativeUsd; altcoinChildren.push(child); }
