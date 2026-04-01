@@ -18,6 +18,7 @@ import {
 import {
   PortfolioBreakdown,
   type BreakdownItem,
+  type BreakdownChild,
 } from "~/components/ui/portfolio-breakdown";
 import { TopMovers, type MoverItem } from "~/components/ui/top-movers";
 import Sidebar from "~/components/layout/sidebar";
@@ -295,7 +296,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const changePercent = firstValue > 0 ? ((lastValue - firstValue) / firstValue) * 100 : 0;
   const currentValue = formatUsd(lastValue);
 
-  // --- Build BreakdownItem[] (category-aware) ---
+  // --- Build BreakdownItem[] (category-aware, with children for drill-down) ---
   const breakdownData: BreakdownItem[] = [];
 
   // --- Asset class breakdown ---
@@ -308,26 +309,48 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const isStablecoin = (symbol: string) =>
     STABLECOIN_SYMBOLS.has(symbol.toLowerCase());
 
-  // Crypto tiers
+  // Crypto tiers — track totals AND children
   let btcTotal = 0;
   let ethTotal = 0;
   let solTotal = 0;
   let stablecoinTotal = 0;
   let altcoinTotal = 0;
 
+  const btcChildren: BreakdownChild[] = [];
+  const ethChildren: BreakdownChild[] = [];
+  const solChildren: BreakdownChild[] = [];
+  const stablecoinChildren: BreakdownChild[] = [];
+  const altcoinChildren: BreakdownChild[] = [];
+
+  // Helper to get a friendly wallet source name
+  const getWalletSource = (a: typeof onchainAccounts[0]) => {
+    const name = a.name || "Wallet";
+    const network = a.network as WalletNetwork;
+    const info = NETWORK_INFO[network];
+    const chain = info?.displayName || network || "";
+    const shortAddr = a.address
+      ? `${a.address.slice(0, 6)}…${a.address.slice(-4)}`
+      : "";
+    return shortAddr ? `${name} (${chain} ${shortAddr})` : `${name} (${chain})`;
+  };
+
   if (showOnchain) {
     for (const a of onchainAccounts) {
       const snap = a.snapshots[0];
       if (!snap) continue;
       const network = a.network as WalletNetwork;
+      const source = getWalletSource(a);
 
       // Native balance goes to the appropriate tier
       const nativeUsd = snap.nativeBalanceUsd ? Number(snap.nativeBalanceUsd) : 0;
       if (nativeUsd > 0) {
-        if (network === "bitcoin") btcTotal += nativeUsd;
-        else if (network === "ethereum" || network === "arbitrum" || network === "base" || network === "polygon") ethTotal += nativeUsd;
-        else if (network === "solana") solTotal += nativeUsd;
-        else altcoinTotal += nativeUsd;
+        const info = NETWORK_INFO[network];
+        const nativeSymbol = info?.symbol || network.toUpperCase();
+        const child: BreakdownChild = { label: nativeSymbol, value: Math.round(nativeUsd * 100) / 100, source };
+        if (network === "bitcoin") { btcTotal += nativeUsd; btcChildren.push(child); }
+        else if (network === "ethereum" || network === "arbitrum" || network === "base" || network === "polygon") { ethTotal += nativeUsd; ethChildren.push(child); }
+        else if (network === "solana") { solTotal += nativeUsd; solChildren.push(child); }
+        else { altcoinTotal += nativeUsd; altcoinChildren.push(child); }
       }
 
       // Token balances
@@ -335,68 +358,129 @@ export async function loader({ request }: LoaderFunctionArgs) {
         const usd = Number(token.balanceUsd);
         if (usd <= 0) continue;
         const sym = (token.symbol || "").toLowerCase();
+        const label = token.symbol?.toUpperCase() || token.name || "Unknown";
+        const child: BreakdownChild = { label, value: Math.round(usd * 100) / 100, source };
 
-        if (isStablecoin(sym)) stablecoinTotal += usd;
-        else if (sym === "wbtc" || sym === "btc" || sym === "tbtc" || sym === "cbbtc") btcTotal += usd;
-        else if (sym === "weth" || sym === "steth" || sym === "reth" || sym === "cbeth" || sym === "wsteth") ethTotal += usd;
-        else if (sym === "wsol" || sym === "msol" || sym === "jitosol" || sym === "bsol") solTotal += usd;
-        else altcoinTotal += usd;
+        if (isStablecoin(sym)) { stablecoinTotal += usd; stablecoinChildren.push(child); }
+        else if (sym === "wbtc" || sym === "btc" || sym === "tbtc" || sym === "cbbtc") { btcTotal += usd; btcChildren.push(child); }
+        else if (sym === "weth" || sym === "steth" || sym === "reth" || sym === "cbeth" || sym === "wsteth") { ethTotal += usd; ethChildren.push(child); }
+        else if (sym === "wsol" || sym === "msol" || sym === "jitosol" || sym === "bsol") { solTotal += usd; solChildren.push(child); }
+        else { altcoinTotal += usd; altcoinChildren.push(child); }
       }
     }
   }
 
-  // Push crypto tiers
-  if (btcTotal > 0) breakdownData.push({ name: "Bitcoin", value: Math.round(btcTotal * 100) / 100, color: "#f7931a" });
-  if (ethTotal > 0) breakdownData.push({ name: "Ethereum", value: Math.round(ethTotal * 100) / 100, color: "#627eea" });
-  if (solTotal > 0) breakdownData.push({ name: "Solana", value: Math.round(solTotal * 100) / 100, color: "#9945ff" });
-  if (stablecoinTotal > 0) breakdownData.push({ name: "Stablecoins", value: Math.round(stablecoinTotal * 100) / 100, color: "#2dd4bf" });
-  if (altcoinTotal > 0) breakdownData.push({ name: "Altcoins", value: Math.round(altcoinTotal * 100) / 100, color: "#94a3b8" });
+  // Sort children by value desc within each tier
+  const sortChildren = (arr: BreakdownChild[]) => arr.sort((a, b) => b.value - a.value);
 
-  // Cash (all bank accounts)
+  // Push crypto tiers with children
+  if (btcTotal > 0) breakdownData.push({ name: "Bitcoin", value: Math.round(btcTotal * 100) / 100, color: "#f7931a", children: sortChildren(btcChildren) });
+  if (ethTotal > 0) breakdownData.push({ name: "Ethereum", value: Math.round(ethTotal * 100) / 100, color: "#627eea", children: sortChildren(ethChildren) });
+  if (solTotal > 0) breakdownData.push({ name: "Solana", value: Math.round(solTotal * 100) / 100, color: "#9945ff", children: sortChildren(solChildren) });
+  if (stablecoinTotal > 0) breakdownData.push({ name: "Stablecoins", value: Math.round(stablecoinTotal * 100) / 100, color: "#2dd4bf", children: sortChildren(stablecoinChildren) });
+  if (altcoinTotal > 0) breakdownData.push({ name: "Altcoins", value: Math.round(altcoinTotal * 100) / 100, color: "#94a3b8", children: sortChildren(altcoinChildren) });
+
+  // Cash (all bank accounts) with children
   if (showBank) {
     let cashTotal = 0;
+    const cashChildren: BreakdownChild[] = [];
     for (const a of bankAccounts) {
       const snap = a.snapshots[0];
       if (!snap) continue;
-      cashTotal += Number(snap.totalUsdValue);
+      const usd = Number(snap.totalUsdValue);
+      cashTotal += usd;
+      const institution = a.simplefinConnection?.label || "Bank";
+      cashChildren.push({
+        label: a.name || "Account",
+        value: Math.round(usd * 100) / 100,
+        source: institution,
+      });
     }
     if (cashTotal > 0) {
-      breakdownData.push({ name: "Cash", value: Math.round(cashTotal * 100) / 100, color: "#34d399" });
+      breakdownData.push({ name: "Cash", value: Math.round(cashTotal * 100) / 100, color: "#34d399", children: sortChildren(cashChildren) });
     }
   }
 
-  // Stocks (all brokerage accounts)
+  // Stocks (all brokerage accounts) with children (individual holdings)
   if (showBrokerage) {
     let stocksTotal = 0;
+    const stocksChildren: BreakdownChild[] = [];
     for (const a of brokerageAccounts) {
       const snap = a.snapshots[0];
       if (!snap) continue;
-      stocksTotal += Number(snap.totalUsdValue);
+      const institution =
+        a.simplefinConnection?.label ||
+        (a.provider === "ibkr-flex" ? "Interactive Brokers" : "Brokerage");
+
+      // If holdings exist, break down by individual holding
+      if (snap.holdings && snap.holdings.length > 0) {
+        for (const holding of snap.holdings) {
+          const holdingValue = Number(holding.valueUsd);
+          if (holdingValue <= 0) continue;
+          stocksTotal += holdingValue;
+          stocksChildren.push({
+            label: holding.ticker || holding.name || "Unknown",
+            value: Math.round(holdingValue * 100) / 100,
+            source: `${a.name || institution}`,
+          });
+        }
+        // Add any cash balance in the account (total - holdings)
+        const holdingsSum = snap.holdings.reduce((s, h) => s + Number(h.valueUsd), 0);
+        const cashInAccount = Number(snap.totalUsdValue) - holdingsSum;
+        if (cashInAccount > 1) {
+          stocksTotal += cashInAccount;
+          stocksChildren.push({
+            label: "Cash",
+            value: Math.round(cashInAccount * 100) / 100,
+            source: `${a.name || institution}`,
+          });
+        }
+      } else {
+        const usd = Number(snap.totalUsdValue);
+        stocksTotal += usd;
+        stocksChildren.push({
+          label: a.name || "Account",
+          value: Math.round(usd * 100) / 100,
+          source: institution,
+        });
+      }
     }
     if (stocksTotal > 0) {
-      breakdownData.push({ name: "Stocks", value: Math.round(stocksTotal * 100) / 100, color: "#a78bfa" });
+      breakdownData.push({ name: "Stocks", value: Math.round(stocksTotal * 100) / 100, color: "#a78bfa", children: sortChildren(stocksChildren) });
     }
   }
 
-  // Physical assets: breakdown by category
+  // Physical assets: breakdown by category with children (individual items)
   if (showManual) {
-    const manualCategoryTotals = new Map<string, number>();
+    const manualCategoryData = new Map<string, { total: number; children: BreakdownChild[] }>();
     for (const a of manualAccounts) {
       const snap = a.snapshots[0];
       if (!snap) continue;
       const cat = a.category
         ? a.category.charAt(0).toUpperCase() + a.category.slice(1)
         : "Physical Assets";
-      manualCategoryTotals.set(cat, (manualCategoryTotals.get(cat) || 0) + Number(snap.totalUsdValue));
+      const usd = Number(snap.totalUsdValue);
+      if (usd <= 0) continue;
+
+      if (!manualCategoryData.has(cat)) {
+        manualCategoryData.set(cat, { total: 0, children: [] });
+      }
+      const catData = manualCategoryData.get(cat)!;
+      catData.total += usd;
+      catData.children.push({
+        label: a.name,
+        value: Math.round(usd * 100) / 100,
+        source: cat,
+      });
     }
     const manualColors = ["#fb923c", "#f97316", "#ea580c", "#c2410c"];
     let manualIdx = 0;
-    for (const [cat, value] of manualCategoryTotals) {
-      if (value <= 0) continue;
+    for (const [cat, { total, children }] of manualCategoryData) {
       breakdownData.push({
         name: cat,
-        value: Math.round(value * 100) / 100,
+        value: Math.round(total * 100) / 100,
         color: manualColors[manualIdx % manualColors.length],
+        children: sortChildren(children),
       });
       manualIdx++;
     }
