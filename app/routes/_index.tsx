@@ -1,6 +1,7 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useFetcher, useSearchParams, Link } from "@remix-run/react";
+import { useLoaderData, useFetcher, useNavigate } from "@remix-run/react";
+import { useState, useCallback } from "react";
 import { getCurrentUser } from "~/lib/auth";
 import { requireOwnerOrOnboard } from "~/lib/onboard.server";
 import { getLastRefreshData } from "~/lib/lastRefresh.server";
@@ -32,7 +33,17 @@ export const meta: MetaFunction = () => {
   ];
 };
 
-type FilterType = "all" | "onchain" | "bank" | "brokerage" | "manual";
+type CategoryType = "onchain" | "bank" | "brokerage" | "manual";
+const ALL_CATEGORIES: CategoryType[] = ["onchain", "bank", "brokerage", "manual"];
+
+function parseCookieFilters(cookieHeader: string | null): CategoryType[] {
+  if (!cookieHeader) return ALL_CATEGORIES;
+  const match = cookieHeader.match(/(?:^|;\s*)pulsar_filters=([^;]*)/);
+  if (!match) return ALL_CATEGORIES;
+  const raw = decodeURIComponent(match[1]).split(",").filter(Boolean) as CategoryType[];
+  const valid = raw.filter((c) => ALL_CATEGORIES.includes(c));
+  return valid.length > 0 ? valid : ALL_CATEGORIES;
+}
 
 function formatUsd(value: number): string {
   return `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -43,20 +54,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getCurrentUser(request);
 
   if (!user) {
-    return json({ user: null, wallets: [], chartData: [], breakdownData: [], gainers: [], losers: [], currentValue: "$0.00", changePercent: 0, lastRefresh: null, activeFilter: "all" as FilterType });
+    return json({ user: null, wallets: [], chartData: [], breakdownData: [], gainers: [], losers: [], currentValue: "$0.00", changePercent: 0, lastRefresh: null, enabledFilters: ALL_CATEGORIES });
   }
 
-  const url = new URL(request.url);
-  const filterParam = url.searchParams.get("filter");
-  const activeFilter: FilterType =
-    filterParam === "onchain" || filterParam === "bank" || filterParam === "brokerage" || filterParam === "manual"
-      ? filterParam
-      : "all";
+  const enabledFilters = parseCookieFilters(request.headers.get("Cookie"));
 
-  const showOnchain = activeFilter === "all" || activeFilter === "onchain";
-  const showBank = activeFilter === "all" || activeFilter === "bank";
-  const showBrokerage = activeFilter === "all" || activeFilter === "brokerage";
-  const showManual = activeFilter === "all" || activeFilter === "manual";
+  const showOnchain = enabledFilters.includes("onchain");
+  const showBank = enabledFilters.includes("bank");
+  const showBrokerage = enabledFilters.includes("brokerage");
+  const showManual = enabledFilters.includes("manual");
 
   // Fetch on-chain accounts
   const onchainAccounts = showOnchain
@@ -625,7 +631,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     currentValue,
     changePercent: Math.round(changePercent * 100) / 100,
     lastRefresh,
-    activeFilter,
+    enabledFilters,
   });
 }
 
@@ -717,26 +723,40 @@ function LoginPage() {
 
 // --- Filter bar ---
 
-const FILTERS: { id: FilterType; label: string }[] = [
-  { id: "all", label: "All" },
+const FILTER_OPTIONS: { id: CategoryType; label: string }[] = [
   { id: "onchain", label: "On-chain" },
   { id: "bank", label: "Banking" },
   { id: "brokerage", label: "Investments" },
   { id: "manual", label: "Assets" },
 ];
 
-function FilterBar({ activeFilter }: { activeFilter: FilterType }) {
-  const [searchParams] = useSearchParams();
+function FilterBar({ enabledFilters: initial }: { enabledFilters: CategoryType[] }) {
+  const [enabled, setEnabled] = useState<Set<CategoryType>>(new Set(initial));
+  const navigate = useNavigate();
 
-  const filterLink = (filter: FilterType) => {
-    const params = new URLSearchParams(searchParams);
-    if (filter === "all") {
-      params.delete("filter");
+  const allEnabled = enabled.size === ALL_CATEGORIES.length;
+
+  const persist = useCallback((next: Set<CategoryType>) => {
+    const value = Array.from(next).join(",");
+    document.cookie = `pulsar_filters=${encodeURIComponent(value)};path=/;max-age=${60 * 60 * 24 * 365};SameSite=Lax`;
+    setEnabled(next);
+    navigate("/", { replace: true });
+  }, [navigate]);
+
+  const toggleAll = () => {
+    if (allEnabled) return; // can't disable everything
+    persist(new Set(ALL_CATEGORIES));
+  };
+
+  const toggle = (id: CategoryType) => {
+    const next = new Set(enabled);
+    if (next.has(id)) {
+      next.delete(id);
+      if (next.size === 0) return; // must keep at least one
     } else {
-      params.set("filter", filter);
+      next.add(id);
     }
-    const qs = params.toString();
-    return qs ? `/?${qs}` : "/";
+    persist(next);
   };
 
   return (
@@ -746,22 +766,34 @@ function FilterBar({ activeFilter }: { activeFilter: FilterType }) {
       transition={{ duration: 0.3 }}
       className="flex items-center gap-2 flex-wrap"
     >
-      {FILTERS.map((f) => {
-        const isActive = f.id === activeFilter;
+      <button
+        onClick={toggleAll}
+        className={[
+          "px-3 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer",
+          allEnabled
+            ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
+            : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200",
+        ].join(" ")}
+      >
+        All
+      </button>
+      {FILTER_OPTIONS.map((f) => {
+        const isActive = enabled.has(f.id);
         return (
-          <Link
+          <button
             key={f.id}
-            to={filterLink(f.id)}
-            prefetch="intent"
+            onClick={() => toggle(f.id)}
             className={[
               "px-3 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer",
-              isActive
+              isActive && !allEnabled
                 ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
-                : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200",
+                : isActive && allEnabled
+                  ? "bg-blue-600/20 text-blue-300 border border-blue-500/30"
+                  : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200",
             ].join(" ")}
           >
             {f.label}
-          </Link>
+          </button>
         );
       })}
     </motion.div>
@@ -780,7 +812,7 @@ function Dashboard({
   currentValue,
   changePercent,
   lastRefresh,
-  activeFilter,
+  enabledFilters,
 }: {
   user: { id: string; username: string; avatarUrl: string | null };
   wallets: WalletData[];
@@ -791,7 +823,7 @@ function Dashboard({
   currentValue: string;
   changePercent: number;
   lastRefresh: LastRefreshData | null;
-  activeFilter: FilterType;
+  enabledFilters: CategoryType[];
 }) {
   return (
     <div className="relative h-screen p-2 sm:p-4 flex w-full flex-row overflow-hidden">
@@ -804,7 +836,7 @@ function Dashboard({
           <div className="px-2 sm:px-4 lg:px-8">
             {/* Filter bar */}
             <div className="mb-4 sm:mb-5">
-              <FilterBar activeFilter={activeFilter} />
+              <FilterBar enabledFilters={enabledFilters} />
             </div>
 
             <div className="grid gap-4 sm:gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-6 w-full">
@@ -839,7 +871,7 @@ function Dashboard({
 // --- Root ---
 
 export default function IndexPage() {
-  const { user, wallets, chartData, breakdownData, gainers, losers, currentValue, changePercent, lastRefresh, activeFilter } = useLoaderData<typeof loader>();
+  const { user, wallets, chartData, breakdownData, gainers, losers, currentValue, changePercent, lastRefresh, enabledFilters } = useLoaderData<typeof loader>();
 
   if (!user) {
     return <LoginPage />;
@@ -856,7 +888,7 @@ export default function IndexPage() {
       currentValue={currentValue}
       changePercent={changePercent}
       lastRefresh={lastRefresh}
-      activeFilter={activeFilter as FilterType}
+      enabledFilters={enabledFilters as CategoryType[]}
     />
   );
 }
