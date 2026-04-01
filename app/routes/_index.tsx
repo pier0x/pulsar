@@ -207,8 +207,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const holdingsValue = snap?.holdingsValue ? Number(snap.holdingsValue) : totalUsd;
     const institution =
       a.simplefinConnection?.label ||
-      "Brokerage";
-    const subtype = "Brokerage";
+      (a.provider === "ibkr-flex" ? "Interactive Brokers" : "Brokerage");
+    const subtype = a.provider === "ibkr-flex" ? "Investment Portfolio" : "Brokerage";
 
     // Top holdings preview
     const topHoldings = snap?.holdings
@@ -353,6 +353,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       if (!snap) continue;
       const institution =
         a.simplefinConnection?.label ||
+        (a.provider === "ibkr-flex" ? "Interactive Brokers" : null) ||
         a.name ||
         "Brokerage";
       brokerageTotals.set(institution, (brokerageTotals.get(institution) || 0) + Number(snap.totalUsdValue));
