@@ -32,8 +32,7 @@ import {
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "Accounts - Pulsar" },
-    { name: "description", content: "Manage your wallet accounts" },
+    { title: "Pulsar" },
   ];
 };
 

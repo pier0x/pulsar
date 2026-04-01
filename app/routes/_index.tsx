@@ -28,8 +28,7 @@ import MobileNav from "~/components/layout/mobile-nav";
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "Pulsar - Your Wealth, One Dashboard" },
-    { name: "description", content: "Track all your assets in one place." },
+    { title: "Pulsar" },
   ];
 };
 

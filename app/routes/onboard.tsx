@@ -11,8 +11,7 @@ import { Button, Input, FormField, Alert } from "~/components/ui";
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "Pulsar - Setup" },
-    { name: "description", content: "Set up your Pulsar dashboard." },
+    { title: "Pulsar" },
   ];
 };
 

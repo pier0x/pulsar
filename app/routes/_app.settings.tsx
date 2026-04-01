@@ -31,8 +31,7 @@ const TIMEZONES = [
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "Settings - Pulsar" },
-    { name: "description", content: "Configure your Pulsar settings" },
+    { title: "Pulsar" },
   ];
 };
 

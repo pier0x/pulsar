@@ -22,8 +22,7 @@ import { prisma } from "~/lib/db.server";
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "Positions - Pulsar" },
-    { name: "description", content: "Track your cost basis and P&L" },
+    { title: "Pulsar" },
   ];
 };
 
