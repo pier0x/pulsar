@@ -1,9 +1,12 @@
+import { useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { Form, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
-import { Settings, Clock } from "lucide-react";
+import { Form, useActionData, useLoaderData, useNavigation, useSubmit } from "@remix-run/react";
+import { Settings, Clock, Trash2, X, Eye } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button, Input, FormField, Alert, Card, Select, SelectOption } from "~/components/ui";
 import { requireAuth } from "~/lib/auth";
+import { prisma } from "~/lib/db.server";
 import {
   getTokenThresholdUsd,
   setTokenThresholdUsd,
@@ -33,15 +36,44 @@ export const meta: MetaFunction = () => {
   ];
 };
 
+// Recursively convert Prisma Decimal instances to plain numbers
+function serializeDecimals<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === "object" && "toFixed" in (obj as Record<string, unknown>) && "toNumber" in (obj as Record<string, unknown>)) {
+    return Number((obj as unknown as { toNumber: () => number }).toNumber()) as unknown as T;
+  }
+  if (Array.isArray(obj)) return obj.map(serializeDecimals) as unknown as T;
+  if (typeof obj === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      result[key] = serializeDecimals(value);
+    }
+    return result as T;
+  }
+  return obj;
+}
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireAuth(request);
 
-  const [tokenThreshold, timezone] = await Promise.all([
+  const [tokenThreshold, timezone, snapshotsRaw] = await Promise.all([
     getTokenThresholdUsd(user.id),
     getUserTimezone(user.id),
+    prisma.accountSnapshot.findMany({
+      where: { account: { userId: user.id } },
+      orderBy: { timestamp: "desc" },
+      take: 50,
+      include: {
+        account: { select: { name: true, type: true, provider: true } },
+        tokenSnapshots: { select: { id: true, symbol: true, balanceUsd: true } },
+        holdings: { select: { id: true, ticker: true, valueUsd: true } },
+      },
+    }),
   ]);
 
-  return json({ tokenThreshold, timezone });
+  const snapshots = serializeDecimals(snapshotsRaw);
+
+  return json({ tokenThreshold, timezone, snapshots });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -67,14 +99,279 @@ export async function action({ request }: ActionFunctionArgs) {
     return json({ success: true });
   }
 
+  if (intent === "deleteSnapshot") {
+    const snapshotId = formData.get("snapshotId");
+    if (typeof snapshotId !== "string") {
+      return json({ error: "Missing snapshotId" }, { status: 400 });
+    }
+
+    // Verify ownership before deleting
+    const snapshot = await prisma.accountSnapshot.findFirst({
+      where: { id: snapshotId, account: { userId: user.id } },
+    });
+
+    if (!snapshot) {
+      return json({ error: "Snapshot not found or access denied" }, { status: 404 });
+    }
+
+    // Cascade handled by Prisma schema (onDelete: Cascade on tokenSnapshots and holdings)
+    await prisma.accountSnapshot.delete({ where: { id: snapshotId } });
+
+    return json({ deleted: true });
+  }
+
   return json({ error: "Invalid action" }, { status: 400 });
 }
 
+type SnapshotItem = {
+  id: string;
+  timestamp: string;
+  totalUsdValue: number;
+  nativeBalance: string | null;
+  nativeBalanceUsd: number | null;
+  tokensUsdValue: number | null;
+  availableBalance: number | null;
+  currentBalance: number | null;
+  holdingsValue: number | null;
+  cashBalance: number | null;
+  account: { name: string; type: string; provider: string };
+  tokenSnapshots: { id: string; symbol: string; balanceUsd: number }[];
+  holdings: { id: string; ticker: string; valueUsd: number }[];
+};
+
+function formatUsd(value: number | null | undefined) {
+  if (value == null) return "—";
+  return value.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+}
+
+function formatTimestamp(ts: string) {
+  return new Date(ts).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+const BADGE_COLORS: Record<string, string> = {
+  onchain: "bg-blue-500/15 text-blue-400 border border-blue-500/30",
+  bank: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30",
+  brokerage: "bg-purple-500/15 text-purple-400 border border-purple-500/30",
+  manual: "bg-amber-500/15 text-amber-400 border border-amber-500/30",
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  onchain: "on-chain",
+  bank: "bank",
+  brokerage: "brokerage",
+  manual: "manual",
+};
+
+function TypeBadge({ type }: { type: string }) {
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${BADGE_COLORS[type] ?? "bg-zinc-700 text-zinc-300"}`}>
+      {TYPE_LABELS[type] ?? type}
+    </span>
+  );
+}
+
+function SnapshotDetailModal({
+  snapshot,
+  onClose,
+  onDelete,
+}: {
+  snapshot: SnapshotItem;
+  onClose: () => void;
+  onDelete: (id: string) => void;
+}) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Modal */}
+      <motion.div
+        className="relative z-10 w-full max-w-md rounded-2xl bg-zinc-900 border border-zinc-800 p-6 shadow-2xl"
+        initial={{ scale: 0.95, opacity: 0, y: 8 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0, y: 8 }}
+        transition={{ duration: 0.15 }}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between mb-5">
+          <div>
+            <h3 className="text-lg font-semibold text-white">{snapshot.account.name}</h3>
+            <div className="flex items-center gap-2 mt-1">
+              <TypeBadge type={snapshot.account.type} />
+              {snapshot.account.provider && snapshot.account.provider !== "manual" && (
+                <span className="text-xs text-zinc-500">{snapshot.account.provider}</span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Total */}
+        <div className="rounded-xl bg-zinc-800/50 border border-zinc-700/50 p-4 mb-4">
+          <p className="text-zinc-500 text-xs mb-1">Total Value</p>
+          <p className="text-2xl font-bold text-white">{formatUsd(snapshot.totalUsdValue)}</p>
+          <p className="text-zinc-500 text-xs mt-1">{formatTimestamp(snapshot.timestamp)}</p>
+        </div>
+
+        {/* Type-specific details */}
+        {snapshot.account.type === "onchain" && (
+          <div className="space-y-2 mb-4">
+            {snapshot.nativeBalance && (
+              <div className="flex justify-between text-sm">
+                <span className="text-zinc-400">Native balance</span>
+                <span className="text-white">{parseFloat(snapshot.nativeBalance).toFixed(6)}</span>
+              </div>
+            )}
+            {snapshot.nativeBalanceUsd != null && (
+              <div className="flex justify-between text-sm">
+                <span className="text-zinc-400">Native (USD)</span>
+                <span className="text-white">{formatUsd(snapshot.nativeBalanceUsd)}</span>
+              </div>
+            )}
+            {snapshot.tokensUsdValue != null && (
+              <div className="flex justify-between text-sm">
+                <span className="text-zinc-400">Tokens (USD)</span>
+                <span className="text-white">{formatUsd(snapshot.tokensUsdValue)}</span>
+              </div>
+            )}
+            {snapshot.tokenSnapshots.length > 0 && (
+              <div className="mt-3">
+                <p className="text-zinc-500 text-xs mb-2">Tokens</p>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {snapshot.tokenSnapshots.map((t) => (
+                    <div key={t.id} className="flex justify-between text-sm">
+                      <span className="text-zinc-300">{t.symbol}</span>
+                      <span className="text-zinc-400">{formatUsd(t.balanceUsd)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {snapshot.account.type === "bank" && (
+          <div className="space-y-2 mb-4">
+            {snapshot.currentBalance != null && (
+              <div className="flex justify-between text-sm">
+                <span className="text-zinc-400">Current balance</span>
+                <span className="text-white">{formatUsd(snapshot.currentBalance)}</span>
+              </div>
+            )}
+            {snapshot.availableBalance != null && (
+              <div className="flex justify-between text-sm">
+                <span className="text-zinc-400">Available balance</span>
+                <span className="text-white">{formatUsd(snapshot.availableBalance)}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {snapshot.account.type === "brokerage" && (
+          <div className="space-y-2 mb-4">
+            {snapshot.holdingsValue != null && (
+              <div className="flex justify-between text-sm">
+                <span className="text-zinc-400">Holdings value</span>
+                <span className="text-white">{formatUsd(snapshot.holdingsValue)}</span>
+              </div>
+            )}
+            {snapshot.cashBalance != null && (
+              <div className="flex justify-between text-sm">
+                <span className="text-zinc-400">Cash balance</span>
+                <span className="text-white">{formatUsd(snapshot.cashBalance)}</span>
+              </div>
+            )}
+            {snapshot.holdings.length > 0 && (
+              <div className="mt-3">
+                <p className="text-zinc-500 text-xs mb-2">Holdings</p>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {snapshot.holdings.map((h) => (
+                    <div key={h.id} className="flex justify-between text-sm">
+                      <span className="text-zinc-300">{h.ticker}</span>
+                      <span className="text-zinc-400">{formatUsd(h.valueUsd)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Delete */}
+        <div className="pt-3 border-t border-zinc-800">
+          {confirmDelete ? (
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-zinc-400 flex-1">Delete this snapshot?</p>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => onDelete(snapshot.id)}
+                className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm transition-colors cursor-pointer"
+              >
+                Delete
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete snapshot
+            </button>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export default function SettingsPage() {
-  const { tokenThreshold, timezone } = useLoaderData<typeof loader>();
+  const { tokenThreshold, timezone, snapshots } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
+  const submit = useSubmit();
   const isSubmitting = navigation.state === "submitting";
+
+  const [selectedSnapshot, setSelectedSnapshot] = useState<SnapshotItem | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  function handleDelete(snapshotId: string) {
+    setSelectedSnapshot(null);
+    setConfirmDeleteId(null);
+    const fd = new FormData();
+    fd.set("intent", "deleteSnapshot");
+    fd.set("snapshotId", snapshotId);
+    submit(fd, { method: "post" });
+  }
+
+  function handleRowDeleteClick(e: React.MouseEvent, snapshotId: string) {
+    e.stopPropagation();
+    setConfirmDeleteId(confirmDeleteId === snapshotId ? null : snapshotId);
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -140,13 +437,108 @@ export default function SettingsPage() {
           </div>
           <div>
             <h2 className="text-lg font-semibold text-white">Refresh History</h2>
-            <p className="text-zinc-500 text-sm">Recent refresh activity</p>
+            <p className="text-zinc-500 text-sm">Last {snapshots.length} snapshots</p>
           </div>
         </div>
-        <p className="text-zinc-500 text-sm text-center py-6">
-          Use the refresh button in the navbar to update your balances.
-        </p>
+
+        {snapshots.length === 0 ? (
+          <p className="text-zinc-500 text-sm text-center py-6">
+            No snapshots yet. Use the refresh button in the navbar to update your balances.
+          </p>
+        ) : (
+          <div className="space-y-1">
+            {(snapshots as unknown as SnapshotItem[]).map((snapshot) => (
+              <div key={snapshot.id}>
+                <div
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-zinc-800/60 transition-colors cursor-pointer group"
+                  onClick={() => setSelectedSnapshot(snapshot)}
+                >
+                  {/* Left: timestamp + account */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm text-white font-medium truncate">
+                        {snapshot.account.name}
+                      </span>
+                      <TypeBadge type={snapshot.account.type} />
+                    </div>
+                    <p className="text-xs text-zinc-500 mt-0.5">{formatTimestamp(snapshot.timestamp)}</p>
+                  </div>
+
+                  {/* Middle: counts */}
+                  <div className="hidden sm:flex items-center gap-2 text-xs text-zinc-500">
+                    {snapshot.tokenSnapshots.length > 0 && (
+                      <span>{snapshot.tokenSnapshots.length} tokens</span>
+                    )}
+                    {snapshot.holdings.length > 0 && (
+                      <span>{snapshot.holdings.length} holdings</span>
+                    )}
+                  </div>
+
+                  {/* Right: value + actions */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-sm font-medium text-white">
+                      {formatUsd(snapshot.totalUsdValue)}
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setSelectedSnapshot(snapshot); }}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all cursor-pointer"
+                      title="View details"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => handleRowDeleteClick(e, snapshot.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition-all cursor-pointer"
+                      title="Delete snapshot"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Inline confirm */}
+                <AnimatePresence>
+                  {confirmDeleteId === snapshot.id && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 mb-1">
+                        <p className="text-sm text-red-300 flex-1">Delete this snapshot?</p>
+                        <button
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs transition-colors cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => handleDelete(snapshot.id)}
+                          className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs transition-colors cursor-pointer"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
+
+      {/* Detail Modal */}
+      <AnimatePresence>
+        {selectedSnapshot && (
+          <SnapshotDetailModal
+            snapshot={selectedSnapshot}
+            onClose={() => setSelectedSnapshot(null)}
+            onDelete={handleDelete}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
