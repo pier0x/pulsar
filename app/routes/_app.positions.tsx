@@ -213,7 +213,8 @@ export async function action({ request }: ActionFunctionArgs) {
   if (intent === "add") {
     const asset = formData.get("asset");
     const amount = formData.get("amount");
-    const priceUsd = formData.get("priceUsd");
+    const priceUsdRaw = formData.get("priceUsd");
+    const costBasisRaw = formData.get("costBasis");
     const date = formData.get("date");
     const note = formData.get("note");
 
@@ -223,9 +224,22 @@ export async function action({ request }: ActionFunctionArgs) {
     if (typeof amount !== "string" || !amount.trim() || isNaN(Number(amount)) || Number(amount) <= 0) {
       return json({ error: "Valid amount is required" }, { status: 400 });
     }
-    if (typeof priceUsd !== "string" || !priceUsd.trim() || isNaN(Number(priceUsd)) || Number(priceUsd) <= 0) {
-      return json({ error: "Valid price is required" }, { status: 400 });
+
+    const hasPrice = typeof priceUsdRaw === "string" && priceUsdRaw.trim() && !isNaN(Number(priceUsdRaw)) && Number(priceUsdRaw) > 0;
+    const hasCost = typeof costBasisRaw === "string" && costBasisRaw.trim() && !isNaN(Number(costBasisRaw)) && Number(costBasisRaw) > 0;
+
+    if (!hasPrice && !hasCost) {
+      return json({ error: "Either price per unit or total cost is required" }, { status: 400 });
     }
+
+    // Calculate the missing value from the other
+    let finalPrice: number;
+    if (hasPrice) {
+      finalPrice = Number(priceUsdRaw);
+    } else {
+      finalPrice = Number(costBasisRaw) / Number(amount);
+    }
+
     if (typeof date !== "string" || !date.trim()) {
       return json({ error: "Date is required" }, { status: 400 });
     }
@@ -235,7 +249,7 @@ export async function action({ request }: ActionFunctionArgs) {
         userId: user.id,
         asset: asset.trim().toUpperCase(),
         amount: Number(amount),
-        priceUsd: Number(priceUsd),
+        priceUsd: finalPrice,
         date: new Date(date),
         note: typeof note === "string" && note.trim() ? note.trim() : null,
       },
@@ -425,7 +439,7 @@ export default function Positions() {
               <CardContent>
                 <Form method="post" className="space-y-4">
                   <input type="hidden" name="intent" value="add" />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                     <FormField label="Asset" htmlFor="asset">
                       <Input
                         id="asset"
@@ -455,7 +469,16 @@ export default function Positions() {
                         step="any"
                         min="0"
                         placeholder="60000"
-                        required
+                      />
+                    </FormField>
+                    <FormField label="Total Cost (USD)" htmlFor="costBasis">
+                      <Input
+                        id="costBasis"
+                        name="costBasis"
+                        type="number"
+                        step="any"
+                        min="0"
+                        placeholder="10000"
                       />
                     </FormField>
                     <FormField label="Date" htmlFor="date">
@@ -468,6 +491,7 @@ export default function Positions() {
                       />
                     </FormField>
                   </div>
+                  <p className="text-zinc-500 text-xs -mt-2">Fill either price per unit or total cost — the other will be calculated automatically.</p>
                   <FormField label="Note (optional)" htmlFor="note">
                     <Input
                       id="note"
