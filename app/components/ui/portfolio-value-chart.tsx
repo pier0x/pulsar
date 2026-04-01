@@ -1,11 +1,11 @@
-import { motion } from "framer-motion";
 import {
-  Area,
-  AreaChart,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
+  CartesianGrid,
 } from "recharts";
 import { cn } from "~/lib/utils";
 
@@ -39,76 +39,50 @@ export function PortfolioValueChart({
   const isPositive = changePercent >= 0;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
+    <div
       className={cn(
-        "rounded-2xl bg-zinc-900 border border-zinc-800 p-4 sm:p-6 h-full",
+        "rounded-[12px] bg-nd-surface border border-nd-border p-4 sm:p-6 h-full",
         className
       )}
     >
-      {/* Header */}
-      <div className="space-y-1 mb-4 sm:mb-6">
-        <p className="text-zinc-500 text-xs sm:text-sm">Portfolio Value</p>
-        <motion.h2
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2, duration: 0.4 }}
-          className="text-2xl sm:text-3xl font-bold text-white"
-        >
+      {/* Header — 3-layer hierarchy */}
+      <div className="mb-6 sm:mb-8">
+        <p className="text-label text-nd-text-secondary mb-2">PORTFOLIO VALUE</p>
+        <h2 className="text-display-lg text-nd-text-display leading-none">
           {currentValue}
-        </motion.h2>
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3, duration: 0.4 }}
-          className="flex items-center gap-2"
-        >
+        </h2>
+        <div className="flex items-center gap-2 mt-2">
           <span
             className={cn(
-              "text-sm font-medium",
-              isPositive ? "text-emerald-400" : "text-red-400"
+              "font-mono text-[14px]",
+              isPositive ? "text-nd-success" : "text-nd-accent"
             )}
           >
-            {isPositive ? "+" : ""}
+            {isPositive ? "↑" : "↓"} {isPositive ? "+" : ""}
             {changePercent.toFixed(2)}%
           </span>
-          <span className="text-zinc-600 text-sm">30d</span>
-        </motion.div>
+          <span className="text-label text-nd-text-disabled">30D</span>
+        </div>
       </div>
 
-      {/* Chart */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.4, duration: 0.6 }}
-        className="h-32 sm:h-40 lg:h-48"
-      >
+      {/* Chart — single white line, no area fill */}
+      <div className="h-32 sm:h-40 lg:h-48">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
+          <LineChart
             data={data}
             margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
           >
-            <defs>
-              <linearGradient id="valueGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop
-                  offset="0%"
-                  stopColor={isPositive ? "#10b981" : "#ef4444"}
-                  stopOpacity={0.3}
-                />
-                <stop
-                  offset="100%"
-                  stopColor={isPositive ? "#10b981" : "#ef4444"}
-                  stopOpacity={0}
-                />
-              </linearGradient>
-            </defs>
+            <CartesianGrid
+              horizontal={true}
+              vertical={false}
+              stroke="#222222"
+              strokeDasharray=""
+            />
             <XAxis
               dataKey="date"
               axisLine={false}
               tickLine={false}
-              tick={{ fill: "#71717a", fontSize: 12 }}
+              tick={{ fill: "#999999", fontSize: 11, fontFamily: "Space Mono" }}
               tickMargin={8}
               minTickGap={40}
             />
@@ -117,11 +91,11 @@ export function PortfolioValueChart({
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {
                   return (
-                    <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 shadow-lg">
-                      <p className="text-white font-medium">
+                    <div className="bg-nd-surface-raised border border-nd-border-visible rounded-md px-3 py-2">
+                      <p className="font-mono text-[14px] text-nd-text-display">
                         {formatValue(payload[0].value as number)}
                       </p>
-                      <p className="text-zinc-400 text-xs">
+                      <p className="text-label text-nd-text-disabled mt-0.5">
                         {payload[0].payload.date}
                       </p>
                     </div>
@@ -130,16 +104,22 @@ export function PortfolioValueChart({
                 return null;
               }}
             />
-            <Area
+            <Line
               type="monotone"
               dataKey="value"
-              stroke={isPositive ? "#10b981" : "#ef4444"}
-              strokeWidth={2}
-              fill="url(#valueGradient)"
+              stroke="#FFFFFF"
+              strokeWidth={1.5}
+              dot={false}
+              activeDot={{
+                r: 3,
+                fill: "#FFFFFF",
+                stroke: "#000000",
+                strokeWidth: 2,
+              }}
             />
-          </AreaChart>
+          </LineChart>
         </ResponsiveContainer>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }

@@ -21,6 +21,14 @@ export {
 export { Badge, badgeVariants } from "./badge";
 export { default as Logo } from "./logo";
 
+// Nothing design system components
+export { StatRow } from "./stat-row";
+export { SegmentedBar } from "./segmented-bar";
+export { SectionHeader } from "./section-header";
+export { DataTable } from "./data-table";
+export { Modal } from "./modal";
+export { EmptyState } from "./empty-state";
+
 // Dashboard components
 export { PortfolioValueChart } from "./portfolio-value-chart";
 export { PortfolioBreakdown } from "./portfolio-breakdown";

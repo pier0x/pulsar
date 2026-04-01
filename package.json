@@ -19,8 +19,6 @@
     "prisma:reset": "bunx prisma migrate reset"
   },
   "dependencies": {
-    "@headlessui/react": "^2.2.9",
-    "@heroicons/react": "^2.2.0",
     "@radix-ui/react-slot": "^1.2.4",
     "@remix-run/node": "^2.16.0",
     "@remix-run/react": "^2.16.0",

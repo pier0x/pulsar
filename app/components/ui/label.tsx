@@ -7,7 +7,7 @@ function Label({ className, ...props }: LabelProps) {
   return (
     <label
       data-slot="label"
-      className={cn("text-sm font-medium text-zinc-300 mb-1.5 block", className)}
+      className={cn("text-label text-nd-text-secondary block", className)}
       {...props}
     />
   );

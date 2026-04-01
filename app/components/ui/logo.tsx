@@ -6,17 +6,21 @@ interface LogoProps {
 }
 
 const sizeClasses = {
-  sm: "h-8 w-auto",
-  md: "h-10 w-auto",
-  lg: "h-12 w-auto",
+  sm: "text-[24px]",
+  md: "text-[32px]",
+  lg: "text-[40px]",
 };
 
 export default function Logo({ size = "lg", className }: LogoProps) {
   return (
-    <img
-      alt="Pulsar"
-      src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=500"
-      className={cn(sizeClasses[size], className)}
-    />
+    <span
+      className={cn(
+        "font-display font-bold tracking-[-0.02em] text-nd-text-display select-none",
+        sizeClasses[size],
+        className
+      )}
+    >
+      PULSAR
+    </span>
   );
 }

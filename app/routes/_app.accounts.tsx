@@ -5,7 +5,7 @@ import { Form, useActionData, useLoaderData, useNavigation, useRevalidator } fro
 import { Plus, Trash2, Wallet, Bitcoin, LineChart, Landmark, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-import { Button, Input, FormField, Alert, Card } from "~/components/ui";
+import { Button, Input, FormField, Alert, Card, Badge } from "~/components/ui";
 import { requireAuth } from "~/lib/auth";
 import { detectAddressType, validateWalletForNetwork } from "~/lib/wallet.server";
 import { 
@@ -63,7 +63,7 @@ function NetworkBadge({ network }: { network: string }) {
   
   return (
     <span 
-      className="text-xs px-2 py-0.5 rounded-full border"
+      className="text-label px-2 py-0.5 rounded-md border"
       style={{ 
         backgroundColor: `${color}15`,
         color: color,
@@ -264,15 +264,15 @@ function ConnectBankSection({ onSuccess }: ConnectBankSectionProps) {
   return (
     <div className="space-y-4">
       {/* Step 1 */}
-      <div className="flex items-start gap-3 p-3 rounded-xl bg-zinc-800/50 border border-zinc-700">
-        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold shrink-0 mt-0.5">1</span>
+      <div className="flex items-start gap-3 p-3 rounded-[12px] bg-nd-surface-raised border border-nd-border-visible">
+        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-nd-surface border border-nd-border-visible text-nd-text-secondary text-xs font-mono shrink-0 mt-0.5">1</span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-zinc-300 mb-1">Connect your bank via SimpleFIN Bridge</p>
+          <p className="text-sm text-nd-text-secondary mb-1">Connect your bank via SimpleFIN Bridge</p>
           <a
             href="https://bridge.simplefin.org/simplefin/create"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+            className="inline-flex items-center gap-1.5 text-sm text-nd-text-secondary hover:text-nd-text-primary transition-nd"
           >
             <ExternalLink className="h-3.5 w-3.5" />
             Open SimpleFIN Bridge
@@ -281,39 +281,39 @@ function ConnectBankSection({ onSuccess }: ConnectBankSectionProps) {
       </div>
 
       {/* Step 2 */}
-      <div className="flex items-start gap-3 p-3 rounded-xl bg-zinc-800/50 border border-zinc-700">
-        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold shrink-0 mt-0.5">2</span>
-        <p className="text-sm text-zinc-300">Connect your bank there, then copy the <strong className="text-white">Setup Token</strong> you receive.</p>
+      <div className="flex items-start gap-3 p-3 rounded-[12px] bg-nd-surface-raised border border-nd-border-visible">
+        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-nd-surface border border-nd-border-visible text-nd-text-secondary text-xs font-mono shrink-0 mt-0.5">2</span>
+        <p className="text-sm text-nd-text-secondary">Connect your bank there, then copy the <strong className="text-nd-text-primary">Setup Token</strong> you receive.</p>
       </div>
 
       {/* Step 3 */}
-      <div className="flex items-start gap-3 p-3 rounded-xl bg-zinc-800/50 border border-zinc-700">
-        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold shrink-0 mt-0.5">3</span>
+      <div className="flex items-start gap-3 p-3 rounded-[12px] bg-nd-surface-raised border border-nd-border-visible">
+        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-nd-surface border border-nd-border-visible text-nd-text-secondary text-xs font-mono shrink-0 mt-0.5">3</span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-zinc-300 mb-2">Paste your Setup Token below</p>
+          <p className="text-sm text-nd-text-secondary mb-2">Paste your Setup Token below</p>
           <form onSubmit={handleSubmit} className="space-y-2">
             <textarea
               value={setupToken}
               onChange={(e) => setSetupToken(e.target.value)}
               placeholder="Paste Setup Token here..."
               rows={3}
-              className="w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 resize-none text-sm font-mono"
+              className="w-full px-3 py-2 rounded-[12px] bg-nd-surface border border-nd-border text-nd-text-primary placeholder:text-nd-text-disabled focus:outline-none focus:border-nd-border-visible resize-none text-sm font-mono"
             />
-            <button
+            <Button
               type="submit"
               disabled={isLoading || !setupToken.trim()}
-              className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              className="w-full cursor-pointer"
             >
               {isLoading ? "Connecting..." : "Connect Bank"}
-            </button>
+            </Button>
           </form>
         </div>
       </div>
 
-      {error && <p className="text-xs text-red-400">{error}</p>}
-      {successMsg && <p className="text-xs text-emerald-400">{successMsg}</p>}
+      {error && <p className="text-label text-nd-accent">{error}</p>}
+      {successMsg && <p className="text-label text-nd-success">{successMsg}</p>}
 
-      <p className="text-xs text-zinc-600 text-center">
+      <p className="text-label text-nd-text-disabled text-center">
         SimpleFIN Bridge · No credentials stored by Pulsar
       </p>
     </div>
@@ -370,14 +370,14 @@ function AddAccountForm({ onBankConnected }: { onBankConnected: () => void }) {
   return (
     <Card>
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-white mb-1">Add Account</h2>
-        <p className="text-zinc-500 text-sm">
+        <h2 className="text-subheading text-nd-text-display mb-1">Add Account</h2>
+        <p className="text-nd-text-disabled text-sm">
           Connect an account to track your portfolio.
         </p>
       </div>
 
       {/* Tab switcher */}
-      <div className="flex gap-1 p-1 bg-zinc-800/50 rounded-lg mb-6">
+      <div className="flex gap-1 p-1 bg-nd-surface-raised rounded-md mb-6">
         {accountTabs.map((tab) => {
           const Icon = tab.icon;
           const isSelected = accountTab === tab.id;
@@ -387,10 +387,10 @@ function AddAccountForm({ onBankConnected }: { onBankConnected: () => void }) {
               type="button"
               onClick={() => setAccountTab(tab.id)}
               className={`
-                flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all cursor-pointer
+                flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-nd cursor-pointer
                 ${isSelected 
-                  ? "bg-zinc-700 text-white" 
-                  : "text-zinc-400 hover:text-zinc-300 hover:bg-zinc-800"
+                  ? "bg-nd-surface text-nd-text-display" 
+                  : "text-nd-text-secondary hover:text-nd-text-primary hover:bg-nd-surface"
                 }
               `}
             >
@@ -433,7 +433,7 @@ function AddAccountForm({ onBankConnected }: { onBankConnected: () => void }) {
           </FormField>
 
           {addressType === "evm" && (
-            <div className="flex items-center gap-2 text-sm text-zinc-400 flex-wrap">
+            <div className="flex items-center gap-2 text-sm text-nd-text-secondary flex-wrap">
               <span>Networks:</span>
               {EVM_NETWORKS.map((net) => (
                 <NetworkBadge key={net} network={net} />
@@ -442,7 +442,7 @@ function AddAccountForm({ onBankConnected }: { onBankConnected: () => void }) {
           )}
 
           {addressType && addressType !== "evm" && (
-            <div className="flex items-center gap-2 text-sm text-zinc-400">
+            <div className="flex items-center gap-2 text-sm text-nd-text-secondary">
               <span>Detected:</span>
               <NetworkBadge network={addressType === "bitcoin" ? "bitcoin" : "solana"} />
             </div>
@@ -593,23 +593,23 @@ export default function AccountsPage() {
     <div className="flex flex-col gap-4 sm:gap-6">
       {/* Add Account Card */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
       >
         <AddAccountForm onBankConnected={handleBankConnected} />
       </motion.div>
 
       {/* Accounts List */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2, ease: "easeOut", delay: 0.05 }}
       >
         <Card>
           <div className="mb-6">
-            <h2 className="text-lg font-semibold text-white mb-1">Your Accounts</h2>
-            <p className="text-zinc-500 text-sm">
+            <h2 className="text-subheading text-nd-text-display mb-1">Your Accounts</h2>
+            <p className="text-nd-text-disabled text-sm">
               {displayItems.length === 0
                 ? "No accounts added yet"
                 : `${displayItems.length} account${displayItems.length === 1 ? "" : "s"} tracked`}
@@ -618,68 +618,62 @@ export default function AccountsPage() {
 
           {displayItems.length === 0 ? (
             <div className="text-center py-12">
-              <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-4">
-                <Wallet className="h-8 w-8 text-zinc-600" />
+              <div className="w-16 h-16 rounded-full bg-nd-surface border border-nd-border flex items-center justify-center mx-auto mb-4">
+                <Wallet className="h-8 w-8 text-nd-text-disabled" />
               </div>
-              <p className="text-zinc-500">Add your first account to start tracking your portfolio.</p>
+              <p className="text-nd-text-disabled">Add your first account to start tracking your portfolio.</p>
             </div>
           ) : (
             <div className="space-y-3">
               <AnimatePresence mode="popLayout">
-                {displayItems.map((item, index) => (
+                {displayItems.map((item) => (
                   <motion.div
                     key={item.id}
                     layout
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    transition={{ duration: 0.3, delay: index * 0.05 }}
-                    className="flex items-center justify-between p-3 sm:p-4 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 transition-colors gap-3"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className="flex items-center justify-between p-3 sm:p-4 rounded-[12px] bg-nd-surface-raised hover:bg-nd-surface border border-nd-border transition-nd gap-3"
                   >
                     <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-900 flex items-center justify-center shrink-0">
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-nd-surface border border-nd-border flex items-center justify-center shrink-0">
                         {item.isBank ? (
-                          <Landmark className="h-5 w-5 text-emerald-400" />
+                          <Landmark className="h-5 w-5 text-nd-success" />
                         ) : item.isBrokerage ? (
-                          <LineChart className="h-5 w-5 text-violet-400" />
+                          <LineChart className="h-5 w-5 text-nd-text-secondary" />
                         ) : (
                           <NetworkIcon network={item.network} />
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium text-white text-sm sm:text-base truncate">
+                          <span className="font-medium text-nd-text-primary text-sm sm:text-base truncate">
                             {item.name}
                           </span>
                           {item.isBank ? (
-                            <span className="text-xs px-2 py-0.5 rounded-full border border-emerald-700/50 text-emerald-400 bg-emerald-500/10">
-                              {item.subtitle || "Bank"}
-                            </span>
+                            <Badge variant="success">{item.subtitle || "Bank"}</Badge>
                           ) : item.isBrokerage ? (
-                            <span className="text-xs px-2 py-0.5 rounded-full border border-violet-700/50 text-violet-400 bg-violet-500/10">
-                              {item.subtitle || "Brokerage"}
-                            </span>
+                            <Badge variant="default">{item.subtitle || "Brokerage"}</Badge>
                           ) : item.isEvm ? (
-                            <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-700 text-zinc-400">
-                              Multi-chain
-                            </span>
+                            <Badge variant="default">Multi-chain</Badge>
                           ) : (
                             <NetworkBadge network={item.network} />
                           )}
                         </div>
                         <div className="flex items-center gap-2">
                           {!item.isBank && !item.isBrokerage && (
-                            <span className="font-mono text-[10px] sm:text-xs text-zinc-500 truncate">
+                            <span className="font-mono text-[10px] sm:text-xs text-nd-text-disabled truncate">
                               {formatAddress(item.address, 6, 4)}
                             </span>
                           )}
                           {item.balance && (
-                            <span className={`text-[10px] sm:text-xs font-medium ${item.isBrokerage ? "text-violet-400" : "text-emerald-400"}`}>
+                            <span className="text-[10px] sm:text-xs font-mono text-nd-success">
                               {item.balance}
                             </span>
                           )}
                           {!item.balance && (
-                            <span className="text-[10px] sm:text-xs text-zinc-600">
+                            <span className="text-[10px] sm:text-xs text-nd-text-disabled">
                               No balance yet
                             </span>
                           )}
@@ -704,7 +698,7 @@ export default function AccountsPage() {
                         type="submit"
                         variant="ghost"
                         size="icon-sm"
-                        className="text-zinc-500 hover:text-red-400 hover:bg-red-500/10"
+                        className="text-nd-text-disabled hover:text-nd-accent hover:bg-nd-accent-subtle"
                         title="Remove account"
                       >
                         <Trash2 className="h-4 w-4" />

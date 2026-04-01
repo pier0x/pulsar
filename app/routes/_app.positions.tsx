@@ -330,7 +330,7 @@ function AssetBadge({ asset }: { asset: string }) {
   const color = ASSET_COLORS[asset] || "#71717a";
   return (
     <span
-      className="text-xs px-2 py-0.5 rounded-full border font-medium"
+      className="text-label px-2 py-0.5 rounded-md border font-mono"
       style={{
         backgroundColor: `${color}15`,
         color: color,
@@ -377,13 +377,13 @@ export default function Positions() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Positions</h1>
+          <h1 className="text-heading text-nd-text-display">Positions</h1>
           <div className="flex items-center gap-3 mt-1">
-            <p className="text-zinc-400 text-sm">
+            <p className="text-nd-text-secondary text-sm">
               Track your cost basis and P&L
             </p>
             {lastPriceUpdate && (
-              <span className="text-zinc-500 text-xs">
+              <span className="text-label text-nd-text-disabled">
                 Prices: <TimeAgo dateStr={lastPriceUpdate} />
               </span>
             )}
@@ -426,11 +426,11 @@ export default function Positions() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
           >
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Add Transaction</CardTitle>
+                <CardTitle className="text-subheading">Add Transaction</CardTitle>
                 <CardDescription>
                   Record a new buy to track your cost basis
                 </CardDescription>
@@ -445,7 +445,7 @@ export default function Positions() {
                         name="asset"
                         placeholder="BTC"
                         required
-                        className="uppercase"
+                        className="uppercase font-mono"
                         style={{ textTransform: "uppercase" }}
                       />
                     </FormField>
@@ -490,7 +490,7 @@ export default function Positions() {
                       />
                     </FormField>
                   </div>
-                  <p className="text-zinc-500 text-xs -mt-2">Fill either price per unit or total cost — the other will be calculated automatically.</p>
+                  <p className="text-label text-nd-text-disabled -mt-2">Fill either price per unit or total cost — the other will be calculated automatically.</p>
                   <FormField label="Note (optional)" htmlFor="note">
                     <Input
                       id="note"
@@ -531,13 +531,13 @@ export default function Positions() {
                     {summary.pnl !== null && (
                       <div className="flex items-center gap-1">
                         {isProfit ? (
-                          <TrendingUp className="size-4 text-emerald-400" />
+                          <TrendingUp className="size-4 text-nd-success" />
                         ) : (
-                          <TrendingDown className="size-4 text-red-400" />
+                          <TrendingDown className="size-4 text-nd-accent" />
                         )}
                         <span
-                          className={`text-sm font-medium ${
-                            isProfit ? "text-emerald-400" : "text-red-400"
+                          className={`text-sm font-mono font-medium ${
+                            isProfit ? "text-nd-success" : "text-nd-accent"
                           }`}
                         >
                           {isProfit ? "+" : ""}
@@ -548,56 +548,56 @@ export default function Positions() {
                   </div>
 
                   <div>
-                    <p className="text-zinc-500 text-xs">Holdings</p>
-                    <p className="text-white font-semibold">
+                    <p className="text-label text-nd-text-disabled">Holdings</p>
+                    <p className="text-nd-text-primary font-mono font-semibold">
                       {formatNumber(summary.totalAmount)} {summary.asset}
                     </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <p className="text-zinc-500 text-xs">Avg Entry</p>
-                      <p className="text-white text-sm font-medium">
+                      <p className="text-label text-nd-text-disabled">Avg Entry</p>
+                      <p className="text-nd-text-primary text-sm font-mono font-medium">
                         {formatUsd(summary.avgEntry)}
                       </p>
                     </div>
                     <div>
-                      <p className="text-zinc-500 text-xs">Current</p>
-                      <p className="text-white text-sm font-medium">
+                      <p className="text-label text-nd-text-disabled">Current</p>
+                      <p className="text-nd-text-primary text-sm font-mono font-medium">
                         {summary.currentPrice !== null
                           ? formatUsd(summary.currentPrice)
                           : isRefreshingPrices
-                          ? <span className="text-zinc-500 animate-pulse">Loading…</span>
-                          : <span className="text-zinc-500">—</span>}
+                          ? <span className="text-nd-text-disabled animate-pulse">Loading…</span>
+                          : <span className="text-nd-text-disabled">—</span>}
                       </p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <p className="text-zinc-500 text-xs">Total Invested</p>
-                      <p className="text-white text-sm font-medium">
+                      <p className="text-label text-nd-text-disabled">Total Invested</p>
+                      <p className="text-nd-text-primary text-sm font-mono font-medium">
                         {formatUsd(summary.totalCost)}
                       </p>
                     </div>
                     <div>
-                      <p className="text-zinc-500 text-xs">Current Value</p>
-                      <p className="text-white text-sm font-medium">
+                      <p className="text-label text-nd-text-disabled">Current Value</p>
+                      <p className="text-nd-text-primary text-sm font-mono font-medium">
                         {summary.currentValue !== null
                           ? formatUsd(summary.currentValue)
                           : isRefreshingPrices
-                          ? <span className="text-zinc-500 animate-pulse">Loading…</span>
-                          : <span className="text-zinc-500">—</span>}
+                          ? <span className="text-nd-text-disabled animate-pulse">Loading…</span>
+                          : <span className="text-nd-text-disabled">—</span>}
                       </p>
                     </div>
                   </div>
 
                   {summary.pnl !== null && (
-                    <div className="pt-2 border-t border-zinc-800">
-                      <p className="text-zinc-500 text-xs">P&L</p>
+                    <div className="pt-2 border-t border-nd-border">
+                      <p className="text-label text-nd-text-disabled">P&L</p>
                       <p
-                        className={`text-lg font-bold ${
-                          isProfit ? "text-emerald-400" : "text-red-400"
+                        className={`text-subheading font-mono ${
+                          isProfit ? "text-nd-success" : "text-nd-accent"
                         }`}
                       >
                         {isProfit ? "+" : ""}
@@ -617,11 +617,11 @@ export default function Positions() {
       {summaries.length === 0 && !showForm && (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <TrendingUp className="size-12 text-zinc-600 mb-4" />
-            <h3 className="text-lg font-semibold text-white mb-2">
+            <TrendingUp className="size-12 text-nd-text-disabled mb-4" />
+            <h3 className="text-subheading text-nd-text-display mb-2">
               No positions yet
             </h3>
-            <p className="text-zinc-400 text-sm mb-4 max-w-sm">
+            <p className="text-nd-text-secondary text-sm mb-4 max-w-sm">
               Start tracking your cost basis by adding your first buy position.
             </p>
             <Button
@@ -639,7 +639,7 @@ export default function Positions() {
       {positions.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Transaction History</CardTitle>
+            <CardTitle className="text-subheading">Transaction History</CardTitle>
             <CardDescription>
               All your recorded buys
             </CardDescription>
@@ -648,35 +648,35 @@ export default function Positions() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="text-left text-xs text-zinc-500 border-b border-zinc-800">
-                    <th className="pb-3 pr-4">Date</th>
-                    <th className="pb-3 pr-4">Asset</th>
-                    <th className="pb-3 pr-4 text-right">Amount</th>
-                    <th className="pb-3 pr-4 text-right">Price</th>
-                    <th className="pb-3 pr-4 text-right">Total Cost</th>
-                    <th className="pb-3 pr-4">Note</th>
+                  <tr className="text-left border-b border-nd-border">
+                    <th className="pb-3 pr-4 text-label text-nd-text-disabled">Date</th>
+                    <th className="pb-3 pr-4 text-label text-nd-text-disabled">Asset</th>
+                    <th className="pb-3 pr-4 text-right text-label text-nd-text-disabled">Amount</th>
+                    <th className="pb-3 pr-4 text-right text-label text-nd-text-disabled">Price</th>
+                    <th className="pb-3 pr-4 text-right text-label text-nd-text-disabled">Total Cost</th>
+                    <th className="pb-3 pr-4 text-label text-nd-text-disabled">Note</th>
                     <th className="pb-3 w-10"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-800/50">
+                <tbody className="divide-y divide-nd-border">
                   {positions.map((pos) => {
                     const totalCost = pos.amount * pos.priceUsd;
                     return (
                       <tr key={pos.id} className="text-sm">
-                        <td className="py-3 pr-4 text-zinc-400">{pos.dateFormatted}</td>
+                        <td className="py-3 pr-4 text-nd-text-secondary font-mono">{pos.dateFormatted}</td>
                         <td className="py-3 pr-4">
                           <AssetBadge asset={pos.asset} />
                         </td>
-                        <td className="py-3 pr-4 text-right text-white font-medium">
+                        <td className="py-3 pr-4 text-right text-nd-text-primary font-mono font-medium">
                           {formatNumber(pos.amount)}
                         </td>
-                        <td className="py-3 pr-4 text-right text-zinc-300">
+                        <td className="py-3 pr-4 text-right text-nd-text-secondary font-mono">
                           {formatUsd(pos.priceUsd)}
                         </td>
-                        <td className="py-3 pr-4 text-right text-white font-medium">
+                        <td className="py-3 pr-4 text-right text-nd-text-primary font-mono font-medium">
                           {formatUsd(totalCost)}
                         </td>
-                        <td className="py-3 pr-4 text-zinc-500 max-w-[200px] truncate">
+                        <td className="py-3 pr-4 text-nd-text-disabled max-w-[200px] truncate">
                           {pos.note || "—"}
                         </td>
                         <td className="py-3">
@@ -687,7 +687,7 @@ export default function Positions() {
                               type="submit"
                               variant="ghost"
                               size="icon-sm"
-                              className="cursor-pointer text-zinc-500 hover:text-red-400"
+                              className="cursor-pointer text-nd-text-disabled hover:text-nd-accent"
                             >
                               <Trash2 className="size-4" />
                             </Button>

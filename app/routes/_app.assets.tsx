@@ -6,7 +6,7 @@ import { Plus, Trash2, Package, TrendingUp, TrendingDown, Clock, ImageIcon, X, P
 import { motion, AnimatePresence } from "framer-motion";
 import { writeFile, mkdir, unlink } from "fs/promises";
 import { join } from "path";
-import { Button, Input, FormField, Alert, Card } from "~/components/ui";
+import { Button, Input, FormField, Alert, Card, Badge } from "~/components/ui";
 import { requireAuth } from "~/lib/auth";
 import { prisma } from "~/lib/db.server";
 import {
@@ -212,9 +212,9 @@ type ManualAsset = {
 
 function CategoryBadge({ category }: { category: string }) {
   return (
-    <span className="text-xs px-2 py-0.5 rounded-full border border-amber-700/50 text-amber-400 bg-amber-500/10">
+    <Badge variant="warning">
       {category.charAt(0).toUpperCase() + category.slice(1)}
-    </span>
+    </Badge>
   );
 }
 
@@ -247,20 +247,21 @@ function EditAssetModal({ asset, currentValue, costBasis, onClose }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/80" />
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-full max-w-md rounded-2xl bg-zinc-900 border border-zinc-800 p-6 shadow-2xl"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
+        className="relative w-full max-w-md rounded-[16px] bg-nd-surface border border-nd-border-visible p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-bold text-white">Edit Asset</h3>
+          <h3 className="text-subheading text-nd-text-display">Edit Asset</h3>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+            className="p-1 rounded-md hover:bg-nd-surface-raised text-nd-text-secondary hover:text-nd-text-primary transition-nd cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
@@ -272,15 +273,15 @@ function EditAssetModal({ asset, currentValue, costBasis, onClose }: {
 
           <div className="flex justify-center">
             <label className="relative group cursor-pointer">
-              <div className="w-24 h-24 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center overflow-hidden group-hover:border-zinc-500 transition-colors">
+              <div className="w-24 h-24 rounded-[12px] bg-nd-surface-raised border border-nd-border flex items-center justify-center overflow-hidden group-hover:border-nd-border-visible transition-nd">
                 {imagePreview ? (
                   <img src={imagePreview} alt="Asset" className="w-full h-full object-cover" />
                 ) : (
-                  <ImageIcon className="h-8 w-8 text-zinc-600" />
+                  <ImageIcon className="h-8 w-8 text-nd-text-disabled" />
                 )}
               </div>
-              <div className="absolute inset-0 rounded-xl flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Pencil className="h-4 w-4 text-white" />
+              <div className="absolute inset-0 rounded-[12px] flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-nd">
+                <Pencil className="h-4 w-4 text-nd-text-primary" />
               </div>
               <input
                 type="file"
@@ -293,23 +294,23 @@ function EditAssetModal({ asset, currentValue, costBasis, onClose }: {
           </div>
 
           <div>
-            <label className="block text-zinc-500 text-sm mb-1.5">Name</label>
+            <label className="block text-label text-nd-text-disabled mb-1.5">Name</label>
             <input
               type="text"
               name="assetName"
               defaultValue={asset.name}
               required
-              className="w-full h-11 px-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600"
+              className="w-full h-11 px-4 rounded-[12px] bg-nd-surface-raised border border-nd-border text-nd-text-primary placeholder:text-nd-text-disabled focus:outline-none focus:border-nd-border-visible"
             />
           </div>
 
           <div>
-            <label className="block text-zinc-500 text-sm mb-1.5">Category</label>
+            <label className="block text-label text-nd-text-disabled mb-1.5">Category</label>
             <select
               name="category"
               defaultValue={asset.category || "watches"}
               required
-              className="w-full h-11 px-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 cursor-pointer"
+              className="w-full h-11 px-4 rounded-[12px] bg-nd-surface-raised border border-nd-border text-nd-text-primary focus:outline-none focus:border-nd-border-visible cursor-pointer"
             >
               <option value="watches">Watches</option>
               <option value="cars">Cars</option>
@@ -318,7 +319,7 @@ function EditAssetModal({ asset, currentValue, costBasis, onClose }: {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-zinc-500 text-sm mb-1.5">Current Value (USD)</label>
+              <label className="block text-label text-nd-text-disabled mb-1.5">Current Value (USD)</label>
               <input
                 type="number"
                 name="currentValue"
@@ -326,11 +327,11 @@ function EditAssetModal({ asset, currentValue, costBasis, onClose }: {
                 min="0"
                 defaultValue={currentValue}
                 required
-                className="w-full h-11 px-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600"
+                className="w-full h-11 px-4 rounded-[12px] bg-nd-surface-raised border border-nd-border text-nd-text-primary placeholder:text-nd-text-disabled focus:outline-none focus:border-nd-border-visible font-mono"
               />
             </div>
             <div>
-              <label className="block text-zinc-500 text-sm mb-1.5">Cost Basis (USD)</label>
+              <label className="block text-label text-nd-text-disabled mb-1.5">Cost Basis (USD)</label>
               <input
                 type="number"
                 name="costBasis"
@@ -338,37 +339,38 @@ function EditAssetModal({ asset, currentValue, costBasis, onClose }: {
                 min="0"
                 defaultValue={costBasis ?? ""}
                 placeholder="Optional"
-                className="w-full h-11 px-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600"
+                className="w-full h-11 px-4 rounded-[12px] bg-nd-surface-raised border border-nd-border text-nd-text-primary placeholder:text-nd-text-disabled focus:outline-none focus:border-nd-border-visible font-mono"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-zinc-500 text-sm mb-1.5">Notes</label>
+            <label className="block text-label text-nd-text-disabled mb-1.5">Notes</label>
             <input
               type="text"
               name="notes"
               defaultValue={asset.notes || ""}
               placeholder="Serial number, purchase date..."
-              className="w-full h-11 px-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600"
+              className="w-full h-11 px-4 rounded-[12px] bg-nd-surface-raised border border-nd-border text-nd-text-primary placeholder:text-nd-text-disabled focus:outline-none focus:border-nd-border-visible"
             />
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button
+            <Button
               type="button"
+              variant="secondary"
               onClick={onClose}
-              className="flex-1 h-11 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-medium transition-colors cursor-pointer"
+              className="flex-1 cursor-pointer"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 h-11 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors cursor-pointer disabled:opacity-50"
+              className="flex-1 cursor-pointer"
             >
               {isSubmitting ? "Saving..." : "Save Changes"}
-            </button>
+            </Button>
           </div>
         </Form>
       </motion.div>
@@ -402,8 +404,8 @@ function AssetCard({ asset }: { asset: ManualAsset }) {
 
   return (
     <>
-      <div className="flex gap-4 p-4 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 transition-colors">
-        <div className="w-16 h-16 rounded-xl bg-zinc-900 border border-zinc-700 flex items-center justify-center shrink-0 overflow-hidden">
+      <div className="flex gap-4 p-4 rounded-[12px] bg-nd-surface-raised hover:bg-nd-surface border border-nd-border transition-nd">
+        <div className="w-16 h-16 rounded-[12px] bg-nd-surface border border-nd-border flex items-center justify-center shrink-0 overflow-hidden">
           {asset.imagePath ? (
             <img
               src={`/api/asset-image/${asset.id}`}
@@ -411,7 +413,7 @@ function AssetCard({ asset }: { asset: ManualAsset }) {
               className="w-full h-full object-cover"
             />
           ) : (
-            <Package className="h-7 w-7 text-zinc-600" />
+            <Package className="h-7 w-7 text-nd-text-disabled" />
           )}
         </div>
 
@@ -419,28 +421,28 @@ function AssetCard({ asset }: { asset: ManualAsset }) {
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap mb-1">
-                <span className="font-medium text-white text-sm">{asset.name}</span>
+                <span className="font-medium text-nd-text-primary text-sm">{asset.name}</span>
                 {asset.category && <CategoryBadge category={asset.category} />}
               </div>
               <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-lg font-bold text-white">
+                <span className="text-subheading text-nd-text-display font-mono">
                   ${currentValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
                 {gain !== null && gainPct !== null && (
-                  <span className={`flex items-center gap-1 text-xs font-medium ${gain >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  <span className={`flex items-center gap-1 text-xs font-mono ${gain >= 0 ? "text-nd-success" : "text-nd-accent"}`}>
                     {gain >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                     {gain >= 0 ? "+" : ""}{gain.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0, style: "currency", currency: "USD" })} ({gain >= 0 ? "+" : ""}{gainPct.toFixed(1)}%)
                   </span>
                 )}
               </div>
               {lastValued && (
-                <div className="flex items-center gap-1 mt-1 text-xs text-zinc-500">
+                <div className="flex items-center gap-1 mt-1 text-label text-nd-text-disabled">
                   <Clock className="h-3 w-3" />
                   <span>Last valued {lastValued}</span>
                 </div>
               )}
               {asset.notes && (
-                <p className="text-xs text-zinc-500 mt-1 truncate">{asset.notes}</p>
+                <p className="text-label text-nd-text-disabled mt-1 truncate">{asset.notes}</p>
               )}
             </div>
 
@@ -448,14 +450,14 @@ function AssetCard({ asset }: { asset: ManualAsset }) {
               <button
                 type="button"
                 onClick={() => setShowEditModal(true)}
-                className="text-xs px-2 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                className="text-label px-2 py-1 rounded-md bg-nd-surface-raised hover:bg-nd-surface border border-nd-border text-nd-text-secondary hover:text-nd-text-primary transition-nd cursor-pointer"
               >
                 Edit
               </button>
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(!showDeleteConfirm)}
-                className="text-xs px-2 py-1 rounded-lg bg-zinc-700 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition-colors cursor-pointer"
+                className="text-label px-2 py-1 rounded-md bg-nd-surface-raised hover:bg-nd-accent-subtle border border-nd-border text-nd-text-secondary hover:text-nd-accent transition-nd cursor-pointer"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -468,17 +470,18 @@ function AssetCard({ asset }: { asset: ManualAsset }) {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
                 className="mt-3 overflow-hidden"
               >
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-zinc-400">Delete this asset?</span>
+                  <span className="text-label text-nd-text-secondary">Delete this asset?</span>
                   <Form method="post" className="inline" onSubmit={() => setShowDeleteConfirm(false)}>
                     <input type="hidden" name="intent" value="delete-asset" />
                     <input type="hidden" name="accountId" value={asset.id} />
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="text-xs px-2 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/40 text-red-400 transition-colors cursor-pointer"
+                      className="text-label px-2 py-1 rounded-md bg-nd-accent-subtle hover:bg-nd-accent text-nd-accent hover:text-nd-text-display transition-nd cursor-pointer"
                     >
                       Confirm Delete
                     </button>
@@ -486,7 +489,7 @@ function AssetCard({ asset }: { asset: ManualAsset }) {
                   <button
                     type="button"
                     onClick={() => setShowDeleteConfirm(false)}
-                    className="text-xs text-zinc-500 hover:text-zinc-300 cursor-pointer"
+                    className="text-label text-nd-text-disabled hover:text-nd-text-secondary cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -555,7 +558,7 @@ function AddAssetForm() {
             id="category"
             name="category"
             required
-            className="w-full h-11 px-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 cursor-pointer"
+            className="w-full h-11 px-4 rounded-[12px] bg-nd-surface-raised border border-nd-border text-nd-text-primary focus:outline-none focus:border-nd-border-visible cursor-pointer"
           >
             <option value="watches">Watches</option>
             <option value="cars">Cars</option>
@@ -592,25 +595,25 @@ function AddAssetForm() {
           name="notes"
           rows={2}
           placeholder="Serial number, purchase date, condition..."
-          className="w-full px-4 py-3 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 resize-none text-sm"
+          className="w-full px-4 py-3 rounded-[12px] bg-nd-surface-raised border border-nd-border text-nd-text-primary placeholder:text-nd-text-disabled focus:outline-none focus:border-nd-border-visible resize-none text-sm"
         />
       </FormField>
 
       <div>
-        <label className="block text-sm font-medium text-zinc-400 mb-1.5">Photo (optional)</label>
+        <label className="block text-label text-nd-text-secondary mb-1.5">Photo (optional)</label>
         <div
-          className="relative flex items-center justify-center gap-3 p-4 rounded-xl border-2 border-dashed border-zinc-700 hover:border-zinc-600 cursor-pointer transition-colors"
+          className="relative flex items-center justify-center gap-3 p-4 rounded-[12px] border-2 border-dashed border-nd-border hover:border-nd-border-visible cursor-pointer transition-nd"
           onClick={() => fileInputRef.current?.click()}
         >
           {imagePreview ? (
             <>
-              <img src={imagePreview} alt="Preview" className="h-16 w-16 rounded-lg object-cover" />
-              <span className="text-sm text-zinc-400">Click to change</span>
+              <img src={imagePreview} alt="Preview" className="h-16 w-16 rounded-md object-cover" />
+              <span className="text-sm text-nd-text-secondary">Click to change</span>
             </>
           ) : (
             <>
-              <ImageIcon className="h-5 w-5 text-zinc-500" />
-              <span className="text-sm text-zinc-500">Click to upload a photo</span>
+              <ImageIcon className="h-5 w-5 text-nd-text-disabled" />
+              <span className="text-sm text-nd-text-disabled">Click to upload a photo</span>
             </>
           )}
           <input
@@ -661,21 +664,21 @@ export default function AssetsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Physical Assets</h1>
-          <p className="text-zinc-500 text-sm mt-1">
+          <h1 className="text-heading text-nd-text-display">Physical Assets</h1>
+          <p className="text-nd-text-disabled text-sm mt-1">
             {typedAssets.length === 0
               ? "Track watches, cars, art, and other valuables"
               : `${typedAssets.length} asset${typedAssets.length === 1 ? "" : "s"} · ${totalValue.toLocaleString("en-US", { style: "currency", currency: "USD" })}`}
           </p>
         </div>
-        <button
+        <Button
           type="button"
           onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors cursor-pointer"
+          className="cursor-pointer"
         >
           <Plus className="h-4 w-4" />
           Add Asset
-        </button>
+        </Button>
       </div>
 
       {/* Add form */}
@@ -685,10 +688,11 @@ export default function AssetsPage() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
             className="overflow-hidden"
           >
             <Card>
-              <h3 className="text-sm font-medium text-white mb-4">New Asset</h3>
+              <h3 className="text-label text-nd-text-secondary mb-4">NEW ASSET</h3>
               <AddAssetForm />
             </Card>
           </motion.div>
@@ -699,25 +703,25 @@ export default function AssetsPage() {
       {typedAssets.length === 0 && !showAddForm ? (
         <Card>
           <div className="text-center py-16">
-            <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-4">
-              <Package className="h-8 w-8 text-zinc-600" />
+            <div className="w-16 h-16 rounded-full bg-nd-surface-raised border border-nd-border flex items-center justify-center mx-auto mb-4">
+              <Package className="h-8 w-8 text-nd-text-disabled" />
             </div>
-            <p className="text-zinc-400 font-medium mb-1">No physical assets yet</p>
-            <p className="text-zinc-500 text-sm">Add your first one to start tracking its value.</p>
+            <p className="text-nd-text-secondary font-medium mb-1">No physical assets yet</p>
+            <p className="text-nd-text-disabled text-sm">Add your first one to start tracking its value.</p>
           </div>
         </Card>
       ) : (
         <Card>
           <div className="space-y-3">
             <AnimatePresence mode="popLayout">
-              {typedAssets.map((asset, index) => (
+              {typedAssets.map((asset) => (
                 <motion.div
                   key={asset.id}
                   layout
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
                 >
                   <AssetCard asset={asset} />
                 </motion.div>

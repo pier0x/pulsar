@@ -1,7 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { useFetcher } from "@remix-run/react";
-import { motion } from "framer-motion";
 import { prisma } from "~/lib/db.server";
 import { hashPassword, validatePassword } from "~/lib/auth";
 import { createLoginSession } from "~/lib/auth";
@@ -10,9 +9,7 @@ import { requireNoOwner } from "~/lib/onboard.server";
 import { Button, Input, FormField, Alert } from "~/components/ui";
 
 export const meta: MetaFunction = () => {
-  return [
-    { title: "Pulsar" },
-  ];
+  return [{ title: "Pulsar" }];
 };
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -70,23 +67,15 @@ export default function OnboardPage() {
   const error = fetcher.data?.error;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
-      >
-        <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-white mb-2">
-              Welcome to Pulsar
-            </h1>
-            <p className="text-zinc-400 text-sm">
-              Create your account to get started.
-            </p>
-          </div>
+    <div className="min-h-screen flex items-center justify-center bg-nd-black p-4">
+      <div className="w-full max-w-md">
+        {/* Hero — Doto wordmark */}
+        <div className="text-center mb-12">
+          <h1 className="text-display-lg text-nd-text-display mb-4">PULSAR</h1>
+          <p className="text-label text-nd-text-secondary">CREATE YOUR ACCOUNT</p>
+        </div>
 
+        <div className="rounded-[16px] bg-nd-surface border border-nd-border-visible p-8">
           <fetcher.Form method="post" className="space-y-5">
             {error && <Alert variant="error">{error}</Alert>}
 
@@ -124,11 +113,11 @@ export default function OnboardPage() {
             </FormField>
 
             <Button type="submit" disabled={isSubmitting} className="w-full">
-              {isSubmitting ? "Setting up..." : "Set up Pulsar"}
+              {isSubmitting ? "SETTING UP..." : "SET UP PULSAR"}
             </Button>
           </fetcher.Form>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

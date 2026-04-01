@@ -24,10 +24,10 @@ function FormField({
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
       {hint && !error && (
-        <p className="text-xs text-zinc-500">{hint}</p>
+        <p className="text-caption text-nd-text-disabled">{hint}</p>
       )}
       {error && (
-        <p className="text-xs text-red-400">{error}</p>
+        <p className="text-caption text-nd-accent">{error}</p>
       )}
     </div>
   );

@@ -1,17 +1,16 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { motion } from "framer-motion";
 import { cn } from "~/lib/utils";
 
 const alertVariants = cva(
-  "text-sm p-4 rounded-xl border",
+  "font-mono text-[13px] tracking-[0.02em] p-4 border rounded-md",
   {
     variants: {
       variant: {
-        default: "bg-zinc-800/50 border-zinc-700 text-zinc-300",
-        error: "bg-red-500/10 border-red-500/20 text-red-400",
-        success: "bg-emerald-500/10 border-emerald-500/20 text-emerald-400",
-        warning: "bg-yellow-500/10 border-yellow-500/20 text-yellow-400",
+        default: "border-nd-border-visible text-nd-text-secondary",
+        error: "border-nd-accent text-nd-accent",
+        success: "border-nd-success text-nd-success",
+        warning: "border-nd-warning text-nd-warning",
       },
     },
     defaultVariants: {
@@ -20,38 +19,38 @@ const alertVariants = cva(
   }
 );
 
+/** Bracket prefix map for each variant */
+const PREFIXES: Record<string, string> = {
+  default: "[INFO]",
+  error: "[ERROR]",
+  success: "[OK]",
+  warning: "[WARN]",
+};
+
 export interface AlertProps
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof alertVariants> {
-  animate?: boolean;
+  /** If true, prepend the bracket prefix automatically */
+  prefixed?: boolean;
 }
 
 function Alert({
   className,
   variant,
-  animate = true,
+  prefixed = true,
   children,
   ...props
 }: AlertProps) {
-  if (animate) {
-    return (
-      <motion.div
-        data-slot="alert"
-        className={cn(alertVariants({ variant }), className)}
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-      >
-        {children}
-      </motion.div>
-    );
-  }
-
+  const v = variant ?? "default";
   return (
     <div
-      data-slot="alert"
-      className={cn(alertVariants({ variant }), className)}
+      role="alert"
+      className={cn(alertVariants({ variant, className }))}
       {...props}
     >
+      {prefixed && (
+        <span className="mr-2 font-bold">{PREFIXES[v]}</span>
+      )}
       {children}
     </div>
   );

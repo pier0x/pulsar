@@ -1,18 +1,23 @@
 import * as React from "react";
 import { cn } from "~/lib/utils";
 
-export interface InputProps extends React.ComponentProps<"input"> {}
+export interface InputProps extends React.ComponentProps<"input"> {
+  /** "underline" = bottom-border only (default), "bordered" = full border */
+  inputStyle?: "underline" | "bordered";
+}
 
-function Input({ className, type, ...props }: InputProps) {
+function Input({ className, type, inputStyle = "bordered", ...props }: InputProps) {
   return (
     <input
       type={type}
       data-slot="input"
       className={cn(
-        "w-full h-11 px-4 rounded-xl bg-zinc-800/50 border border-zinc-700 text-white placeholder:text-zinc-500",
-        "focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600",
-        "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
-        "transition-colors",
+        "w-full h-11 px-4 font-mono text-nd-text-primary placeholder:text-nd-text-disabled bg-transparent",
+        "focus:outline-none transition-nd",
+        "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40",
+        inputStyle === "underline"
+          ? "border-b border-nd-border-visible rounded-none focus:border-nd-text-primary px-0"
+          : "border border-nd-border-visible rounded-md focus:border-nd-text-primary",
         className
       )}
       {...props}

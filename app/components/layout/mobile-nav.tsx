@@ -1,46 +1,61 @@
 import { NavLink } from "@remix-run/react";
-import { HomeIcon, WalletIcon, ChartBarIcon, Cog6ToothIcon, CubeIcon } from "@heroicons/react/24/outline";
-import { HomeIcon as HomeIconSolid, WalletIcon as WalletIconSolid, ChartBarIcon as ChartBarIconSolid, Cog6ToothIcon as Cog6ToothIconSolid, CubeIcon as CubeIconSolid } from "@heroicons/react/24/solid";
+import { LayoutDashboard, Wallet, Box, BarChart3, Settings } from "lucide-react";
 import { cn } from "~/lib/utils";
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: HomeIcon, activeIcon: HomeIconSolid },
-  { name: "Accounts", href: "/accounts", icon: WalletIcon, activeIcon: WalletIconSolid },
-  { name: "Assets", href: "/assets", icon: CubeIcon, activeIcon: CubeIconSolid },
-  { name: "Positions", href: "/positions", icon: ChartBarIcon, activeIcon: ChartBarIconSolid },
-  { name: "Settings", href: "/settings", icon: Cog6ToothIcon, activeIcon: Cog6ToothIconSolid },
+  { name: "Dashboard", href: "/" },
+  { name: "Accounts", href: "/accounts" },
+  { name: "Assets", href: "/assets" },
+  { name: "Positions", href: "/positions" },
+  { name: "Settings", href: "/settings" },
 ];
+
+const icons: Record<string, typeof LayoutDashboard> = {
+  Dashboard: LayoutDashboard,
+  Accounts: Wallet,
+  Assets: Box,
+  Positions: BarChart3,
+  Settings: Settings,
+};
 
 export default function MobileNav() {
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-zinc-900/95 backdrop-blur-lg border-t border-zinc-800 safe-area-bottom">
-      <div className="flex items-center justify-around h-16 px-2">
-        {navigation.map((item) => (
-          <NavLink
-            key={item.name}
-            to={item.href}
-            end={item.href === "/"}
-            className={({ isActive }) =>
-              cn(
-                "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-colors min-w-[64px]",
-                isActive
-                  ? "text-white"
-                  : "text-zinc-500 active:bg-zinc-800"
-              )
-            }
-          >
-            {({ isActive }) => (
-              <>
-                {isActive ? (
-                  <item.activeIcon className="size-6" />
-                ) : (
-                  <item.icon className="size-6" />
-                )}
-                <span className="text-[10px] font-medium">{item.name}</span>
-              </>
-            )}
-          </NavLink>
-        ))}
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-nd-black border-t border-nd-border safe-area-bottom">
+      <div className="flex items-center justify-around h-16 px-1">
+        {navigation.map((item) => {
+          const Icon = icons[item.name];
+          return (
+            <NavLink
+              key={item.name}
+              to={item.href}
+              end={item.href === "/"}
+              className={({ isActive }) =>
+                cn(
+                  "flex flex-col items-center justify-center gap-1.5 px-2 py-2 min-w-[56px] transition-nd relative",
+                  isActive
+                    ? "text-nd-text-display"
+                    : "text-nd-text-disabled"
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {/* Active dot indicator */}
+                  <span
+                    className={cn(
+                      "absolute top-1 w-1 h-1 rounded-full transition-nd",
+                      isActive ? "bg-nd-accent" : "bg-transparent"
+                    )}
+                  />
+                  <Icon size={20} strokeWidth={1.5} />
+                  <span className="text-[10px] font-mono uppercase tracking-[0.06em]">
+                    {item.name}
+                  </span>
+                </>
+              )}
+            </NavLink>
+          );
+        })}
       </div>
     </nav>
   );

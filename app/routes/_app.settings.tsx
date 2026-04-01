@@ -251,11 +251,11 @@ function formatTimestamp(ts: string) {
   });
 }
 
-const BADGE_COLORS: Record<string, string> = {
-  onchain: "bg-blue-500/15 text-blue-400 border border-blue-500/30",
-  bank: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30",
-  brokerage: "bg-purple-500/15 text-purple-400 border border-purple-500/30",
-  manual: "bg-amber-500/15 text-amber-400 border border-amber-500/30",
+const TYPE_VARIANT: Record<string, "default" | "active" | "success" | "warning" | "destructive"> = {
+  onchain: "active",
+  bank: "success",
+  brokerage: "default",
+  manual: "warning",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -266,8 +266,14 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 function TypeBadge({ type }: { type: string }) {
+  const variant = TYPE_VARIANT[type] ?? "default";
   return (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${BADGE_COLORS[type] ?? "bg-zinc-700 text-zinc-300"}`}>
+    <span className={`text-label px-2 py-0.5 rounded-md border ${
+      variant === "active" ? "border-nd-border-visible text-nd-text-secondary" :
+      variant === "success" ? "border-nd-success/30 text-nd-success" :
+      variant === "warning" ? "border-nd-warning/30 text-nd-warning" :
+      "border-nd-border text-nd-text-disabled"
+    }`}>
       {TYPE_LABELS[type] ?? type}
     </span>
   );
@@ -275,35 +281,35 @@ function TypeBadge({ type }: { type: string }) {
 
 function SnapshotItemDetail({ snapshot }: { snapshot: SnapshotItem }) {
   return (
-    <div className="rounded-xl bg-zinc-800/40 border border-zinc-700/30 p-3 space-y-2">
+    <div className="rounded-[12px] bg-nd-surface-raised border border-nd-border p-3 space-y-2">
       <div className="flex items-center gap-2">
-        <span className="text-sm font-medium text-white truncate">{snapshot.account.name}</span>
+        <span className="text-sm font-medium text-nd-text-primary truncate">{snapshot.account.name}</span>
         <TypeBadge type={snapshot.account.type} />
       </div>
       <div className="flex justify-between text-sm">
-        <span className="text-zinc-400">Total value</span>
-        <span className="text-white font-medium">{formatUsd(snapshot.totalUsdValue)}</span>
+        <span className="text-nd-text-secondary">Total value</span>
+        <span className="text-nd-text-primary font-mono font-medium">{formatUsd(snapshot.totalUsdValue)}</span>
       </div>
       {snapshot.account.type === "onchain" && (
         <>
           {snapshot.nativeBalanceUsd != null && (
             <div className="flex justify-between text-sm">
-              <span className="text-zinc-400">Native (USD)</span>
-              <span className="text-zinc-300">{formatUsd(snapshot.nativeBalanceUsd)}</span>
+              <span className="text-nd-text-secondary">Native (USD)</span>
+              <span className="text-nd-text-secondary font-mono">{formatUsd(snapshot.nativeBalanceUsd)}</span>
             </div>
           )}
           {snapshot.tokensUsdValue != null && snapshot.tokensUsdValue > 0 && (
             <div className="flex justify-between text-sm">
-              <span className="text-zinc-400">Tokens (USD)</span>
-              <span className="text-zinc-300">{formatUsd(snapshot.tokensUsdValue)}</span>
+              <span className="text-nd-text-secondary">Tokens (USD)</span>
+              <span className="text-nd-text-secondary font-mono">{formatUsd(snapshot.tokensUsdValue)}</span>
             </div>
           )}
           {snapshot.tokenSnapshots.length > 0 && (
             <div className="pl-2 space-y-1 max-h-32 overflow-y-auto">
               {snapshot.tokenSnapshots.map((t) => (
                 <div key={t.id} className="flex justify-between text-xs">
-                  <span className="text-zinc-400">{t.symbol}</span>
-                  <span className="text-zinc-500">{formatUsd(t.balanceUsd)}</span>
+                  <span className="text-nd-text-secondary font-mono">{t.symbol}</span>
+                  <span className="text-nd-text-disabled font-mono">{formatUsd(t.balanceUsd)}</span>
                 </div>
               ))}
             </div>
@@ -314,14 +320,14 @@ function SnapshotItemDetail({ snapshot }: { snapshot: SnapshotItem }) {
         <>
           {snapshot.currentBalance != null && (
             <div className="flex justify-between text-sm">
-              <span className="text-zinc-400">Current balance</span>
-              <span className="text-zinc-300">{formatUsd(snapshot.currentBalance)}</span>
+              <span className="text-nd-text-secondary">Current balance</span>
+              <span className="text-nd-text-secondary font-mono">{formatUsd(snapshot.currentBalance)}</span>
             </div>
           )}
           {snapshot.availableBalance != null && (
             <div className="flex justify-between text-sm">
-              <span className="text-zinc-400">Available balance</span>
-              <span className="text-zinc-300">{formatUsd(snapshot.availableBalance)}</span>
+              <span className="text-nd-text-secondary">Available balance</span>
+              <span className="text-nd-text-secondary font-mono">{formatUsd(snapshot.availableBalance)}</span>
             </div>
           )}
         </>
@@ -330,22 +336,22 @@ function SnapshotItemDetail({ snapshot }: { snapshot: SnapshotItem }) {
         <>
           {snapshot.holdingsValue != null && (
             <div className="flex justify-between text-sm">
-              <span className="text-zinc-400">Holdings value</span>
-              <span className="text-zinc-300">{formatUsd(snapshot.holdingsValue)}</span>
+              <span className="text-nd-text-secondary">Holdings value</span>
+              <span className="text-nd-text-secondary font-mono">{formatUsd(snapshot.holdingsValue)}</span>
             </div>
           )}
           {snapshot.cashBalance != null && (
             <div className="flex justify-between text-sm">
-              <span className="text-zinc-400">Cash balance</span>
-              <span className="text-zinc-300">{formatUsd(snapshot.cashBalance)}</span>
+              <span className="text-nd-text-secondary">Cash balance</span>
+              <span className="text-nd-text-secondary font-mono">{formatUsd(snapshot.cashBalance)}</span>
             </div>
           )}
           {snapshot.holdings.length > 0 && (
             <div className="pl-2 space-y-1 max-h-32 overflow-y-auto">
               {snapshot.holdings.map((h) => (
                 <div key={h.id} className="flex justify-between text-xs">
-                  <span className="text-zinc-400">{h.ticker}</span>
-                  <span className="text-zinc-500">{formatUsd(h.valueUsd)}</span>
+                  <span className="text-nd-text-secondary font-mono">{h.ticker}</span>
+                  <span className="text-nd-text-disabled font-mono">{formatUsd(h.valueUsd)}</span>
                 </div>
               ))}
             </div>
@@ -373,42 +379,43 @@ function RunGroupModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/80" onClick={onClose} />
 
       {/* Modal */}
       <motion.div
-        className="relative z-10 w-full max-w-lg rounded-2xl bg-zinc-900 border border-zinc-800 p-6 shadow-2xl max-h-[85vh] flex flex-col"
-        initial={{ scale: 0.95, opacity: 0, y: 8 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0, y: 8 }}
-        transition={{ duration: 0.15 }}
+        className="relative z-10 w-full max-w-lg rounded-[16px] bg-nd-surface border border-nd-border-visible p-6 max-h-[85vh] flex flex-col"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
       >
         {/* Header */}
         <div className="flex items-start justify-between mb-4 shrink-0">
           <div>
-            <h3 className="text-lg font-semibold text-white">Refresh Run</h3>
-            <p className="text-zinc-500 text-sm mt-0.5">{formatTimestamp(group.timestamp)}</p>
+            <h3 className="text-subheading text-nd-text-display">Refresh Run</h3>
+            <p className="text-nd-text-disabled text-sm mt-0.5">{formatTimestamp(group.timestamp)}</p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+            className="p-1.5 rounded-md hover:bg-nd-surface-raised text-nd-text-secondary hover:text-nd-text-primary transition-nd cursor-pointer"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Summary */}
-        <div className="rounded-xl bg-zinc-800/50 border border-zinc-700/50 p-4 mb-4 shrink-0">
+        <div className="rounded-[12px] bg-nd-surface-raised border border-nd-border p-4 mb-4 shrink-0">
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-zinc-500 text-xs mb-1">Total Portfolio Value</p>
-              <p className="text-2xl font-bold text-white">{formatUsd(group.totalValue)}</p>
+              <p className="text-label text-nd-text-disabled mb-1">Total Portfolio Value</p>
+              <p className="text-heading text-nd-text-display font-mono">{formatUsd(group.totalValue)}</p>
             </div>
             <div className="text-right">
-              <p className="text-zinc-500 text-xs mb-1">Accounts</p>
-              <p className="text-xl font-semibold text-white">{group.accountCount}</p>
+              <p className="text-label text-nd-text-disabled mb-1">Accounts</p>
+              <p className="text-subheading text-nd-text-display font-mono">{group.accountCount}</p>
             </div>
           </div>
         </div>
@@ -421,21 +428,21 @@ function RunGroupModal({
         </div>
 
         {/* Delete */}
-        <div className="pt-3 border-t border-zinc-800 shrink-0">
+        <div className="pt-3 border-t border-nd-border shrink-0">
           {confirmDelete ? (
             <div className="flex items-center gap-2">
-              <p className="text-sm text-zinc-400 flex-1">
+              <p className="text-sm text-nd-text-secondary flex-1">
                 Delete {group.accountCount} snapshot{group.accountCount !== 1 ? "s" : ""}?
               </p>
               <button
                 onClick={() => setConfirmDelete(false)}
-                className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-md bg-nd-surface-raised hover:bg-nd-surface border border-nd-border text-nd-text-secondary text-sm transition-nd cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={() => onDelete(group)}
-                className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-md bg-nd-accent hover:bg-nd-accent/80 text-nd-text-display text-sm transition-nd cursor-pointer"
               >
                 Delete
               </button>
@@ -443,7 +450,7 @@ function RunGroupModal({
           ) : (
             <button
               onClick={() => setConfirmDelete(true)}
-              className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+              className="flex items-center gap-2 text-sm text-nd-accent hover:text-nd-accent/80 transition-nd cursor-pointer"
             >
               <Trash2 className="h-4 w-4" />
               Delete run ({group.accountCount} snapshot{group.accountCount !== 1 ? "s" : ""})
@@ -491,12 +498,12 @@ export default function SettingsPage() {
       {/* Settings Card */}
       <Card>
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 rounded-lg bg-purple-500/10">
-            <Settings className="h-5 w-5 text-purple-400" />
+          <div className="p-2 rounded-md bg-nd-surface-raised">
+            <Settings className="h-5 w-5 text-nd-text-secondary" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">Settings</h2>
-            <p className="text-zinc-500 text-sm">Configure your preferences</p>
+            <h2 className="text-subheading text-nd-text-display">Settings</h2>
+            <p className="text-nd-text-disabled text-sm">Configure your preferences</p>
           </div>
         </div>
 
@@ -523,7 +530,7 @@ export default function SettingsPage() {
             hint="Tokens below this USD value will be hidden"
           >
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">$</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-nd-text-disabled">$</span>
               <Input
                 id="tokenThreshold"
                 name="tokenThreshold"
@@ -545,12 +552,12 @@ export default function SettingsPage() {
       {/* Change Password */}
       <Card>
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 rounded-lg bg-amber-500/10">
-            <Lock className="h-5 w-5 text-amber-400" />
+          <div className="p-2 rounded-md bg-nd-surface-raised">
+            <Lock className="h-5 w-5 text-nd-text-secondary" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">Change Password</h2>
-            <p className="text-zinc-500 text-sm">Update your account password</p>
+            <h2 className="text-subheading text-nd-text-display">Change Password</h2>
+            <p className="text-nd-text-disabled text-sm">Update your account password</p>
           </div>
         </div>
 
@@ -603,17 +610,17 @@ export default function SettingsPage() {
       {/* Refresh History */}
       <Card>
         <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 rounded-lg bg-blue-500/10">
-            <Clock className="h-5 w-5 text-blue-400" />
+          <div className="p-2 rounded-md bg-nd-surface-raised">
+            <Clock className="h-5 w-5 text-nd-text-secondary" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">Refresh History</h2>
-            <p className="text-zinc-500 text-sm">{groups.length} run{groups.length !== 1 ? "s" : ""}</p>
+            <h2 className="text-subheading text-nd-text-display">Refresh History</h2>
+            <p className="text-nd-text-disabled text-sm">{groups.length} run{groups.length !== 1 ? "s" : ""}</p>
           </div>
         </div>
 
         {groups.length === 0 ? (
-          <p className="text-zinc-500 text-sm text-center py-6">
+          <p className="text-nd-text-disabled text-sm text-center py-6">
             No snapshots yet. Use the refresh button in the navbar to update your balances.
           </p>
         ) : (
@@ -621,25 +628,25 @@ export default function SettingsPage() {
             {groups.map((group) => (
               <div key={group.groupKey}>
                 <div
-                  className="flex items-center gap-4 px-4 py-3.5 rounded-xl bg-zinc-800/40 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/70 transition-all cursor-pointer group"
+                  className="flex items-center gap-4 px-4 py-3.5 rounded-[12px] bg-nd-surface-raised border border-nd-border hover:border-nd-border-visible hover:bg-nd-surface transition-nd cursor-pointer group"
                   onClick={() => setSelectedGroup(group)}
                 >
                   {/* Left: timestamp + account count */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white font-medium">{formatTimestamp(group.timestamp)}</p>
-                    <p className="text-xs text-zinc-500 mt-1">
+                    <p className="text-sm text-nd-text-primary font-medium">{formatTimestamp(group.timestamp)}</p>
+                    <p className="text-label text-nd-text-disabled mt-1">
                       {group.accountCount} account{group.accountCount !== 1 ? "s" : ""} refreshed
                     </p>
                   </div>
 
                   {/* Right: total value + actions */}
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-sm font-semibold text-white">
+                    <span className="text-sm font-mono font-semibold text-nd-text-display">
                       {formatUsd(group.totalValue)}
                     </span>
                     <button
                       onClick={(e) => handleRowDeleteClick(e, group.groupKey)}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-500/20 text-zinc-500 hover:text-red-400 transition-all cursor-pointer"
+                      className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-nd-accent-subtle text-nd-text-disabled hover:text-nd-accent transition-nd cursor-pointer"
                       title="Delete run"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -654,21 +661,22 @@ export default function SettingsPage() {
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
                       className="overflow-hidden"
                     >
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 mb-1">
-                        <p className="text-sm text-red-300 flex-1">
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-[12px] bg-nd-accent-subtle border border-nd-accent/20 mb-1">
+                        <p className="text-sm text-nd-accent flex-1">
                           Delete {group.accountCount} snapshot{group.accountCount !== 1 ? "s" : ""}?
                         </p>
                         <button
                           onClick={() => setConfirmDeleteKey(null)}
-                          className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs transition-colors cursor-pointer"
+                          className="px-2.5 py-1 rounded-md bg-nd-surface-raised hover:bg-nd-surface border border-nd-border text-nd-text-secondary text-xs transition-nd cursor-pointer"
                         >
                           Cancel
                         </button>
                         <button
                           onClick={() => handleDeleteGroup(group)}
-                          className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs transition-colors cursor-pointer"
+                          className="px-2.5 py-1 rounded-md bg-nd-accent hover:bg-nd-accent/80 text-nd-text-display text-xs transition-nd cursor-pointer"
                         >
                           Delete
                         </button>

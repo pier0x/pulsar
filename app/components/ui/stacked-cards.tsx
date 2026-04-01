@@ -1,8 +1,6 @@
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Plus, Wallet } from "lucide-react";
-import { Link } from "@remix-run/react";
 import { cn } from "~/lib/utils";
+import { Wallet } from "lucide-react";
+import { Link } from "@remix-run/react";
 
 export interface WalletData {
   id: string;
@@ -19,220 +17,68 @@ interface StackedCardsProps {
   className?: string;
 }
 
-// Chain colors for visual distinction
-const chainColors: Record<string, string> = {
-  ethereum: "bg-blue-500",
-  polygon: "bg-purple-500",
-  arbitrum: "bg-blue-400",
-  optimism: "bg-red-500",
-  base: "bg-blue-600",
-  solana: "bg-gradient-to-r from-purple-500 to-teal-400",
-  bitcoin: "bg-orange-500",
-  avalanche: "bg-red-600",
-};
-
-function getChainColor(chain: string): string {
-  return chainColors[chain.toLowerCase()] || "bg-zinc-500";
-}
-
-function truncateAddress(address: string): string {
-  if (address.length <= 12) return address;
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+function formatAddress(addr: string): string {
+  if (!addr || addr.length <= 12) return addr;
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
 export function StackedCards({ wallets, className }: StackedCardsProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  const handlePrevious = () => {
-    setCurrentIndex((prev) => (prev === 0 ? wallets.length - 1 : prev - 1));
-  };
-
-  const handleNext = () => {
-    setCurrentIndex((prev) => (prev === wallets.length - 1 ? 0 : prev + 1));
-  };
-
-  // Empty state
-  if (wallets.length === 0) {
-    return (
-      <div
-        className={cn(
-          "relative w-full h-full flex flex-col justify-center",
-          className
-        )}
-      >
-        <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-8">
-          <div className="flex flex-col items-center justify-center text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center">
-              <Wallet className="w-6 h-6 text-zinc-500" />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-lg font-medium text-white">No wallets yet</h3>
-              <p className="text-sm text-zinc-500">
-                Add your first wallet to start tracking your portfolio
-              </p>
-            </div>
-            <Link
-              to="/accounts"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Add Account
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Get visible cards starting from current index (max 3)
-  const getVisibleCards = () => {
-    const visible: { wallet: WalletData; stackIndex: number }[] = [];
-    for (let i = 0; i < Math.min(3, wallets.length); i++) {
-      const walletIndex = (currentIndex + i) % wallets.length;
-      visible.push({ wallet: wallets[walletIndex], stackIndex: i });
-    }
-    return visible;
-  };
-
-  const visibleCards = getVisibleCards();
-
   return (
-    <div className={cn("relative w-full h-full flex flex-col", className)}>
-      {/* Cards stack - mt-12 makes room for back cards peeking above */}
-      <div className="relative mt-12">
-        <AnimatePresence mode="popLayout">
-          {visibleCards
-            .slice()
-            .reverse()
-            .map(({ wallet, stackIndex }) => {
-              const isTop = stackIndex === 0;
-
-              return (
-                <motion.div
-                  key={wallet.id}
-                  layout
-                  initial={{
-                    y: -stackIndex * 24,
-                    scale: 1 - stackIndex * 0.03,
-                    opacity: 0,
-                  }}
-                  animate={{
-                    y: -stackIndex * 24,
-                    scale: 1 - stackIndex * 0.03,
-                    opacity: 1,
-                  }}
-                  exit={{
-                    y: 50,
-                    scale: 0.95,
-                    opacity: 0,
-                  }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 30,
-                    mass: 1,
-                  }}
-                  className={cn(
-                    "rounded-2xl bg-zinc-900 border border-zinc-800",
-                    isTop
-                      ? "relative"
-                      : "absolute inset-x-0 top-0 pointer-events-none"
-                  )}
-                  style={{
-                    zIndex: 3 - stackIndex,
-                  }}
-                >
-                  {/* Card header with chain and address */}
-                  <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b border-zinc-800">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          "w-2 h-2 rounded-full",
-                          getChainColor(wallet.chain)
-                        )}
-                      />
-                      <span className="text-zinc-400 text-xs sm:text-sm capitalize">
-                        {wallet.chain}
-                      </span>
-                    </div>
-                    <span className="text-zinc-500 text-xs sm:text-sm font-mono">
-                      {truncateAddress(wallet.address)}
-                    </span>
-                  </div>
-
-                  {/* Card content - only fully visible on top card */}
-                  {isTop && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.1, duration: 0.2 }}
-                      className="px-4 sm:px-5 py-4 sm:py-5 space-y-3 sm:space-y-4"
-                    >
-                      <div className="space-y-1">
-                        <h3 className="text-lg sm:text-xl font-semibold text-white">
-                          {wallet.name}
-                        </h3>
-                        <p className="text-zinc-500 text-xs sm:text-sm">Wallet</p>
-                      </div>
-
-                      <div className="space-y-1">
-                        <p className="text-xl sm:text-2xl font-bold text-white">
-                          {wallet.balanceUsd}
-                        </p>
-                        <p className="text-zinc-400 text-xs sm:text-sm">{wallet.balance}</p>
-                      </div>
-                    </motion.div>
-                  )}
-                </motion.div>
-              );
-            })}
-        </AnimatePresence>
+    <div
+      className={cn(
+        "rounded-[12px] bg-nd-surface border border-nd-border p-4 sm:p-6 h-full",
+        className
+      )}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-label text-nd-text-secondary">ACCOUNTS</p>
+        <span className="font-mono text-[11px] text-nd-text-disabled tabular-nums">
+          {wallets.length}
+        </span>
       </div>
 
-      {/* Spacer to push navigation to bottom */}
-      <div className="flex-1" />
-
-      {/* Navigation buttons */}
-      {wallets.length > 1 && (
-        <div className="flex items-center justify-center gap-4 pt-4">
-          <button
-            onClick={handlePrevious}
-            className="p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
-            aria-label="Previous wallet"
+      {wallets.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-8">
+          <Wallet size={24} strokeWidth={1.5} className="text-nd-text-disabled mb-3" />
+          <p className="text-caption text-nd-text-disabled mb-3">No accounts yet</p>
+          <Link
+            to="/accounts"
+            className="font-mono text-[11px] uppercase tracking-[0.06em] text-nd-interactive hover:underline"
           >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-
-          {/* Counter for many wallets, dots for few */}
-          {wallets.length <= 5 ? (
-            <div className="flex items-center gap-2">
-              {wallets.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentIndex(index)}
-                  className={cn(
-                    "w-2 h-2 rounded-full transition-all duration-300",
-                    index === currentIndex
-                      ? "bg-blue-500 w-4"
-                      : "bg-zinc-600 hover:bg-zinc-500"
-                  )}
-                  aria-label={`Go to wallet ${index + 1}`}
-                />
-              ))}
+            ADD ACCOUNT →
+          </Link>
+        </div>
+      ) : (
+        <div className="space-y-0 max-h-[300px] overflow-y-auto">
+          {wallets.map((w, i) => (
+            <div
+              key={w.id}
+              className={cn(
+                "flex items-center justify-between py-2.5",
+                i < wallets.length - 1 && "border-b border-nd-border"
+              )}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-body-sm text-nd-text-primary truncate">
+                    {w.name}
+                  </span>
+                  <span className="text-[10px] font-mono uppercase text-nd-text-disabled">
+                    {w.chain}
+                  </span>
+                </div>
+                {w.address && !w.address.startsWith("/") && !w.address.startsWith("$") && (
+                  <span className="font-mono text-[10px] text-nd-text-disabled">
+                    {formatAddress(w.address)}
+                  </span>
+                )}
+              </div>
+              <span className="font-mono text-[14px] text-nd-text-primary shrink-0 ml-3">
+                {w.balanceUsd}
+              </span>
             </div>
-          ) : (
-            <span className="text-zinc-400 text-sm tabular-nums min-w-16 text-center">
-              {currentIndex + 1} / {wallets.length}
-            </span>
-          )}
-
-          <button
-            onClick={handleNext}
-            className="p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
-            aria-label="Next wallet"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
+          ))}
         </div>
       )}
     </div>

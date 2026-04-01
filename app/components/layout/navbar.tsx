@@ -1,34 +1,47 @@
 import { useState, useEffect, useRef } from "react";
-import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { Form, useLocation, useFetcher } from "@remix-run/react";
-import { ArrowPathIcon, XMarkIcon, CheckCircleIcon, ExclamationCircleIcon } from "@heroicons/react/24/outline";
-import { ChevronDownIcon, UserCircleIcon } from "@heroicons/react/20/solid";
+import { RefreshCw, X, CheckCircle, AlertCircle, ChevronDown, LogOut, User } from "lucide-react";
 import { Logo } from "../ui";
 import { NETWORK_INFO, type WalletNetwork } from "~/lib/wallet";
+import { cn } from "~/lib/utils";
 
-// Map routes to page titles
+// --- Helpers ---
+
 function getPageTitle(pathname: string): string {
   const titles: Record<string, string> = {
     "/": "Dashboard",
     "/accounts": "Accounts",
+    "/assets": "Assets",
+    "/positions": "Positions",
     "/settings": "Settings",
-    "/wallets": "Wallets",
-    "/history": "History",
-    "/analytics": "Analytics",
   };
-  
-  if (titles[pathname]) {
-    return titles[pathname];
-  }
-  
+  if (titles[pathname]) return titles[pathname];
   for (const [path, title] of Object.entries(titles)) {
-    if (pathname.startsWith(path) && path !== "/") {
-      return title;
-    }
+    if (pathname.startsWith(path) && path !== "/") return title;
   }
-  
   return "Dashboard";
 }
+
+function formatRelativeTime(timestamp: string): string {
+  const diffMs = Date.now() - new Date(timestamp).getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "JUST NOW";
+  if (diffMin < 60) return `${diffMin}M AGO`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `${diffH}H AGO`;
+  return `${Math.floor(diffH / 24)}D AGO`;
+}
+
+function formatAddress(addr: string): string {
+  if (!addr || addr.length <= 12) return addr;
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
+function getInitials(username: string): string {
+  return username.slice(0, 2).toUpperCase();
+}
+
+// --- Types ---
 
 interface User {
   id: string;
@@ -58,27 +71,6 @@ interface NavbarProps {
   lastRefresh?: LastRefreshData | null;
 }
 
-// Generate initials from username (fallback if no avatar)
-function getInitials(username: string): string {
-  return username.slice(0, 2).toUpperCase();
-}
-
-// Generate a consistent color based on username (fallback)
-function getAvatarColor(username: string): string {
-  const colors = [
-    "bg-blue-600",
-    "bg-purple-600",
-    "bg-emerald-600",
-    "bg-orange-600",
-    "bg-pink-600",
-    "bg-cyan-600",
-    "bg-indigo-600",
-    "bg-rose-600",
-  ];
-  const index = username.charCodeAt(0) % colors.length;
-  return colors[index];
-}
-
 interface RefreshResponse {
   success?: boolean;
   error?: string;
@@ -90,32 +82,9 @@ interface RefreshResponse {
   accounts?: AccountResult[];
 }
 
-function formatAddress(addr: string): string {
-  if (!addr || addr.length <= 12) return addr;
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-}
+// --- Refresh Results Panel ---
 
-function formatRelativeTime(timestamp: string): string {
-  const now = Date.now();
-  const then = new Date(timestamp).getTime();
-  const diffMs = now - then;
-  const diffMin = Math.floor(diffMs / 60000);
-
-  if (diffMin < 1) return "Just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-
-  // Over 1 hour: show date/time
-  const d = new Date(timestamp);
-  return d.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
-function WalletResultsPanel({
+function RefreshPanel({
   isRefreshing,
   headerLabel,
   result,
@@ -127,15 +96,15 @@ function WalletResultsPanel({
   onClose: () => void;
 }) {
   return (
-    <div className="absolute right-0 top-full mt-2 w-80 rounded-xl bg-zinc-900 border border-zinc-800 shadow-2xl z-50 overflow-hidden">
+    <div className="absolute right-0 top-full mt-2 w-80 bg-nd-surface border border-nd-border-visible rounded-[12px] z-50 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-        <span className="text-sm font-medium text-white">{headerLabel}</span>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-nd-border">
+        <span className="text-label text-nd-text-secondary">{headerLabel}</span>
         <button
           onClick={onClose}
-          className="p-1 text-zinc-500 hover:text-white transition-colors cursor-pointer rounded-md hover:bg-zinc-800"
+          className="p-1 text-nd-text-secondary hover:text-nd-text-primary transition-nd cursor-pointer"
         >
-          <XMarkIcon className="size-4" />
+          <X size={14} strokeWidth={1.5} />
         </button>
       </div>
 
@@ -143,20 +112,20 @@ function WalletResultsPanel({
       <div className="max-h-64 overflow-y-auto">
         {isRefreshing && !result && (
           <div className="flex items-center gap-3 px-4 py-6">
-            <ArrowPathIcon className="size-5 text-blue-400 animate-spin shrink-0" />
-            <span className="text-sm text-zinc-400">Refreshing all accounts…</span>
+            <RefreshCw size={16} strokeWidth={1.5} className="text-nd-text-secondary animate-spin shrink-0" />
+            <span className="text-caption text-nd-text-secondary">[SYNCING...]</span>
           </div>
         )}
 
         {result?.error && (
           <div className="flex items-center gap-3 px-4 py-4">
-            <ExclamationCircleIcon className="size-5 text-red-400 shrink-0" />
-            <span className="text-sm text-red-400">{result.error}</span>
+            <AlertCircle size={16} strokeWidth={1.5} className="text-nd-accent shrink-0" />
+            <span className="text-caption text-nd-accent">{result.error}</span>
           </div>
         )}
 
         {result?.accounts && result.accounts.length > 0 && (
-          <div className="divide-y divide-zinc-800/50">
+          <div className="divide-y divide-nd-border">
             {result.accounts.map((w, i) => {
               const info = NETWORK_INFO[w.network as WalletNetwork];
               const networkName = info?.displayName || w.network;
@@ -165,26 +134,26 @@ function WalletResultsPanel({
               return (
                 <div key={`${w.network}-${w.address}-${i}`} className="flex items-center gap-3 px-4 py-2.5">
                   {isSuccess ? (
-                    <CheckCircleIcon className="size-4 text-emerald-400 shrink-0" />
+                    <CheckCircle size={14} strokeWidth={1.5} className="text-nd-success shrink-0" />
                   ) : (
-                    <ExclamationCircleIcon className="size-4 text-red-400 shrink-0" />
+                    <AlertCircle size={14} strokeWidth={1.5} className="text-nd-accent shrink-0" />
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-white">
+                      <span className="font-mono text-[12px] text-nd-text-primary">
                         {w.name || networkName}
                       </span>
-                      <span className="text-[10px] text-zinc-500">
+                      <span className="text-[10px] text-nd-text-disabled font-mono uppercase">
                         {networkName}
                       </span>
                     </div>
                     {isSuccess && w.totalUsd !== undefined && (
-                      <span className="text-[11px] text-zinc-400">
+                      <span className="font-mono text-[11px] text-nd-text-secondary">
                         ${w.totalUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     )}
                     {!isSuccess && w.error && (
-                      <span className="text-[11px] text-red-400/70 truncate block">{w.error}</span>
+                      <span className="text-[11px] text-nd-accent/70 truncate block font-mono">{w.error}</span>
                     )}
                   </div>
                 </div>
@@ -195,20 +164,20 @@ function WalletResultsPanel({
 
         {result?.accounts && result.accounts.length === 0 && (
           <div className="px-4 py-6 text-center">
-            <span className="text-sm text-zinc-500">No accounts to refresh</span>
+            <span className="text-caption text-nd-text-disabled">No accounts to refresh</span>
           </div>
         )}
       </div>
 
       {/* Footer */}
       {result && !result.error && (
-        <div className="px-4 py-2.5 border-t border-zinc-800 flex items-center justify-between">
-          <span className="text-[11px] text-zinc-500">
-            {result.accountsSucceeded}/{result.accountsAttempted} accounts
+        <div className="px-4 py-2.5 border-t border-nd-border flex items-center justify-between">
+          <span className="text-label text-nd-text-disabled">
+            {result.accountsSucceeded}/{result.accountsAttempted} ACCOUNTS
           </span>
           {result.durationMs && (
-            <span className="text-[11px] text-zinc-500">
-              {(result.durationMs / 1000).toFixed(1)}s
+            <span className="text-label text-nd-text-disabled">
+              {(result.durationMs / 1000).toFixed(1)}S
             </span>
           )}
         </div>
@@ -216,6 +185,8 @@ function WalletResultsPanel({
     </div>
   );
 }
+
+// --- Refresh Button ---
 
 function RefreshButton({ lastRefresh }: { lastRefresh?: LastRefreshData | null }) {
   const fetcher = useFetcher<RefreshResponse>();
@@ -225,14 +196,12 @@ function RefreshButton({ lastRefresh }: { lastRefresh?: LastRefreshData | null }
   const [lastResult, setLastResult] = useState<RefreshResponse | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Store result when refresh completes
   useEffect(() => {
     if (fetcher.data && fetcher.state === "idle") {
       setLastResult(fetcher.data);
     }
   }, [fetcher.data, fetcher.state]);
 
-  // Open panel when refresh starts
   useEffect(() => {
     if (isRefreshing) {
       setPanelMode("live");
@@ -240,7 +209,6 @@ function RefreshButton({ lastRefresh }: { lastRefresh?: LastRefreshData | null }
     }
   }, [isRefreshing]);
 
-  // Close panel on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
@@ -265,7 +233,6 @@ function RefreshButton({ lastRefresh }: { lastRefresh?: LastRefreshData | null }
     setPanelOpen(true);
   };
 
-  // Build the result to show based on panel mode
   const isLiveMode = panelMode === "live";
   const displayResult: RefreshResponse | null = isLiveMode
     ? lastResult
@@ -280,22 +247,22 @@ function RefreshButton({ lastRefresh }: { lastRefresh?: LastRefreshData | null }
 
   const headerLabel = isLiveMode
     ? isRefreshing
-      ? "Refreshing…"
+      ? "SYNCING"
       : lastResult?.error
-        ? "Refresh failed"
-        : "Refresh complete"
-    : "Last Refresh";
+        ? "SYNC FAILED"
+        : "SYNC COMPLETE"
+    : "LAST SYNC";
 
   return (
-    <div className="relative flex items-center gap-2" ref={panelRef}>
+    <div className="relative flex items-center gap-3" ref={panelRef}>
       {/* Last refresh timestamp */}
       {lastRefresh && (
         <button
           type="button"
           onClick={handleLastClick}
-          className="hidden sm:block text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer whitespace-nowrap"
+          className="hidden sm:block text-label text-nd-text-disabled hover:text-nd-text-secondary transition-nd cursor-pointer whitespace-nowrap"
         >
-          Last: {formatRelativeTime(lastRefresh.timestamp)}
+          LAST: {formatRelativeTime(lastRefresh.timestamp)}
         </button>
       )}
 
@@ -304,19 +271,18 @@ function RefreshButton({ lastRefresh }: { lastRefresh?: LastRefreshData | null }
         type="button"
         onClick={handleRefresh}
         disabled={isRefreshing}
-        className="-m-2 p-2 text-zinc-400 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+        className="text-nd-text-secondary hover:text-nd-text-display transition-nd cursor-pointer disabled:opacity-40 p-1.5"
         title="Refresh balances"
       >
-        <span className="sr-only">Refresh balances</span>
-        <ArrowPathIcon
-          aria-hidden="true"
-          className={`size-5 sm:size-6 ${isRefreshing ? "animate-spin" : ""}`}
+        <RefreshCw
+          size={18}
+          strokeWidth={1.5}
+          className={isRefreshing ? "animate-spin" : ""}
         />
       </button>
 
-      {/* Panel */}
       {panelOpen && (
-        <WalletResultsPanel
+        <RefreshPanel
           isRefreshing={isLiveMode ? isRefreshing : false}
           headerLabel={headerLabel}
           result={displayResult}
@@ -327,97 +293,109 @@ function RefreshButton({ lastRefresh }: { lastRefresh?: LastRefreshData | null }
   );
 }
 
+// --- User Menu ---
+
+function UserMenu({ user }: { user: User }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    if (open) {
+      document.addEventListener("mousedown", handleClick);
+      return () => document.removeEventListener("mousedown", handleClick);
+    }
+  }, [open]);
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 cursor-pointer group focus:outline-none"
+      >
+        {/* Avatar — monochrome circle with initials */}
+        <div className="size-8 sm:size-9 rounded-full bg-nd-surface-raised border border-nd-border-visible flex items-center justify-center shrink-0">
+          <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-nd-text-secondary">
+            {getInitials(user.username)}
+          </span>
+        </div>
+        <span className="hidden sm:flex sm:items-center">
+          <span className="text-label text-nd-text-secondary group-hover:text-nd-text-primary transition-nd">
+            {user.username.toUpperCase()}
+          </span>
+          <ChevronDown
+            size={14}
+            strokeWidth={1.5}
+            className="ml-1.5 text-nd-text-disabled group-hover:text-nd-text-secondary transition-nd"
+          />
+        </span>
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute right-0 z-50 mt-2 w-48 bg-nd-surface border border-nd-border-visible rounded-md overflow-hidden">
+          {/* User info */}
+          <div className="px-4 py-3 border-b border-nd-border">
+            <p className="font-mono text-[12px] text-nd-text-primary">{user.username}</p>
+            <p className="text-label text-nd-text-disabled mt-0.5">LOGGED IN</p>
+          </div>
+
+          {/* Menu items */}
+          <a
+            href="/settings"
+            className="flex items-center gap-2.5 px-4 py-2.5 text-label text-nd-text-secondary hover:text-nd-text-primary hover:bg-nd-surface-raised transition-nd cursor-pointer"
+          >
+            <User size={14} strokeWidth={1.5} />
+            SETTINGS
+          </a>
+
+          <Form method="post" action="/auth/logout" className="w-full">
+            <button
+              type="submit"
+              className="flex items-center gap-2.5 w-full px-4 py-2.5 text-label text-nd-accent hover:bg-nd-accent-subtle transition-nd cursor-pointer text-left"
+            >
+              <LogOut size={14} strokeWidth={1.5} />
+              SIGN OUT
+            </button>
+          </Form>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Main Navbar ---
+
 export default function Navbar({ user, lastRefresh }: NavbarProps) {
   const location = useLocation();
   const pageTitle = getPageTitle(location.pathname);
 
   return (
-    <div className="z-40 flex h-14 lg:h-16 shrink-0 items-center gap-x-3 sm:gap-x-4 px-1 sm:px-4 lg:px-8">
+    <div className="z-40 flex h-14 lg:h-16 shrink-0 items-center gap-x-3 sm:gap-x-4 px-1 sm:px-4 lg:px-0">
       <div className="flex justify-between items-center w-full">
-        {/* Logo on mobile, Title on desktop */}
+        {/* Logo on mobile, page title on desktop */}
         <div className="flex items-center gap-3">
           <div className="lg:hidden">
             <Logo size="sm" />
           </div>
-          <h2 className="hidden lg:block text-white text-2xl font-semibold">{pageTitle}</h2>
+          <h2 className="hidden lg:block text-heading text-nd-text-display">{pageTitle}</h2>
         </div>
 
-        {/* Action items */}
-        <div className="flex items-center gap-x-2 sm:gap-x-4 lg:gap-x-6">
+        {/* Actions */}
+        <div className="flex items-center gap-x-3 sm:gap-x-4">
           <RefreshButton lastRefresh={lastRefresh} />
 
           {/* Separator */}
           <div
             aria-hidden="true"
-            className="hidden sm:block h-5 sm:h-6 w-px bg-zinc-700"
+            className="hidden sm:block h-5 w-px bg-nd-border-visible"
           />
 
-          {/* Profile dropdown */}
-          <Menu as="div" className="relative">
-            <MenuButton className="relative flex items-center cursor-pointer group focus:outline-none">
-              {/* Avatar */}
-              {user.avatarUrl ? (
-                <img
-                  src={user.avatarUrl}
-                  alt={user.username}
-                  className="size-8 sm:size-9 rounded-full shrink-0 object-cover"
-                />
-              ) : (
-                <div
-                  className={`size-8 sm:size-9 rounded-full ${getAvatarColor(user.username)} flex items-center justify-center shrink-0`}
-                >
-                  <span className="text-xs sm:text-sm font-semibold text-white">
-                    {getInitials(user.username)}
-                  </span>
-                </div>
-              )}
-              <span className="hidden sm:flex sm:items-center">
-                <span
-                  aria-hidden="true"
-                  className="ml-3 text-sm font-semibold text-white group-hover:text-zinc-300 transition-colors"
-                >
-                  {user.username}
-                </span>
-                <ChevronDownIcon
-                  aria-hidden="true"
-                  className="ml-2 size-5 text-zinc-500 group-hover:text-zinc-400 transition-colors"
-                />
-              </span>
-            </MenuButton>
-            <MenuItems
-              transition
-              className="absolute right-0 z-10 mt-2.5 w-48 origin-top-right rounded-xl bg-zinc-800 border border-zinc-700 py-2 shadow-lg transition focus:outline-none data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-leave:duration-75 data-enter:ease-out data-leave:ease-in"
-            >
-              <MenuItem>
-                <div className="px-4 py-2 border-b border-zinc-700">
-                  <p className="text-sm font-medium text-white">{user.username}</p>
-                  <p className="text-xs text-zinc-500">Logged in</p>
-                </div>
-              </MenuItem>
-              <MenuItem>
-                <a
-                  href="/settings"
-                  className="flex items-center gap-2 px-4 py-2 text-sm text-zinc-300 data-focus:bg-zinc-700/50 data-focus:text-white cursor-pointer transition-colors focus:outline-none"
-                >
-                  <UserCircleIcon className="size-4" />
-                  Profile Settings
-                </a>
-              </MenuItem>
-              <MenuItem>
-                <Form method="post" action="/auth/logout" className="w-full">
-                  <button
-                    type="submit"
-                    className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-400 data-focus:bg-zinc-700/50 data-focus:text-red-300 cursor-pointer transition-colors text-left focus:outline-none"
-                  >
-                    <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                    Sign out
-                  </button>
-                </Form>
-              </MenuItem>
-            </MenuItems>
-          </Menu>
+          <UserMenu user={user} />
         </div>
       </div>
     </div>

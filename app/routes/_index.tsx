@@ -8,7 +8,7 @@ import { getLastRefreshData } from "~/lib/lastRefresh.server";
 import { Logo, Button, Input, FormField, Alert, Card } from "~/components/ui";
 import { prisma } from "~/lib/db.server";
 import { NETWORK_INFO, EVM_NETWORKS, type WalletNetwork } from "~/lib/wallet";
-import { motion } from "framer-motion";
+import { cn } from "~/lib/utils";
 
 // Dashboard components
 import { StackedCards, type WalletData } from "~/components/ui/stacked-cards";
@@ -683,9 +683,15 @@ function LoginPage() {
   const error = fetcher.data?.error;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-nd-black p-4">
       <div className="w-full max-w-sm">
-        <Card className="p-6">
+        {/* Hero wordmark */}
+        <div className="text-center mb-10">
+          <h1 className="text-display-lg text-nd-text-display mb-3">PULSAR</h1>
+          <p className="text-label text-nd-text-secondary">SIGN IN</p>
+        </div>
+
+        <div className="rounded-[16px] bg-nd-surface border border-nd-border-visible p-6">
           {error && <Alert variant="error" className="mb-5">{error}</Alert>}
 
           <fetcher.Form method="post" action="/auth/login" className="space-y-4">
@@ -712,16 +718,16 @@ function LoginPage() {
             </FormField>
 
             <Button type="submit" disabled={isSubmitting} className="w-full">
-              {isSubmitting ? "Signing in..." : "Sign in"}
+              {isSubmitting ? "SIGNING IN..." : "SIGN IN"}
             </Button>
           </fetcher.Form>
-        </Card>
+        </div>
       </div>
     </div>
   );
 }
 
-// --- Filter bar ---
+// --- Filter bar (Nothing segmented control style) ---
 
 const FILTER_OPTIONS: { id: CategoryType; label: string }[] = [
   { id: "onchain", label: "On-chain" },
@@ -744,7 +750,7 @@ function FilterBar({ enabledFilters: initial }: { enabledFilters: CategoryType[]
   }, [navigate]);
 
   const toggleAll = () => {
-    if (allEnabled) return; // can't disable everything
+    if (allEnabled) return;
     persist(new Set(ALL_CATEGORIES));
   };
 
@@ -752,7 +758,7 @@ function FilterBar({ enabledFilters: initial }: { enabledFilters: CategoryType[]
     const next = new Set(enabled);
     if (next.has(id)) {
       next.delete(id);
-      if (next.size === 0) return; // must keep at least one
+      if (next.size === 0) return;
     } else {
       next.add(id);
     }
@@ -760,20 +766,15 @@ function FilterBar({ enabledFilters: initial }: { enabledFilters: CategoryType[]
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="flex items-center gap-2 flex-wrap"
-    >
+    <div className="flex items-center gap-1.5 flex-wrap">
       <button
         onClick={toggleAll}
-        className={[
-          "px-3 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer",
+        className={cn(
+          "px-3 py-1.5 rounded-[999px] font-mono text-[11px] uppercase tracking-[0.06em] transition-nd cursor-pointer border",
           allEnabled
-            ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
-            : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200",
-        ].join(" ")}
+            ? "bg-nd-text-display text-nd-black border-nd-text-display"
+            : "bg-transparent text-nd-text-disabled border-nd-border-visible hover:text-nd-text-secondary hover:border-nd-text-secondary"
+        )}
       >
         All
       </button>
@@ -783,20 +784,20 @@ function FilterBar({ enabledFilters: initial }: { enabledFilters: CategoryType[]
           <button
             key={f.id}
             onClick={() => toggle(f.id)}
-            className={[
-              "px-3 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer",
+            className={cn(
+              "px-3 py-1.5 rounded-[999px] font-mono text-[11px] uppercase tracking-[0.06em] transition-nd cursor-pointer border",
               isActive && !allEnabled
-                ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
+                ? "bg-nd-text-display text-nd-black border-nd-text-display"
                 : isActive && allEnabled
-                  ? "bg-blue-600/20 text-blue-300 border border-blue-500/30"
-                  : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200",
-            ].join(" ")}
+                  ? "bg-transparent text-nd-text-primary border-nd-border-visible"
+                  : "bg-transparent text-nd-text-disabled border-nd-border-visible hover:text-nd-text-secondary hover:border-nd-text-secondary"
+            )}
           >
             {f.label}
           </button>
         );
       })}
-    </motion.div>
+    </div>
   );
 }
 
@@ -826,20 +827,21 @@ function Dashboard({
   enabledFilters: CategoryType[];
 }) {
   return (
-    <div className="relative h-screen p-2 sm:p-4 flex w-full flex-row overflow-hidden">
+    <div className="relative h-screen flex w-full flex-row overflow-hidden bg-nd-black">
       <Sidebar />
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
-        <div className="shrink-0 pt-4 lg:pt-10">
+        <div className="shrink-0 pt-4 lg:pt-8 px-4 sm:px-6 lg:px-8">
           <Navbar user={user} lastRefresh={lastRefresh} />
         </div>
-        <main className="flex-1 overflow-y-auto py-4 lg:py-6 pb-24 lg:pb-10">
-          <div className="px-2 sm:px-4 lg:px-8">
+        <main className="flex-1 overflow-y-auto py-4 lg:py-8 pb-24 lg:pb-8">
+          <div className="px-4 sm:px-6 lg:px-8">
             {/* Filter bar */}
-            <div className="mb-4 sm:mb-5">
+            <div className="mb-5 sm:mb-6">
               <FilterBar enabledFilters={enabledFilters} />
             </div>
 
             <div className="grid gap-4 sm:gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-6 w-full">
+              {/* Portfolio chart — hero */}
               <div className="col-span-1 md:col-span-2 lg:col-span-4 min-h-[280px] sm:min-h-[320px] lg:min-h-[360px]">
                 <PortfolioValueChart
                   data={chartData}
@@ -847,12 +849,15 @@ function Dashboard({
                   changePercent={changePercent}
                 />
               </div>
+              {/* Accounts list */}
               <div className="col-span-1 md:col-span-2 lg:col-span-2 min-h-[320px] lg:min-h-[360px]">
                 <StackedCards wallets={wallets} />
               </div>
+              {/* Breakdown — segmented bars */}
               <div className="col-span-1 md:col-span-2 lg:col-span-2">
                 <PortfolioBreakdown data={breakdownData} />
               </div>
+              {/* Movers */}
               <div className="col-span-1 lg:col-span-2">
                 <TopMovers title="Top Gainers" items={gainers} type="gainers" />
               </div>
