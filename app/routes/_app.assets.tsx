@@ -404,100 +404,103 @@ function AssetCard({ asset }: { asset: ManualAsset }) {
 
   return (
     <>
-      <div className="flex gap-4 p-4 rounded-[12px] bg-nd-surface-raised hover:bg-nd-surface border border-nd-border transition-nd">
-        <div className="w-16 h-16 rounded-[12px] bg-nd-surface border border-nd-border flex items-center justify-center shrink-0 overflow-hidden">
-          {asset.imagePath ? (
-            <img
-              src={`/api/asset-image/${asset.id}`}
-              alt={asset.name}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <Package className="h-7 w-7 text-nd-text-disabled" />
+      <div className="p-4 rounded-[12px] bg-nd-surface-raised hover:bg-nd-surface border border-nd-border transition-nd">
+        {/* Top row: image + name/category + actions */}
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-[8px] bg-nd-surface border border-nd-border flex items-center justify-center shrink-0 overflow-hidden">
+            {asset.imagePath ? (
+              <img
+                src={`/api/asset-image/${asset.id}`}
+                alt={asset.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <Package className="h-6 w-6 text-nd-text-disabled" />
+            )}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <span className="font-medium text-nd-text-primary text-sm sm:text-base block truncate">{asset.name}</span>
+            {asset.category && <CategoryBadge category={asset.category} />}
+          </div>
+
+          <div className="flex gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowEditModal(true)}
+              className="text-label px-2 py-1 rounded-md bg-nd-surface hover:bg-nd-surface-raised border border-nd-border text-nd-text-secondary hover:text-nd-text-primary transition-nd cursor-pointer"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(!showDeleteConfirm)}
+              className="text-label px-2 py-1 rounded-md bg-nd-surface hover:bg-nd-accent-subtle border border-nd-border text-nd-text-secondary hover:text-nd-accent transition-nd cursor-pointer"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Value row */}
+        <div className="flex items-baseline justify-between gap-2 flex-wrap">
+          <span className="font-mono text-[20px] sm:text-[24px] text-nd-text-display">
+            ${currentValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+          {gain !== null && gainPct !== null && (
+            <span className={`flex items-center gap-1 font-mono text-[12px] ${gain >= 0 ? "text-nd-success" : "text-nd-accent"}`}>
+              {gain >= 0 ? "↑" : "↓"} {gain >= 0 ? "+" : ""}{gain.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0, style: "currency", currency: "USD" })} ({gain >= 0 ? "+" : ""}{gainPct.toFixed(1)}%)
+            </span>
           )}
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap mb-1">
-                <span className="font-medium text-nd-text-primary text-sm">{asset.name}</span>
-                {asset.category && <CategoryBadge category={asset.category} />}
-              </div>
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-subheading text-nd-text-display font-mono">
-                  ${currentValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-                {gain !== null && gainPct !== null && (
-                  <span className={`flex items-center gap-1 text-xs font-mono ${gain >= 0 ? "text-nd-success" : "text-nd-accent"}`}>
-                    {gain >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                    {gain >= 0 ? "+" : ""}{gain.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0, style: "currency", currency: "USD" })} ({gain >= 0 ? "+" : ""}{gainPct.toFixed(1)}%)
-                  </span>
-                )}
-              </div>
-              {lastValued && (
-                <div className="flex items-center gap-1 mt-1 text-label text-nd-text-disabled">
-                  <Clock className="h-3 w-3" />
-                  <span>Last valued {lastValued}</span>
-                </div>
-              )}
-              {asset.notes && (
-                <p className="text-label text-nd-text-disabled mt-1 truncate">{asset.notes}</p>
-              )}
-            </div>
-
-            <div className="flex gap-1 shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowEditModal(true)}
-                className="text-label px-2 py-1 rounded-md bg-nd-surface-raised hover:bg-nd-surface border border-nd-border text-nd-text-secondary hover:text-nd-text-primary transition-nd cursor-pointer"
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(!showDeleteConfirm)}
-                className="text-label px-2 py-1 rounded-md bg-nd-surface-raised hover:bg-nd-accent-subtle border border-nd-border text-nd-text-secondary hover:text-nd-accent transition-nd cursor-pointer"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-
-          <AnimatePresence>
-            {showDeleteConfirm && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
-                className="mt-3 overflow-hidden"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-label text-nd-text-secondary">Delete this asset?</span>
-                  <Form method="post" className="inline" onSubmit={() => setShowDeleteConfirm(false)}>
-                    <input type="hidden" name="intent" value="delete-asset" />
-                    <input type="hidden" name="accountId" value={asset.id} />
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="text-label px-2 py-1 rounded-md bg-nd-accent-subtle hover:bg-nd-accent text-nd-accent hover:text-nd-text-display transition-nd cursor-pointer"
-                    >
-                      Confirm Delete
-                    </button>
-                  </Form>
-                  <button
-                    type="button"
-                    onClick={() => setShowDeleteConfirm(false)}
-                    className="text-label text-nd-text-disabled hover:text-nd-text-secondary cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+        {/* Meta row */}
+        <div className="flex items-center gap-3 mt-2 flex-wrap">
+          {lastValued && (
+            <span className="text-label text-nd-text-disabled flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {lastValued}
+            </span>
+          )}
+          {asset.notes && (
+            <span className="text-label text-nd-text-disabled truncate">{asset.notes}</span>
+          )}
         </div>
+
+        {/* Delete confirm */}
+        <AnimatePresence>
+          {showDeleteConfirm && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="mt-3 pt-3 border-t border-nd-border overflow-hidden"
+            >
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-label text-nd-text-secondary">Delete this asset?</span>
+                <Form method="post" className="inline" onSubmit={() => setShowDeleteConfirm(false)}>
+                  <input type="hidden" name="intent" value="delete-asset" />
+                  <input type="hidden" name="accountId" value={asset.id} />
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="text-label px-2 py-1 rounded-md bg-nd-accent-subtle hover:bg-nd-accent text-nd-accent hover:text-nd-text-display transition-nd cursor-pointer"
+                  >
+                    Confirm
+                  </button>
+                </Form>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="text-label text-nd-text-disabled hover:text-nd-text-secondary cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <AnimatePresence>
