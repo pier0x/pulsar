@@ -95,12 +95,12 @@ export async function action({ request }: ActionFunctionArgs) {
     return json({
       success: true,
       status: result.status,
-      walletsAttempted: result.walletsAttempted + sfResult.attempted,
-      walletsSucceeded: result.walletsSucceeded + sfResult.succeeded,
-      walletsFailed: result.walletsFailed + sfResult.failed,
+      accountsAttempted: result.accountsAttempted + sfResult.attempted,
+      accountsSucceeded: result.accountsSucceeded + sfResult.succeeded,
+      accountsFailed: result.accountsFailed + sfResult.failed,
       durationMs: result.durationMs,
-      wallets: [
-        ...result.successfulWallets.map((w) => ({
+      accounts: [
+        ...result.successfulAccounts.map((w) => ({
           name: accountMap.get(`${w.network}:${w.address}`) || null,
           network: w.network,
           address: w.address,

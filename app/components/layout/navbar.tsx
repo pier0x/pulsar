@@ -36,7 +36,7 @@ interface User {
   avatarUrl: string | null;
 }
 
-export interface WalletResult {
+export interface AccountResult {
   name: string | null;
   network: string;
   address: string;
@@ -47,10 +47,10 @@ export interface WalletResult {
 
 export interface LastRefreshData {
   timestamp: string;
-  walletsSucceeded: number;
-  walletsAttempted: number;
+  accountsSucceeded: number;
+  accountsAttempted: number;
   durationMs: number | null;
-  wallets: WalletResult[];
+  accounts: AccountResult[];
 }
 
 interface NavbarProps {
@@ -83,11 +83,11 @@ interface RefreshResponse {
   success?: boolean;
   error?: string;
   status?: string;
-  walletsAttempted?: number;
-  walletsSucceeded?: number;
-  walletsFailed?: number;
+  accountsAttempted?: number;
+  accountsSucceeded?: number;
+  accountsFailed?: number;
   durationMs?: number;
-  wallets?: WalletResult[];
+  accounts?: AccountResult[];
 }
 
 function formatAddress(addr: string): string {
@@ -144,7 +144,7 @@ function WalletResultsPanel({
         {isRefreshing && !result && (
           <div className="flex items-center gap-3 px-4 py-6">
             <ArrowPathIcon className="size-5 text-blue-400 animate-spin shrink-0" />
-            <span className="text-sm text-zinc-400">Fetching balances for all wallets…</span>
+            <span className="text-sm text-zinc-400">Refreshing all accounts…</span>
           </div>
         )}
 
@@ -155,9 +155,9 @@ function WalletResultsPanel({
           </div>
         )}
 
-        {result?.wallets && result.wallets.length > 0 && (
+        {result?.accounts && result.accounts.length > 0 && (
           <div className="divide-y divide-zinc-800/50">
-            {result.wallets.map((w, i) => {
+            {result.accounts.map((w, i) => {
               const info = NETWORK_INFO[w.network as WalletNetwork];
               const networkName = info?.displayName || w.network;
               const isSuccess = w.status === "success";
@@ -193,9 +193,9 @@ function WalletResultsPanel({
           </div>
         )}
 
-        {result?.wallets && result.wallets.length === 0 && (
+        {result?.accounts && result.accounts.length === 0 && (
           <div className="px-4 py-6 text-center">
-            <span className="text-sm text-zinc-500">No wallets to refresh</span>
+            <span className="text-sm text-zinc-500">No accounts to refresh</span>
           </div>
         )}
       </div>
@@ -204,7 +204,7 @@ function WalletResultsPanel({
       {result && !result.error && (
         <div className="px-4 py-2.5 border-t border-zinc-800 flex items-center justify-between">
           <span className="text-[11px] text-zinc-500">
-            {result.walletsSucceeded}/{result.walletsAttempted} wallets
+            {result.accountsSucceeded}/{result.accountsAttempted} accounts
           </span>
           {result.durationMs && (
             <span className="text-[11px] text-zinc-500">
@@ -271,10 +271,10 @@ function RefreshButton({ lastRefresh }: { lastRefresh?: LastRefreshData | null }
     ? lastResult
     : lastRefresh
       ? {
-          walletsAttempted: lastRefresh.walletsAttempted,
-          walletsSucceeded: lastRefresh.walletsSucceeded,
+          accountsAttempted: lastRefresh.accountsAttempted,
+          accountsSucceeded: lastRefresh.accountsSucceeded,
           durationMs: lastRefresh.durationMs ?? undefined,
-          wallets: lastRefresh.wallets,
+          accounts: lastRefresh.accounts,
         }
       : null;
 

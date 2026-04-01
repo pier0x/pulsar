@@ -4,27 +4,7 @@ import { createReadableStreamFromReadable } from "@remix-run/node";
 import { RemixServer } from "@remix-run/react";
 import { isbot } from "isbot";
 import { renderToPipeableStream } from "react-dom/server";
-import { initializeScheduler } from "~/lib/balance/scheduler.server";
-
 const ABORT_DELAY = 5_000;
-
-// Initialize the balance refresh scheduler when the server starts
-let schedulerInitialized = false;
-
-async function initScheduler() {
-  if (schedulerInitialized) return;
-  schedulerInitialized = true;
-  
-  try {
-    await initializeScheduler();
-    console.log("[Server] Balance refresh scheduler initialized");
-  } catch (error) {
-    console.error("[Server] Failed to initialize scheduler:", error);
-  }
-}
-
-// Initialize on module load (server start)
-initScheduler();
 
 export default function handleRequest(
   request: Request,

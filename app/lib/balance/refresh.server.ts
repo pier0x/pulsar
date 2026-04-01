@@ -480,11 +480,11 @@ export async function refreshUserWallets(
     return {
       trigger,
       status: "success",
-      walletsAttempted: 0,
-      walletsSucceeded: 0,
-      walletsFailed: 0,
+      accountsAttempted: 0,
+      accountsSucceeded: 0,
+      accountsFailed: 0,
       durationMs: Date.now() - startTime,
-      successfulWallets: [],
+      successfulAccounts: [],
       errors: [],
     };
   }
@@ -509,13 +509,13 @@ export async function refreshUserWallets(
   }
 
   // Create snapshots for successful accounts (atomic per account)
-  const successfulWallets: AccountBalanceData[] = [];
+  const successfulAccounts: AccountBalanceData[] = [];
 
   for (const [accountId, result] of results) {
     if (!result.success) continue;
 
     const data = result.data;
-    successfulWallets.push(data);
+    successfulAccounts.push(data);
 
     // Create snapshot with all tokens in a transaction
     await prisma.$transaction(async (tx) => {
@@ -552,78 +552,12 @@ export async function refreshUserWallets(
         : errors.length === accounts.length
         ? "complete_failure"
         : "partial_failure",
-    walletsAttempted: accounts.length,
-    walletsSucceeded: successfulWallets.length,
-    walletsFailed: errors.length,
+    accountsAttempted: accounts.length,
+    accountsSucceeded: successfulAccounts.length,
+    accountsFailed: errors.length,
     durationMs: Date.now() - startTime,
-    successfulWallets,
+    successfulAccounts,
     errors,
-  };
-}
-
-/**
- * Refresh all on-chain accounts for all users (used by scheduler)
- */
-export async function refreshAllWallets(
-  trigger: "scheduled" | "manual"
-): Promise<RefreshResult> {
-  const startTime = Date.now();
-
-  // Get all users
-  const users = await prisma.user.findMany({
-    select: { id: true },
-  });
-
-  let totalAttempted = 0;
-  let totalSucceeded = 0;
-  let totalFailed = 0;
-  const allErrors: FetchError[] = [];
-  const allSuccessful: AccountBalanceData[] = [];
-
-  // Process each user
-  for (const user of users) {
-    const result = await refreshUserWallets(user.id, trigger);
-    totalAttempted += result.walletsAttempted;
-    totalSucceeded += result.walletsSucceeded;
-    totalFailed += result.walletsFailed;
-    allErrors.push(...result.errors);
-    allSuccessful.push(...result.successfulWallets);
-
-    // Also refresh SimpleFIN bank + brokerage accounts
-    try {
-      const sfResult = await refreshSimplefinAccounts(user.id);
-      console.log("[refresh] SimpleFIN result:", JSON.stringify(sfResult));
-      totalAttempted += sfResult.attempted;
-      totalSucceeded += sfResult.succeeded;
-      totalFailed += sfResult.failed;
-      if (sfResult.errors.length > 0) {
-        allErrors.push(...sfResult.errors.map(e => ({
-          accountId: "",
-          network: "simplefin",
-          accountAddress: "",
-          errorType: "api_error" as const,
-          errorMessage: e,
-        })));
-      }
-    } catch (err) {
-      console.error("[refresh] refreshSimplefinAccounts failed:", err);
-    }
-  }
-
-  return {
-    trigger,
-    status:
-      allErrors.length === 0
-        ? "success"
-        : allErrors.length === totalAttempted
-        ? "complete_failure"
-        : "partial_failure",
-    walletsAttempted: totalAttempted,
-    walletsSucceeded: totalSucceeded,
-    walletsFailed: totalFailed,
-    durationMs: Date.now() - startTime,
-    successfulWallets: allSuccessful,
-    errors: allErrors,
   };
 }
 

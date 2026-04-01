@@ -1,5 +1,5 @@
 import { prisma } from "~/lib/db.server";
-import type { LastRefreshData, WalletResult } from "~/components/layout/navbar";
+import type { LastRefreshData, AccountResult } from "~/components/layout/navbar";
 
 /**
  * Get last refresh data from the latest account snapshots.
@@ -34,7 +34,7 @@ export async function getLastRefreshData(userId: string): Promise<LastRefreshDat
 
   if (!latestTimestamp) return null;
 
-  const walletResults: WalletResult[] = accounts.map((a) => {
+  const accountResults: AccountResult[] = accounts.map((a) => {
     const snap = a.snapshots[0];
     return {
       name: a.name,
@@ -47,9 +47,9 @@ export async function getLastRefreshData(userId: string): Promise<LastRefreshDat
 
   return {
     timestamp: latestTimestamp.toISOString(),
-    walletsSucceeded: walletResults.length,
-    walletsAttempted: walletResults.length,
+    accountsSucceeded: accountResults.length,
+    accountsAttempted: accountResults.length,
     durationMs: null,
-    wallets: walletResults,
+    accounts: accountResults,
   };
 }

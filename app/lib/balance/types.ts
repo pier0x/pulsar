@@ -47,11 +47,11 @@ export interface FetchError {
 export interface RefreshResult {
   trigger: "scheduled" | "manual";
   status: "success" | "partial_failure" | "complete_failure";
-  walletsAttempted: number;
-  walletsSucceeded: number;
-  walletsFailed: number;
+  accountsAttempted: number;
+  accountsSucceeded: number;
+  accountsFailed: number;
   durationMs: number;
-  successfulWallets: AccountBalanceData[];
+  successfulAccounts: AccountBalanceData[];
   errors: FetchError[];
 }
 
