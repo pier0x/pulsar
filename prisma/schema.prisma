@@ -19,11 +19,11 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  sessions         Session[]
-  accounts         Account[]
-  plaidConnections PlaidConnection[]
-  settings         UserSetting[]
-  positions        Position[]
+  sessions              Session[]
+  accounts              Account[]
+  simplefinConnections  SimplefinConnection[]
+  settings              UserSetting[]
+  positions             Position[]
 }
 
 // Database-backed sessions for long-lived auth
@@ -68,11 +68,10 @@ model Account {
   network String? // "ethereum", "bitcoin", "solana", "hyperliquid", etc.
   address String? // wallet address
 
-  // Plaid fields (nullable)
-  plaidConnectionId String?
-  plaidConnection   PlaidConnection? @relation(fields: [plaidConnectionId], references: [id])
-  plaidAccountId    String? // Plaid's account_id
-  plaidSubtype      String? // "checking", "savings", "brokerage"
+  // SimpleFIN fields (nullable)
+  simplefinConnectionId String?
+  simplefinConnection   SimplefinConnection? @relation(fields: [simplefinConnectionId], references: [id])
+  simplefinAccountId    String? // SimpleFIN's account id
 
   // Manual asset fields (nullable, only used for type="manual")
   category  String?  // "watches", "cars", "art", etc.
@@ -157,20 +156,17 @@ model HoldingSnapshot {
   @@index([snapshotId])
 }
 
-// Plaid OAuth connection (one per institution link)
-model PlaidConnection {
-  id              String @id @default(cuid())
-  userId          String
-  user            User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  institutionId   String // Plaid institution ID
-  institutionName String // "Wells Fargo"
-  accessToken     String // encrypted
-  itemId          String @unique
-  cursor          String? // for transaction sync
-  lastSynced      DateTime?
-  accounts        Account[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+// SimpleFIN connection (one per Setup Token claim)
+model SimplefinConnection {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessUrl  String    // encrypted Access URL
+  label      String?   // user-friendly label ("Wells Fargo", "My Bank")
+  lastSynced DateTime?
+  accounts   Account[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([userId])
 }

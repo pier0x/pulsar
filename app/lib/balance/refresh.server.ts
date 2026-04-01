@@ -22,7 +22,7 @@ import {
   getNativeTokenPrice,
   getTokenPrices,
 } from "~/lib/providers/coingecko.server";
-import { getBalances as getPlaidBalances, getInvestmentHoldings } from "~/lib/providers/plaid.server";
+import { getSimplefinAccounts } from "~/lib/providers/simplefin.server";
 import { createAccountSnapshot } from "~/lib/accounts.server";
 import type { WalletNetwork } from "~/lib/wallet";
 import type {
@@ -252,49 +252,54 @@ async function fetchAccountBalance(
 }
 
 // ---------------------------------------------------------------------------
-// Plaid bank account refresh
+// SimpleFIN account refresh
 // ---------------------------------------------------------------------------
 
 /**
- * Refresh all Plaid bank accounts for a specific user.
- * Fetches live balances from Plaid and creates AccountSnapshot entries.
+ * Refresh all SimpleFIN accounts for a specific user.
+ * Groups accounts by SimplefinConnection (one API call per connection).
+ * Creates AccountSnapshot entries for each account.
  */
-export async function refreshUserBankAccounts(userId: string): Promise<{
+export async function refreshSimplefinAccounts(userId: string): Promise<{
   attempted: number;
   succeeded: number;
   failed: number;
   errors: string[];
 }> {
-  const bankAccounts = await prisma.account.findMany({
-    where: { userId, type: "bank", provider: "plaid" },
+  // Fetch all SimpleFIN bank + brokerage accounts for this user
+  const simplefinAccounts = await prisma.account.findMany({
+    where: {
+      userId,
+      provider: "simplefin",
+      type: { in: ["bank", "brokerage"] },
+    },
     select: {
       id: true,
-      plaidAccountId: true,
-      plaidConnectionId: true,
-      plaidConnection: {
-        select: { accessToken: true },
+      type: true,
+      simplefinAccountId: true,
+      simplefinConnectionId: true,
+      simplefinConnection: {
+        select: { accessUrl: true },
       },
     },
   });
 
-  if (bankAccounts.length === 0) {
+  if (simplefinAccounts.length === 0) {
     return { attempted: 0, succeeded: 0, failed: 0, errors: [] };
   }
 
-  // Group accounts by PlaidConnection to minimize API calls
-  const byConnection = new Map<
-    string,
-    { accessToken: string; accounts: typeof bankAccounts }
-  >();
+  // Group accounts by SimplefinConnection for efficiency (one API call per connection)
+  type AccountRow = (typeof simplefinAccounts)[0];
+  const byConnection = new Map<string, { accessUrl: string; accounts: AccountRow[] }>();
 
-  for (const account of bankAccounts) {
-    if (!account.plaidConnectionId || !account.plaidConnection) continue;
-    const existing = byConnection.get(account.plaidConnectionId);
+  for (const account of simplefinAccounts) {
+    if (!account.simplefinConnectionId || !account.simplefinConnection) continue;
+    const existing = byConnection.get(account.simplefinConnectionId);
     if (existing) {
       existing.accounts.push(account);
     } else {
-      byConnection.set(account.plaidConnectionId, {
-        accessToken: account.plaidConnection.accessToken,
+      byConnection.set(account.simplefinConnectionId, {
+        accessUrl: account.simplefinConnection.accessUrl,
         accounts: [account],
       });
     }
@@ -304,46 +309,53 @@ export async function refreshUserBankAccounts(userId: string): Promise<{
   let failed = 0;
   const errors: string[] = [];
 
-  for (const { accessToken, accounts } of byConnection.values()) {
+  for (const { accessUrl, accounts } of byConnection.values()) {
     try {
-      const result = await getPlaidBalances(accessToken);
+      // One API call per SimpleFIN connection
+      const result = await getSimplefinAccounts(accessUrl);
       if (!result.success) {
         failed += accounts.length;
-        errors.push(`Plaid balance fetch failed: ${result.error}`);
+        errors.push(`SimpleFIN balance fetch failed: ${result.error}`);
         continue;
       }
 
-      const balanceMap = new Map(result.balances.map((b) => [b.accountId, b]));
+      // Build a map of SimpleFIN account id → balance data
+      const balanceMap = new Map(result.accounts.map((a) => [a.id, a]));
 
       for (const account of accounts) {
-        if (!account.plaidAccountId) {
+        if (!account.simplefinAccountId) {
           failed++;
-          errors.push(`Account ${account.id} has no plaidAccountId`);
+          errors.push(`Account ${account.id} has no simplefinAccountId`);
           continue;
         }
 
-        const balance = balanceMap.get(account.plaidAccountId);
-        if (!balance) {
+        const sfAccount = balanceMap.get(account.simplefinAccountId);
+        if (!sfAccount) {
           failed++;
-          errors.push(
-            `No balance found for Plaid account ${account.plaidAccountId}`
-          );
+          errors.push(`No balance data for SimpleFIN account ${account.simplefinAccountId}`);
           continue;
         }
 
         try {
-          const currentBalance = balance.currentBalance ?? 0;
-          const availableBalance = balance.availableBalance ?? currentBalance;
-
-          await prisma.accountSnapshot.create({
-            data: {
+          if (account.type === "bank") {
+            await prisma.accountSnapshot.create({
+              data: {
+                accountId: account.id,
+                totalUsdValue: sfAccount.balance,
+                currentBalance: sfAccount.balance,
+                availableBalance: sfAccount.availableBalance ?? sfAccount.balance,
+                currency: sfAccount.currency,
+              },
+            });
+          } else {
+            // Brokerage — SimpleFIN gives a balance, no individual holdings
+            await createAccountSnapshot({
               accountId: account.id,
-              totalUsdValue: currentBalance,
-              currentBalance,
-              availableBalance,
-              currency: balance.currency,
-            },
-          });
+              totalUsdValue: sfAccount.balance,
+              holdingsValue: sfAccount.balance,
+              cashBalance: 0,
+            });
+          }
           succeeded++;
         } catch (err) {
           failed++;
@@ -351,6 +363,15 @@ export async function refreshUserBankAccounts(userId: string): Promise<{
             `Snapshot creation failed for account ${account.id}: ${err instanceof Error ? err.message : String(err)}`
           );
         }
+      }
+
+      // Update lastSynced on the connection
+      const connId = accounts[0]?.simplefinConnectionId;
+      if (connId) {
+        await prisma.simplefinConnection.update({
+          where: { id: connId },
+          data: { lastSynced: new Date() },
+        }).catch(() => {}); // Non-fatal
       }
     } catch (err) {
       failed += accounts.length;
@@ -360,111 +381,7 @@ export async function refreshUserBankAccounts(userId: string): Promise<{
     }
   }
 
-  return { attempted: bankAccounts.length, succeeded, failed, errors };
-}
-
-// ---------------------------------------------------------------------------
-// Plaid brokerage account refresh
-// ---------------------------------------------------------------------------
-
-/**
- * Refresh all Plaid brokerage/investment accounts for a specific user.
- * Fetches live holdings from Plaid and creates AccountSnapshot + HoldingSnapshot entries.
- */
-export async function refreshUserBrokerageAccounts(userId: string): Promise<{
-  attempted: number;
-  succeeded: number;
-  failed: number;
-  errors: string[];
-}> {
-  const brokerageAccounts = await prisma.account.findMany({
-    where: { userId, type: "brokerage", provider: "plaid" },
-    select: {
-      id: true,
-      plaidAccountId: true,
-      plaidConnectionId: true,
-      plaidConnection: {
-        select: { accessToken: true },
-      },
-    },
-  });
-
-  if (brokerageAccounts.length === 0) {
-    return { attempted: 0, succeeded: 0, failed: 0, errors: [] };
-  }
-
-  // Group accounts by PlaidConnection to minimize API calls
-  const byConnection = new Map<
-    string,
-    { accessToken: string; accounts: typeof brokerageAccounts }
-  >();
-
-  for (const account of brokerageAccounts) {
-    if (!account.plaidConnectionId || !account.plaidConnection) continue;
-    const existing = byConnection.get(account.plaidConnectionId);
-    if (existing) {
-      existing.accounts.push(account);
-    } else {
-      byConnection.set(account.plaidConnectionId, {
-        accessToken: account.plaidConnection.accessToken,
-        accounts: [account],
-      });
-    }
-  }
-
-  let succeeded = 0;
-  let failed = 0;
-  const errors: string[] = [];
-
-  for (const { accessToken, accounts } of byConnection.values()) {
-    try {
-      const result = await getInvestmentHoldings(accessToken);
-      if (!result.success) {
-        failed += accounts.length;
-        errors.push(`Plaid investment holdings fetch failed: ${result.error}`);
-        continue;
-      }
-
-      const { holdings, cashBalance, totalValue } = result;
-      const holdingsValue = totalValue - cashBalance;
-
-      // All brokerage accounts on the same connection share the same holdings data
-      // (Plaid returns holdings for all accounts on the item)
-      for (const account of accounts) {
-        try {
-          await createAccountSnapshot({
-            accountId: account.id,
-            totalUsdValue: totalValue,
-            holdingsValue,
-            cashBalance,
-            holdings: holdings
-              .filter((h) => h.ticker)
-              .map((h) => ({
-                ticker: h.ticker!,
-                name: h.name,
-                quantity: h.quantity,
-                priceUsd: h.priceUsd,
-                valueUsd: h.valueUsd,
-                costBasis: h.costBasis,
-              })),
-          });
-          succeeded++;
-        } catch (err) {
-          failed++;
-          errors.push(
-            `Snapshot creation failed for account ${account.id}: ${err instanceof Error ? err.message : String(err)}`
-          );
-        }
-      }
-    } catch (err) {
-      failed += accounts.length;
-      errors.push(
-        `Connection error: ${err instanceof Error ? err.message : String(err)}`
-      );
-    }
-  }
-
-  return { attempted: brokerageAccounts.length, succeeded, failed, errors };
+  return { attempted: simplefinAccounts.length, succeeded, failed, errors };
 }
 
 /**
@@ -602,18 +519,11 @@ export async function refreshAllWallets(
     allErrors.push(...result.errors);
     allSuccessful.push(...result.successfulWallets);
 
-    // Also refresh Plaid bank accounts
+    // Also refresh SimpleFIN bank + brokerage accounts
     try {
-      await refreshUserBankAccounts(user.id);
+      await refreshSimplefinAccounts(user.id);
     } catch (err) {
-      console.error("[refresh] refreshUserBankAccounts failed:", err);
-    }
-
-    // Also refresh Plaid brokerage accounts
-    try {
-      await refreshUserBrokerageAccounts(user.id);
-    } catch (err) {
-      console.error("[refresh] refreshUserBrokerageAccounts failed:", err);
+      console.error("[refresh] refreshSimplefinAccounts failed:", err);
     }
   }
 

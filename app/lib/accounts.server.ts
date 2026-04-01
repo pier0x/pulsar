@@ -12,7 +12,7 @@ import { prisma } from "~/lib/db.server";
 // ---------------------------------------------------------------------------
 
 export type AccountType = "onchain" | "bank" | "brokerage" | "manual";
-export type AccountProvider = "alchemy" | "helius" | "hyperliquid" | "plaid" | "manual";
+export type AccountProvider = "alchemy" | "helius" | "hyperliquid" | "simplefin" | "manual";
 
 export interface CreateOnchainAccountInput {
   userId: string;
@@ -22,13 +22,12 @@ export interface CreateOnchainAccountInput {
   address: string;
 }
 
-export interface CreatePlaidAccountInput {
+export interface CreateSimplefinAccountInput {
   userId: string;
   name: string;
   type: "bank" | "brokerage";
-  plaidConnectionId: string;
-  plaidAccountId: string;
-  plaidSubtype?: string;
+  simplefinConnectionId: string;
+  simplefinAccountId: string;
 }
 
 export interface CreateManualAssetInput {
@@ -167,18 +166,17 @@ export async function createOnchainAccountsForAddress(
 }
 
 /**
- * Create a Plaid-connected account (bank or brokerage)
+ * Create a SimpleFIN-connected account (bank or brokerage)
  */
-export async function createPlaidAccount(input: CreatePlaidAccountInput) {
+export async function createSimplefinAccount(input: CreateSimplefinAccountInput) {
   return prisma.account.create({
     data: {
       userId: input.userId,
       name: input.name,
       type: input.type,
-      provider: "plaid",
-      plaidConnectionId: input.plaidConnectionId,
-      plaidAccountId: input.plaidAccountId,
-      plaidSubtype: input.plaidSubtype,
+      provider: "simplefin",
+      simplefinConnectionId: input.simplefinConnectionId,
+      simplefinAccountId: input.simplefinAccountId,
     },
   });
 }

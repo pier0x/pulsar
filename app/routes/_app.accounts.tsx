@@ -2,9 +2,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { unstable_parseMultipartFormData, unstable_createMemoryUploadHandler, json } from "@remix-run/node";
 import { Form, useActionData, useLoaderData, useNavigation, useRevalidator } from "@remix-run/react";
-import { Plus, Trash2, Wallet, Bitcoin, LineChart, Landmark, Package, TrendingUp, TrendingDown, Clock, ImageIcon, X, Pencil } from "lucide-react";
+import { Plus, Trash2, Wallet, Bitcoin, LineChart, Landmark, Package, TrendingUp, TrendingDown, Clock, ImageIcon, X, Pencil, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { usePlaidLink } from "react-plaid-link";
 import { writeFile, mkdir, unlink } from "fs/promises";
 import { join } from "path";
 import { Button, Input, FormField, Alert, Card } from "~/components/ui";
@@ -144,7 +143,7 @@ export async function action({ request }: ActionFunctionArgs) {
         return json({ error: "This EVM address is already added" }, { status: 400 });
       }
 
-      const networks: Array<{ network: string; provider: "alchemy" | "helius" | "hyperliquid" | "plaid" }> = 
+      const networks: Array<{ network: string; provider: "alchemy" | "helius" | "hyperliquid" }> = 
         EVM_NETWORKS.map((net) => ({ network: net, provider: "alchemy" as const }));
 
       const hasHL = await hasHyperliquidAccount(address.trim());
@@ -196,25 +195,24 @@ export async function action({ request }: ActionFunctionArgs) {
     if (isEvm && typeof address === "string") {
       await deleteOnchainAccountsByAddress(user.id, address);
     } else if (typeof accountId === "string") {
-      // For bank accounts with a plaidConnectionId, we could optionally delete the connection too
-      // For now, just delete the account (other accounts on the same connection stay)
       if (isBank) {
         const account = await prisma.account.findFirst({
           where: { id: accountId, userId: user.id },
-          select: { plaidConnectionId: true },
+          select: { simplefinConnectionId: true },
         });
         await deleteAccount(user.id, accountId);
-        // Clean up orphaned PlaidConnection (no remaining accounts)
-        if (account?.plaidConnectionId) {
+        // Clean up orphaned SimplefinConnection (no remaining accounts)
+        if (account?.simplefinConnectionId) {
           const remaining = await prisma.account.count({
-            where: { plaidConnectionId: account.plaidConnectionId },
+            where: { simplefinConnectionId: account.simplefinConnectionId },
           });
           if (remaining === 0) {
-            await prisma.plaidConnection.delete({
-              where: { id: account.plaidConnectionId },
+            await prisma.simplefinConnection.delete({
+              where: { id: account.simplefinConnectionId },
             });
           }
         }
+
       } else {
         await deleteAccount(user.id, accountId);
       }
@@ -377,100 +375,108 @@ function NetworkIcon({ network }: { network: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Connect Bank button using react-plaid-link
+// Connect Bank section using SimpleFIN Bridge
 // ---------------------------------------------------------------------------
 
-interface ConnectBankButtonProps {
+interface ConnectBankSectionProps {
   onSuccess: () => void;
 }
 
-function ConnectBankButton({ onSuccess }: ConnectBankButtonProps) {
-  const [linkToken, setLinkToken] = useState<string | null>(null);
+function ConnectBankSection({ onSuccess }: ConnectBankSectionProps) {
+  const [setupToken, setSetupToken] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Fetch a link token from our API
-  const fetchLinkToken = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/plaid/create-link-token", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        setError(data.error || "Failed to initialize bank connection");
-        return;
-      }
-      setLinkToken(data.linkToken);
-    } catch (err) {
-      setError("Failed to connect to Plaid");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!setupToken.trim()) return;
 
-  const handlePlaidSuccess = useCallback(
-    async (publicToken: string, metadata: unknown) => {
       setIsLoading(true);
       setError(null);
+      setSuccessMsg(null);
+
       try {
-        const res = await fetch("/api/plaid/exchange-token", {
+        const res = await fetch("/api/simplefin/claim", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ publicToken, metadata }),
+          body: JSON.stringify({ setupToken: setupToken.trim() }),
         });
         const data = await res.json();
         if (!res.ok || data.error) {
           setError(data.error || "Failed to connect bank account");
           return;
         }
+        setSuccessMsg(
+          `Connected ${data.connectionLabel} — ${data.accountsCreated} account${data.accountsCreated === 1 ? "" : "s"} added`
+        );
+        setSetupToken("");
         onSuccess();
       } catch (err) {
-        setError("Failed to save bank connection");
+        setError("Failed to connect bank account");
       } finally {
         setIsLoading(false);
-        setLinkToken(null);
       }
     },
-    [onSuccess]
+    [setupToken, onSuccess]
   );
 
-  const { open, ready } = usePlaidLink({
-    token: linkToken ?? "",
-    onSuccess: handlePlaidSuccess,
-    onExit: (err, metadata) => {
-      if (err) {
-        console.error("[plaid link] exit error:", err);
-        setError(`Plaid error: ${err.error_code} — ${err.display_message || err.error_message}`);
-      }
-      if (metadata) {
-        console.log("[plaid link] exit metadata:", JSON.stringify(metadata));
-      }
-      setLinkToken(null);
-    },
-  });
-
-  // Auto-open when token is ready
-  useEffect(() => {
-    if (linkToken && ready) {
-      open();
-    }
-  }, [linkToken, ready, open]);
-
   return (
-    <div>
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full cursor-pointer border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800"
-        disabled={isLoading}
-        onClick={fetchLinkToken}
-      >
-        <Landmark className="h-4 w-4 mr-2" />
-        {isLoading ? "Connecting..." : "Connect Bank Account"}
-      </Button>
-      {error && (
-        <p className="mt-2 text-xs text-red-400">{error}</p>
-      )}
+    <div className="space-y-4">
+      {/* Step 1 */}
+      <div className="flex items-start gap-3 p-3 rounded-xl bg-zinc-800/50 border border-zinc-700">
+        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold shrink-0 mt-0.5">1</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-zinc-300 mb-1">Connect your bank via SimpleFIN Bridge</p>
+          <a
+            href="https://bridge.simplefin.org/simplefin/create"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Open SimpleFIN Bridge
+          </a>
+        </div>
+      </div>
+
+      {/* Step 2 */}
+      <div className="flex items-start gap-3 p-3 rounded-xl bg-zinc-800/50 border border-zinc-700">
+        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold shrink-0 mt-0.5">2</span>
+        <p className="text-sm text-zinc-300">Connect your bank there, then copy the <strong className="text-white">Setup Token</strong> you receive.</p>
+      </div>
+
+      {/* Step 3 */}
+      <div className="flex items-start gap-3 p-3 rounded-xl bg-zinc-800/50 border border-zinc-700">
+        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold shrink-0 mt-0.5">3</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-zinc-300 mb-2">Paste your Setup Token below</p>
+          <form onSubmit={handleSubmit} className="space-y-2">
+            <textarea
+              value={setupToken}
+              onChange={(e) => setSetupToken(e.target.value)}
+              placeholder="Paste Setup Token here..."
+              rows={3}
+              className="w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 resize-none text-sm font-mono"
+            />
+            <button
+              type="submit"
+              disabled={isLoading || !setupToken.trim()}
+              className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            >
+              {isLoading ? "Connecting..." : "Connect Bank"}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {error && <p className="text-xs text-red-400">{error}</p>}
+      {successMsg && <p className="text-xs text-emerald-400">{successMsg}</p>}
+
+      <p className="text-xs text-zinc-600 text-center">
+        SimpleFIN Bridge · No credentials stored by Pulsar
+      </p>
     </div>
   );
 }
@@ -610,17 +616,9 @@ function AddAccountForm({ onBankConnected }: { onBankConnected: () => void }) {
         </Form>
       )}
 
-      {/* Bank tab — Plaid Link */}
+      {/* Bank tab — SimpleFIN */}
       {accountTab === "bank" && (
-        <div className="space-y-4">
-          <p className="text-sm text-zinc-400">
-            Securely connect your bank account via Plaid. Pulsar only reads balance data — no transaction access.
-          </p>
-          <ConnectBankButton onSuccess={onBankConnected} />
-          <p className="text-xs text-zinc-600 text-center">
-            Powered by Plaid · Bank-level encryption
-          </p>
-        </div>
+        <ConnectBankSection onSuccess={onBankConnected} />
       )}
     </Card>
   );
@@ -1241,8 +1239,8 @@ export default function AccountsPage() {
     });
   }
 
-  // Bank accounts
-  const bankAccounts = accounts.filter((a) => a.type === "bank" && a.provider === "plaid");
+  // Bank accounts (SimpleFIN)
+  const bankAccounts = accounts.filter((a) => a.type === "bank" && a.provider === "simplefin");
   for (const a of bankAccounts) {
     const snap = a.snapshots[0];
     const balance = snap ? Number(snap.totalUsdValue) : null;
@@ -1256,14 +1254,12 @@ export default function AccountsPage() {
       balance: balance !== null
         ? `$${balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : null,
-      subtitle: a.plaidSubtype
-        ? a.plaidSubtype.charAt(0).toUpperCase() + a.plaidSubtype.slice(1)
-        : "Bank Account",
+      subtitle: "Bank Account",
     });
   }
 
-  // Brokerage accounts
-  const brokerageAccounts = accounts.filter((a) => a.type === "brokerage" && a.provider === "plaid");
+  // Brokerage accounts (SimpleFIN)
+  const brokerageAccounts = accounts.filter((a) => a.type === "brokerage" && a.provider === "simplefin");
   for (const a of brokerageAccounts) {
     const snap = a.snapshots[0];
     const balance = snap ? Number(snap.totalUsdValue) : null;
@@ -1278,9 +1274,7 @@ export default function AccountsPage() {
       balance: balance !== null
         ? `$${balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : null,
-      subtitle: a.plaidSubtype
-        ? a.plaidSubtype.charAt(0).toUpperCase() + a.plaidSubtype.slice(1)
-        : "Brokerage",
+      subtitle: "Brokerage",
     });
   }
 

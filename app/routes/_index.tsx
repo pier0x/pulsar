@@ -75,14 +75,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
   // Fetch bank accounts
   const bankAccounts = showBank
     ? await prisma.account.findMany({
-        where: { userId: user.id, type: "bank", provider: "plaid" },
+        where: { userId: user.id, type: "bank", provider: "simplefin" },
         include: {
           snapshots: {
             orderBy: { timestamp: "desc" },
             take: 1,
           },
-          plaidConnection: {
-            select: { institutionName: true },
+          simplefinConnection: {
+            select: { label: true },
           },
         },
       })
@@ -91,15 +91,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
   // Fetch brokerage accounts
   const brokerageAccounts = showBrokerage
     ? await prisma.account.findMany({
-        where: { userId: user.id, type: "brokerage", provider: "plaid" },
+        where: { userId: user.id, type: "brokerage", provider: "simplefin" },
         include: {
           snapshots: {
             orderBy: { timestamp: "desc" },
             take: 2,
             include: { holdings: true },
           },
-          plaidConnection: {
-            select: { institutionName: true },
+          simplefinConnection: {
+            select: { label: true },
           },
         },
       })
@@ -186,15 +186,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
   for (const a of bankAccounts) {
     const snap = a.snapshots[0];
     const totalUsd = snap ? Number(snap.totalUsdValue) : 0;
-    const institution = a.plaidConnection?.institutionName || "Bank";
-    const subtype = a.plaidSubtype
-      ? a.plaidSubtype.charAt(0).toUpperCase() + a.plaidSubtype.slice(1)
-      : "Account";
+    const institution =
+      a.simplefinConnection?.label ||
+      "Bank";
 
     walletCards.push({
       id: a.id,
       name: a.name || institution,
-      chain: subtype,
+      chain: "Bank Account",
       address: "",
       balance: institution,
       balanceUsd: formatUsd(totalUsd),
@@ -206,10 +205,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const snap = a.snapshots[0];
     const totalUsd = snap ? Number(snap.totalUsdValue) : 0;
     const holdingsValue = snap?.holdingsValue ? Number(snap.holdingsValue) : totalUsd;
-    const institution = a.plaidConnection?.institutionName || "Brokerage";
-    const subtype = a.plaidSubtype
-      ? a.plaidSubtype.charAt(0).toUpperCase() + a.plaidSubtype.slice(1)
-      : "Brokerage";
+    const institution =
+      a.simplefinConnection?.label ||
+      "Brokerage";
+    const subtype = "Brokerage";
 
     // Top holdings preview
     const topHoldings = snap?.holdings
@@ -326,7 +325,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
     for (const a of bankAccounts) {
       const snap = a.snapshots[0];
       if (!snap) continue;
-      const institution = a.plaidConnection?.institutionName || a.name || "Bank";
+      const institution =
+        a.simplefinConnection?.label ||
+        a.name ||
+        "Bank";
       bankTotals.set(institution, (bankTotals.get(institution) || 0) + Number(snap.totalUsdValue));
     }
     // Cycle through emerald shades for each institution
@@ -349,7 +351,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
     for (const a of brokerageAccounts) {
       const snap = a.snapshots[0];
       if (!snap) continue;
-      const institution = a.plaidConnection?.institutionName || a.name || "Brokerage";
+      const institution =
+        a.simplefinConnection?.label ||
+        a.name ||
+        "Brokerage";
       brokerageTotals.set(institution, (brokerageTotals.get(institution) || 0) + Number(snap.totalUsdValue));
     }
     const brokerageColors = ["#a78bfa", "#8b5cf6", "#7c3aed", "#6d28d9"];
