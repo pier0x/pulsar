@@ -21,7 +21,7 @@ const icons: Record<string, typeof LayoutDashboard> = {
 export default function MobileNav() {
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-nd-black border-t border-nd-border safe-area-bottom">
-      <div className="flex items-center justify-around h-16 px-1">
+      <div className="flex items-center justify-around h-16 px-1 safe-area-left safe-area-right">
         {navigation.map((item) => {
           const Icon = icons[item.name];
           return (
@@ -31,7 +31,7 @@ export default function MobileNav() {
               end={item.href === "/"}
               className={({ isActive }) =>
                 cn(
-                  "flex flex-col items-center justify-center gap-1.5 px-2 py-2 min-w-[56px] transition-nd relative",
+                  "flex flex-col items-center justify-center gap-1.5 px-3 py-2.5 min-w-[56px] min-h-[44px] transition-nd relative select-none",
                   isActive
                     ? "text-nd-text-display"
                     : "text-nd-text-disabled"

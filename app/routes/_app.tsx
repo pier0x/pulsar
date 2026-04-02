@@ -25,13 +25,13 @@ export default function AppLayout() {
 
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
-        {/* Navbar */}
-        <div className="shrink-0 pt-4 lg:pt-8 px-4 sm:px-6 lg:px-8">
+        {/* Navbar — safe-area-top for PWA standalone mode (notch/Dynamic Island) */}
+        <div className="shrink-0 safe-area-top pt-4 lg:pt-8 px-4 sm:px-6 lg:px-8">
           <Navbar user={user} lastRefresh={lastRefresh} />
         </div>
 
         {/* Scrollable content */}
-        <main className="flex-1 overflow-y-auto py-4 lg:py-8 pb-24 lg:pb-8">
+        <main className="flex-1 overflow-y-auto overscroll-none py-4 lg:py-8 pb-24 lg:pb-8">
           <div className="px-4 sm:px-6 lg:px-8 max-w-7xl w-full">
             <Outlet />
           </div>

@@ -219,6 +219,18 @@
   }
   body {
     @apply bg-nd-black text-nd-text-primary font-body;
+    /* PWA: prevent pull-to-refresh and rubber-banding in standalone mode */
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+    /* Disable tap highlight on iOS */
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* Re-enable text selection where users need it (inputs, data) */
+  input, textarea, [contenteditable], .selectable,
+  td, th, .text-data, .text-data-lg, .text-caption {
+    -webkit-user-select: text;
+    user-select: text;
   }
 
   /* Hide scrollbar while keeping scroll functionality */
