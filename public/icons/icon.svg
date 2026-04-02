@@ -1,5 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#000000"/>
-  <text x="256" y="320" font-family="monospace" font-weight="700" font-size="280" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central" letter-spacing="-10">P</text>
-  <circle cx="380" cy="160" r="24" fill="#D71921"/>
+  <!-- Background -->
+  <rect width="512" height="512" rx="108" fill="#000000"/>
+  
+  <!-- Subtle dot grid texture (Nothing motif) -->
+  <defs>
+    <pattern id="dots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="12" cy="12" r="0.8" fill="#222222"/>
+    </pattern>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#dots)"/>
+  
+  <!-- Pulsar "P" letterform — clean, geometric, Nothing-style -->
+  <text 
+    x="168" 
+    y="370" 
+    font-family="'SF Mono', 'JetBrains Mono', 'Space Mono', monospace" 
+    font-weight="700" 
+    font-size="340" 
+    fill="#FFFFFF" 
+    letter-spacing="-8"
+  >P</text>
+  
+  <!-- Red accent dot — the "pulsar" signal -->
+  <circle cx="388" cy="148" r="28" fill="#D71921"/>
+  
+  <!-- Subtle ring around the dot (pulsar emission) -->
+  <circle cx="388" cy="148" r="44" fill="none" stroke="#D71921" stroke-width="1.5" opacity="0.3"/>
+  <circle cx="388" cy="148" r="62" fill="none" stroke="#D71921" stroke-width="1" opacity="0.15"/>
 </svg>
