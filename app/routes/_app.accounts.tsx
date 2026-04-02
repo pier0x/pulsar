@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { Form, useActionData, useLoaderData, useNavigation, useRevalidator } from "@remix-run/react";
-import { Plus, Trash2, Wallet, Bitcoin, LineChart, Landmark, ExternalLink } from "lucide-react";
+import { Plus, Trash2, Wallet, Bitcoin, LineChart, Landmark, ExternalLink, ChevronDown, ChevronUp, Copy, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { Button, Input, FormField, Alert, Card, Badge } from "~/components/ui";
@@ -51,9 +51,34 @@ function serializeDecimals<T>(obj: T): T {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireAuth(request);
-  const accounts = await getUserAccountsWithLatestSnapshot(user.id);
 
-  return json({ accounts: serializeDecimals(accounts) });
+  // Fetch accounts with latest snapshot INCLUDING token/holding breakdowns
+  const accounts = await prisma.account.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "desc" },
+    include: {
+      snapshots: {
+        orderBy: { timestamp: "desc" },
+        take: 1,
+        include: {
+          tokenSnapshots: {
+            orderBy: { balanceUsd: "desc" },
+          },
+          holdings: {
+            orderBy: { valueUsd: "desc" },
+          },
+        },
+      },
+      simplefinConnection: {
+        select: { label: true },
+      },
+    },
+  });
+
+  // Strip imageData from manual accounts
+  const cleaned = accounts.map(({ imageData, ...rest }) => rest);
+
+  return json({ accounts: serializeDecimals(cleaned) });
 }
 
 // Badge component for network display
@@ -184,6 +209,146 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   return json({ error: "Invalid action" }, { status: 400 });
+}
+
+// ---------------------------------------------------------------------------
+// Copy Address Button
+// ---------------------------------------------------------------------------
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback
+    }
+  }, [text]);
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="p-1 rounded-md text-nd-text-disabled hover:text-nd-text-secondary hover:bg-nd-surface-raised transition-nd cursor-pointer"
+      title="Copy address"
+    >
+      {copied ? (
+        <Check className="h-3 w-3 text-nd-success" />
+      ) : (
+        <Copy className="h-3 w-3" />
+      )}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Holdings Breakdown Panel
+// ---------------------------------------------------------------------------
+
+type TokenSnap = {
+  id: string;
+  symbol: string;
+  name?: string | null;
+  logoUrl?: string | null;
+  balanceUsd: number;
+  priceUsd: number;
+  balance: string;
+  decimals: number;
+};
+
+type HoldingSnap = {
+  id: string;
+  ticker: string;
+  name?: string | null;
+  quantity: number;
+  priceUsd: number;
+  valueUsd: number;
+  costBasis?: number | null;
+};
+
+function TokenBreakdown({ tokens }: { tokens: TokenSnap[] }) {
+  if (!tokens.length) return null;
+
+  return (
+    <div className="space-y-1">
+      {tokens.map((t) => {
+        const humanBalance = Number(t.balance) / Math.pow(10, t.decimals);
+        return (
+          <div key={t.id} className="flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-nd-surface transition-nd">
+            <div className="flex items-center gap-2 min-w-0">
+              {t.logoUrl ? (
+                <img src={t.logoUrl} alt={t.symbol} className="w-5 h-5 rounded-full shrink-0" />
+              ) : (
+                <div className="w-5 h-5 rounded-full bg-nd-surface border border-nd-border flex items-center justify-center shrink-0">
+                  <span className="text-[8px] font-mono text-nd-text-disabled">{t.symbol.slice(0, 2)}</span>
+                </div>
+              )}
+              <div className="min-w-0">
+                <span className="text-sm text-nd-text-primary font-medium">{t.symbol}</span>
+                {t.name && <span className="text-[10px] text-nd-text-disabled ml-1.5 hidden sm:inline">{t.name}</span>}
+              </div>
+            </div>
+            <div className="text-right shrink-0 ml-2">
+              <span className="text-sm font-mono text-nd-text-primary">
+                ${t.balanceUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              <div className="text-[10px] font-mono text-nd-text-disabled">
+                {humanBalance < 0.001
+                  ? humanBalance.toExponential(2)
+                  : humanBalance < 1
+                    ? humanBalance.toFixed(6)
+                    : humanBalance < 10000
+                      ? humanBalance.toLocaleString("en-US", { maximumFractionDigits: 4 })
+                      : humanBalance.toLocaleString("en-US", { maximumFractionDigits: 2 })
+                } @ ${t.priceUsd < 0.01 ? t.priceUsd.toExponential(2) : `$${t.priceUsd.toLocaleString("en-US", { maximumFractionDigits: 2 })}`}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function HoldingsBreakdown({ holdings }: { holdings: HoldingSnap[] }) {
+  if (!holdings.length) return null;
+
+  return (
+    <div className="space-y-1">
+      {holdings.map((h) => {
+        const gain = h.costBasis != null ? h.valueUsd - h.costBasis : null;
+        const gainPct = h.costBasis != null && h.costBasis > 0
+          ? ((h.valueUsd - h.costBasis) / h.costBasis) * 100
+          : null;
+
+        return (
+          <div key={h.id} className="flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-nd-surface transition-nd">
+            <div className="min-w-0">
+              <span className="text-sm text-nd-text-primary font-medium">{h.ticker}</span>
+              {h.name && <span className="text-[10px] text-nd-text-disabled ml-1.5 hidden sm:inline">{h.name}</span>}
+              <div className="text-[10px] font-mono text-nd-text-disabled">
+                {h.quantity.toLocaleString("en-US", { maximumFractionDigits: 4 })} shares @ ${h.priceUsd.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+              </div>
+            </div>
+            <div className="text-right shrink-0 ml-2">
+              <span className="text-sm font-mono text-nd-text-primary">
+                ${h.valueUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              {gain != null && gainPct != null && (
+                <div className={`text-[10px] font-mono ${gain >= 0 ? "text-nd-success" : "text-nd-accent"}`}>
+                  {gain >= 0 ? "+" : ""}{gain.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })} ({gain >= 0 ? "+" : ""}{gainPct.toFixed(1)}%)
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 /** Monospace letter symbol for each network — instrument-panel style */
@@ -452,6 +617,157 @@ function AddAccountForm({ onBankConnected }: { onBankConnected: () => void }) {
 }
 
 // ---------------------------------------------------------------------------
+// Account Card (expandable with breakdown)
+// ---------------------------------------------------------------------------
+
+type DisplayItem = {
+  id: string;
+  address: string;
+  name: string;
+  network: string;
+  isEvm: boolean;
+  isBank: boolean;
+  isBrokerage?: boolean;
+  balance: string | null;
+  networks?: string[];
+  subtitle?: string;
+  tokens: TokenSnap[];
+  holdings: HoldingSnap[];
+};
+
+function AccountCard({ item }: { item: DisplayItem }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasBreakdown = item.tokens.length > 0 || item.holdings.length > 0;
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+      className="rounded-[12px] bg-nd-surface-raised hover:bg-nd-surface border border-nd-border transition-nd"
+    >
+      {/* Main row */}
+      <div
+        className={`flex items-center justify-between p-3 sm:p-4 gap-3 ${hasBreakdown ? "cursor-pointer" : ""}`}
+        onClick={hasBreakdown ? () => setExpanded(!expanded) : undefined}
+      >
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-nd-surface border border-nd-border flex items-center justify-center shrink-0">
+            <NetworkIcon network={item.isBank ? "bank" : item.isBrokerage ? "brokerage" : item.network} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-medium text-nd-text-primary text-sm sm:text-base truncate">
+                {item.name}
+              </span>
+              {item.isBank ? (
+                <Badge variant="success">{item.subtitle || "Bank"}</Badge>
+              ) : item.isBrokerage ? (
+                <Badge variant="default">{item.subtitle || "Brokerage"}</Badge>
+              ) : item.isEvm ? (
+                <span title={item.networks?.map(n => {
+                  const info = NETWORK_INFO[n as WalletNetwork];
+                  return info?.displayName || n;
+                }).join(", ")}>
+                  <Badge variant="default">ETH</Badge>
+                </span>
+              ) : (
+                <NetworkBadge network={item.network} />
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              {!item.isBank && !item.isBrokerage && item.address && (
+                <>
+                  <span className="font-mono text-[10px] sm:text-xs text-nd-text-disabled truncate">
+                    {formatAddress(item.address, 6, 4)}
+                  </span>
+                  <CopyButton text={item.address} />
+                </>
+              )}
+              {item.balance && (
+                <span className="text-[10px] sm:text-xs font-mono text-nd-success ml-1">
+                  {item.balance}
+                </span>
+              )}
+              {!item.balance && (
+                <span className="text-[10px] sm:text-xs text-nd-text-disabled">
+                  No balance yet
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0">
+          {hasBreakdown && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+              className="p-1.5 rounded-md text-nd-text-disabled hover:text-nd-text-secondary hover:bg-nd-surface-raised transition-nd cursor-pointer"
+              title={expanded ? "Collapse" : "View breakdown"}
+            >
+              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
+          )}
+          <Form method="post" onClick={(e) => e.stopPropagation()}>
+            <input type="hidden" name="intent" value="delete" />
+            <input type="hidden" name="accountId" value={item.id} />
+            <input type="hidden" name="address" value={item.address} />
+            <input type="hidden" name="isEvm" value={item.isEvm ? "true" : "false"} />
+            <input type="hidden" name="isBank" value={(item.isBank || item.isBrokerage) ? "true" : "false"} />
+            <Button
+              type="submit"
+              variant="ghost"
+              size="icon-sm"
+              className="text-nd-text-disabled hover:text-nd-accent hover:bg-nd-accent-subtle"
+              title="Remove account"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </Form>
+        </div>
+      </div>
+
+      {/* Expandable breakdown */}
+      <AnimatePresence>
+        {expanded && hasBreakdown && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="overflow-hidden"
+          >
+            <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-1 border-t border-nd-border mx-3 sm:mx-4">
+              <div className="mt-2 max-h-64 overflow-y-auto">
+                {item.tokens.length > 0 && (
+                  <>
+                    <span className="text-label text-nd-text-disabled mb-1 block">
+                      {item.tokens.length} TOKEN{item.tokens.length !== 1 ? "S" : ""}
+                    </span>
+                    <TokenBreakdown tokens={item.tokens} />
+                  </>
+                )}
+                {item.holdings.length > 0 && (
+                  <>
+                    <span className="text-label text-nd-text-disabled mb-1 block mt-2">
+                      {item.holdings.length} HOLDING{item.holdings.length !== 1 ? "S" : ""}
+                    </span>
+                    <HoldingsBreakdown holdings={item.holdings} />
+                  </>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main Page (assets removed — see /assets)
 // ---------------------------------------------------------------------------
 
@@ -494,23 +810,9 @@ export default function AccountsPage() {
     }
   }
 
-  // Build display items
-  type DisplayItem = {
-    id: string;
-    address: string;
-    name: string;
-    network: string;
-    isEvm: boolean;
-    isBank: boolean;
-    isBrokerage?: boolean;
-    balance: string | null;
-    networks?: string[];
-    subtitle?: string;
-  };
-
   const displayItems: DisplayItem[] = [];
 
-  // EVM wallets
+  // EVM wallets — aggregate tokens from all chains
   for (const [, group] of evmByAddress) {
     const primary = group.find((w) => w.network === "ethereum") || group[0];
     const totalUsd = group.reduce((sum, a) => {
@@ -518,6 +820,34 @@ export default function AccountsPage() {
       return sum + (snap ? Number(snap.totalUsdValue) : 0);
     }, 0);
     const hasAnyBalance = group.some((a) => a.snapshots[0]);
+
+    // Collect all tokens across chains
+    const allTokens: TokenSnap[] = [];
+    for (const a of group) {
+      const snap = a.snapshots[0];
+      if (snap?.tokenSnapshots) {
+        for (const t of snap.tokenSnapshots) {
+          allTokens.push(serializeDecimals(t) as unknown as TokenSnap);
+        }
+      }
+      // Also add native balance as a "token" if present
+      if (snap && Number(snap.nativeBalanceUsd || 0) > 0) {
+        const networkInfo = NETWORK_INFO[a.network as WalletNetwork];
+        const symbol = a.network === "ethereum" || EVM_NETWORKS.includes(a.network as WalletNetwork) ? "ETH" : a.network?.toUpperCase() || "?";
+        allTokens.push({
+          id: `native-${a.id}`,
+          symbol: a.network === "hyperliquid" ? "HYPE" : symbol,
+          name: networkInfo?.displayName ? `${networkInfo.displayName} Native` : undefined,
+          logoUrl: null,
+          balanceUsd: Number(snap.nativeBalanceUsd),
+          priceUsd: Number(snap.nativePriceUsd || 0),
+          balance: snap.nativeBalance || "0",
+          decimals: 18,
+        });
+      }
+    }
+    // Sort by value descending
+    allTokens.sort((a, b) => b.balanceUsd - a.balanceUsd);
 
     displayItems.push({
       id: primary.id,
@@ -530,6 +860,8 @@ export default function AccountsPage() {
         ? `$${totalUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : null,
       networks: group.map((a) => a.network || "").filter(Boolean),
+      tokens: allTokens,
+      holdings: [],
     });
   }
 
@@ -537,6 +869,29 @@ export default function AccountsPage() {
   for (const a of nonEvmAccounts) {
     if (a.type !== "onchain") continue;
     const snap = a.snapshots[0];
+
+    const tokens: TokenSnap[] = [];
+    if (snap?.tokenSnapshots) {
+      for (const t of snap.tokenSnapshots) {
+        tokens.push(serializeDecimals(t) as unknown as TokenSnap);
+      }
+    }
+    // Native balance
+    if (snap && Number(snap.nativeBalanceUsd || 0) > 0) {
+      const symbol = a.network === "solana" ? "SOL" : a.network === "bitcoin" ? "BTC" : a.network?.toUpperCase() || "?";
+      tokens.unshift({
+        id: `native-${a.id}`,
+        symbol,
+        name: `${getNetworkDisplayName(a.network as WalletNetwork)} Native`,
+        logoUrl: null,
+        balanceUsd: Number(snap.nativeBalanceUsd),
+        priceUsd: Number(snap.nativePriceUsd || 0),
+        balance: snap.nativeBalance || "0",
+        decimals: a.network === "solana" ? 9 : a.network === "bitcoin" ? 8 : 18,
+      });
+    }
+    tokens.sort((a, b) => b.balanceUsd - a.balanceUsd);
+
     displayItems.push({
       id: a.id,
       address: a.address || "",
@@ -547,6 +902,8 @@ export default function AccountsPage() {
       balance: snap
         ? `$${Number(snap.totalUsdValue).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : null,
+      tokens,
+      holdings: [],
     });
   }
 
@@ -566,14 +923,25 @@ export default function AccountsPage() {
         ? `$${balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : null,
       subtitle: "Bank Account",
+      tokens: [],
+      holdings: [],
     });
   }
 
-  // Brokerage accounts (SimpleFIN)
+  // Brokerage accounts (SimpleFIN / IBKR)
   const brokerageAccounts = accounts.filter((a) => a.type === "brokerage" && (a.provider === "simplefin" || a.provider === "ibkr-flex"));
   for (const a of brokerageAccounts) {
     const snap = a.snapshots[0];
     const balance = snap ? Number(snap.totalUsdValue) : null;
+
+    const holdings: HoldingSnap[] = [];
+    if (snap?.holdings) {
+      for (const h of snap.holdings) {
+        holdings.push(serializeDecimals(h) as unknown as HoldingSnap);
+      }
+    }
+    holdings.sort((a, b) => b.valueUsd - a.valueUsd);
+
     displayItems.push({
       id: a.id,
       address: "",
@@ -586,6 +954,8 @@ export default function AccountsPage() {
         ? `$${balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : null,
       subtitle: "Brokerage",
+      tokens: [],
+      holdings,
     });
   }
 
@@ -645,77 +1015,7 @@ export default function AccountsPage() {
           <div className="space-y-3">
             <AnimatePresence mode="popLayout">
               {displayItems.map((item) => (
-                  <motion.div
-                    key={item.id}
-                    layout
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2, ease: "easeOut" }}
-                    className="flex items-center justify-between p-3 sm:p-4 rounded-[12px] bg-nd-surface-raised hover:bg-nd-surface border border-nd-border transition-nd gap-3"
-                  >
-                    <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-nd-surface border border-nd-border flex items-center justify-center shrink-0">
-                        <NetworkIcon network={item.isBank ? "bank" : item.isBrokerage ? "brokerage" : item.network} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium text-nd-text-primary text-sm sm:text-base truncate">
-                            {item.name}
-                          </span>
-                          {item.isBank ? (
-                            <Badge variant="success">{item.subtitle || "Bank"}</Badge>
-                          ) : item.isBrokerage ? (
-                            <Badge variant="default">{item.subtitle || "Brokerage"}</Badge>
-                          ) : item.isEvm ? (
-                            <span title={item.networks?.map(n => {
-                              const info = NETWORK_INFO[n as WalletNetwork];
-                              return info?.displayName || n;
-                            }).join(", ")}>
-                              <Badge variant="default">ETH</Badge>
-                            </span>
-                          ) : (
-                            <NetworkBadge network={item.network} />
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {!item.isBank && !item.isBrokerage && (
-                            <span className="font-mono text-[10px] sm:text-xs text-nd-text-disabled truncate">
-                              {formatAddress(item.address, 6, 4)}
-                            </span>
-                          )}
-                          {item.balance && (
-                            <span className="text-[10px] sm:text-xs font-mono text-nd-success">
-                              {item.balance}
-                            </span>
-                          )}
-                          {!item.balance && (
-                            <span className="text-[10px] sm:text-xs text-nd-text-disabled">
-                              No balance yet
-                            </span>
-                          )}
-                        </div>
-
-                      </div>
-                    </div>
-
-                    <Form method="post">
-                      <input type="hidden" name="intent" value="delete" />
-                      <input type="hidden" name="accountId" value={item.id} />
-                      <input type="hidden" name="address" value={item.address} />
-                      <input type="hidden" name="isEvm" value={item.isEvm ? "true" : "false"} />
-                      <input type="hidden" name="isBank" value={(item.isBank || item.isBrokerage) ? "true" : "false"} />
-                      <Button
-                        type="submit"
-                        variant="ghost"
-                        size="icon-sm"
-                        className="text-nd-text-disabled hover:text-nd-accent hover:bg-nd-accent-subtle"
-                        title="Remove account"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </Form>
-                  </motion.div>
+                  <AccountCard key={item.id} item={item} />
                 ))}
               </AnimatePresence>
             </div>
