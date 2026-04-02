@@ -74,11 +74,13 @@ model Account {
   simplefinAccountId    String? // SimpleFIN's account id
 
   // Manual asset fields (nullable, only used for type="manual")
-  category     String?  // "watches", "cars", "art", etc.
-  costBasis    Decimal? // purchase price in USD
-  currentValue Decimal? // Latest known value in USD (used for manual assets)
-  notes        String?  // serial number, purchase date, etc.
-  imagePath    String?  // relative path: "data/assets/<id>.webp"
+  category      String?  // "watches", "cars", "art", etc.
+  costBasis     Decimal? // purchase price in USD
+  currentValue  Decimal? // Latest known value in USD (used for manual assets)
+  notes         String?  // serial number, purchase date, etc.
+  imagePath     String?  // deprecated — was filesystem path, kept for migration
+  imageData     Bytes?   // image binary stored in DB (survives deploys)
+  imageMimeType String?  // "image/jpeg", "image/png", etc.
 
   snapshots AccountSnapshot[]
 

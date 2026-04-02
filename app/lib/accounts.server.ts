@@ -2,9 +2,6 @@
  * CRUD helpers for the Account model (server-only)
  */
 
-import { unlink, existsSync } from "fs";
-import { join } from "path";
-import { readdir } from "fs/promises";
 import { prisma } from "~/lib/db.server";
 
 // ---------------------------------------------------------------------------
@@ -46,6 +43,8 @@ export interface UpdateManualAssetDetailsInput {
   costBasis?: number | null;
   notes?: string | null;
   imagePath?: string | null;
+  imageData?: Buffer | null;
+  imageMimeType?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -206,8 +205,6 @@ export async function deleteAccount(userId: string, accountId: string) {
 // Manual asset helpers
 // ---------------------------------------------------------------------------
 
-const ASSETS_DIR = join(process.cwd(), "data", "assets");
-
 /**
  * Create a manual physical asset account (stores currentValue on Account; snapshot created on next refresh)
  */
@@ -252,6 +249,8 @@ export async function updateManualAssetDetails(
       ...(updates.costBasis !== undefined && { costBasis: updates.costBasis }),
       ...(updates.notes !== undefined && { notes: updates.notes }),
       ...(updates.imagePath !== undefined && { imagePath: updates.imagePath }),
+      ...(updates.imageData !== undefined && { imageData: updates.imageData }),
+      ...(updates.imageMimeType !== undefined && { imageMimeType: updates.imageMimeType }),
     },
   });
 }
@@ -268,27 +267,8 @@ export async function deleteManualAsset(userId: string, accountId: string) {
     throw new Error("Manual asset not found");
   }
 
-  // Delete account (cascades snapshots)
+  // Delete account (cascades snapshots; imageData deleted with the row)
   await prisma.account.delete({ where: { id: accountId } });
-
-  // Delete image file if it exists
-  if (account.imagePath) {
-    const fullPath = join(process.cwd(), account.imagePath);
-    if (existsSync(fullPath)) {
-      unlink(fullPath, () => {});
-    }
-  } else {
-    // Try to find by account id prefix
-    try {
-      const files = await readdir(ASSETS_DIR);
-      const match = files.find((f) => f.startsWith(`${accountId}.`));
-      if (match) {
-        unlink(join(ASSETS_DIR, match), () => {});
-      }
-    } catch {
-      // Ignore errors — directory may not exist
-    }
-  }
 }
 
 /**

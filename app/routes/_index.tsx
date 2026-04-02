@@ -111,8 +111,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
       })
     : [];
 
-  // Fetch manual (physical) assets
-  const manualAccounts = showManual
+  // Fetch manual (physical) assets (exclude imageData binary from loader)
+  const manualAccountsRaw = showManual
     ? await prisma.account.findMany({
         where: { userId: user.id, type: "manual" },
         include: {
@@ -123,6 +123,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
         },
       })
     : [];
+  const manualAccounts = manualAccountsRaw.map(({ imageData, ...rest }) => ({
+    ...rest,
+    hasImage: !!(imageData || rest.imagePath),
+  }));
 
   // --- Build WalletData[] ---
 
@@ -245,7 +249,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       id: a.id,
       name: a.name,
       chain: category,
-      address: a.imagePath ? `/api/asset-image/${a.id}` : "",
+      address: a.hasImage ? `/api/asset-image/${a.id}` : "",
       balance: category,
       balanceUsd: formatUsd(totalUsd),
     });

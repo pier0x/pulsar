@@ -4,8 +4,6 @@ import { unstable_parseMultipartFormData, unstable_createMemoryUploadHandler, js
 import { Form, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
 import { Plus, Trash2, Package, TrendingUp, TrendingDown, Clock, ImageIcon, X, Pencil } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { writeFile, mkdir, unlink } from "fs/promises";
-import { join } from "path";
 import { Button, Input, FormField, Alert, Card, Badge } from "~/components/ui";
 import { requireAuth } from "~/lib/auth";
 import { prisma } from "~/lib/db.server";
@@ -52,7 +50,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
     },
   });
 
-  return json({ assets: serializeDecimals(manualAssets) });
+  // Add hasImage flag without sending binary data to client
+  const assetsWithImageFlag = manualAssets.map((a) => ({
+    ...a,
+    hasImage: !!(a.imageData || a.imagePath),
+    imageData: undefined, // never send binary to client
+  }));
+
+  return json({ assets: serializeDecimals(assetsWithImageFlag) });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -113,13 +118,16 @@ export async function action({ request }: ActionFunctionArgs) {
 
     if (uploadedFile) {
       const ext = uploadedFile.filename.split(".").pop()?.toLowerCase() || "jpg";
-      const imagePath = `data/assets/${account.id}.${ext}`;
-      const fullPath = join(process.cwd(), imagePath);
-      await mkdir(join(process.cwd(), "data", "assets"), { recursive: true });
-      await writeFile(fullPath, uploadedFile.data);
+      const mimeTypes: Record<string, string> = {
+        jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
+        gif: "image/gif", webp: "image/webp", avif: "image/avif",
+      };
       await prisma.account.update({
         where: { id: account.id },
-        data: { imagePath },
+        data: {
+          imageData: Buffer.from(uploadedFile.data),
+          imageMimeType: mimeTypes[ext] || "image/jpeg",
+        },
       });
     }
 
@@ -156,16 +164,13 @@ export async function action({ request }: ActionFunctionArgs) {
     if (costBasis !== undefined && !isNaN(costBasis)) updates.costBasis = costBasis;
 
     if (uploadedFile) {
-      if (account.imagePath) {
-        const oldPath = join(process.cwd(), account.imagePath);
-        try { await unlink(oldPath); } catch { /* ignore */ }
-      }
       const ext = uploadedFile.filename.split(".").pop()?.toLowerCase() || "jpg";
-      const imagePath = `data/assets/${account.id}.${ext}`;
-      const fullPath = join(process.cwd(), imagePath);
-      await mkdir(join(process.cwd(), "data", "assets"), { recursive: true });
-      await writeFile(fullPath, uploadedFile.data);
-      updates.imagePath = imagePath;
+      const mimeTypes: Record<string, string> = {
+        jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
+        gif: "image/gif", webp: "image/webp", avif: "image/avif",
+      };
+      updates.imageData = Buffer.from(uploadedFile.data);
+      updates.imageMimeType = mimeTypes[ext] || "image/jpeg";
     }
 
     if (Object.keys(updates).length > 0) {
@@ -207,6 +212,7 @@ type ManualAsset = {
   currentValue: string | null;
   notes: string | null;
   imagePath: string | null;
+  hasImage: boolean;
   snapshots: Array<{ totalUsdValue: string; timestamp: string }>;
 };
 
@@ -227,7 +233,7 @@ function EditAssetModal({ asset, currentValue, costBasis, onClose }: {
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
   const [imagePreview, setImagePreview] = useState<string | null>(
-    asset.imagePath ? `/api/asset-image/${asset.id}` : null
+    asset.hasImage ? `/api/asset-image/${asset.id}` : null
   );
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -408,7 +414,7 @@ function AssetCard({ asset }: { asset: ManualAsset }) {
         {/* Top row: image + name/category + actions */}
         <div className="flex items-center gap-3 mb-3">
           <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-[8px] bg-nd-surface border border-nd-border flex items-center justify-center shrink-0 overflow-hidden">
-            {asset.imagePath ? (
+            {asset.hasImage ? (
               <img
                 src={`/api/asset-image/${asset.id}`}
                 alt={asset.name}
